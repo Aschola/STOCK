@@ -25,6 +25,7 @@ This is a role based stock system with different users who have different roles
 3. **Apply Migrations**:
    - Run the following command to apply the migrations:
      ```bash
+     flway repair
      flyway migrate
      ```
 
