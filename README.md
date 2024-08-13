@@ -5,7 +5,7 @@ This is a role based stock system with different users who have different roles
 ## Database Setup
 
 1. **Create Database:**
-   ```sh
+   ```shh
    mysql -u root -p < db/create_database.sql
 
    ## Setting Up the Database
