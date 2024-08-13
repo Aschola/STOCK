@@ -8,7 +8,7 @@ This is a role based stock system with different users who have different roles
    ```sh
    mysql -u root -p < db/create_database.sql
 
-   ## Setting Up the Database
+   ## Setting Up the Databasess
 
 1. **Ensure Flyway is Installed**: Download and install Flyway from [Flyway's website](https://flywaydb.org/download/).
 
