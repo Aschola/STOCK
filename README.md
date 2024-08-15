@@ -23,9 +23,9 @@ This is a role based stock system with different users who have different roles
      ```
 
 3. **Apply Migrations**:
-   - Run the following command to apply the migrations:
+add new migration scripts on the migrations folder and the the following command to apply the migrations on the database
      ```bash
-     flway repair
+     flway repair (repair the migrations after adding new scripts before migrating)
      flyway migrate
      ```
 
