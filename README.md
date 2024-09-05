@@ -32,3 +32,5 @@ This is a role based stock system with different users who have different roles
 4. **Verify Setup**:
    - Ensure the database schema is up to date by checking the tables and schema.
 
+   **.env file**
+Ensure you do not push the .env file on git 
