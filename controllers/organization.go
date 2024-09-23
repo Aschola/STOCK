@@ -1,14 +1,15 @@
 package controllers
 
 import (
-	"github.com/labstack/echo/v4"
-	"golang.org/x/crypto/bcrypt"
 	"log"
 	"net/http"
 	"stock/db"
 	"stock/models"
 	"stock/utils"
 	"time"
+
+	"github.com/labstack/echo/v4"
+	"golang.org/x/crypto/bcrypt"
 )
 
 func OrganizationAdminLogin(c echo.Context) error {
@@ -234,6 +235,51 @@ func OrganizationAdminSoftDeleteUser(c echo.Context) error {
 
 	log.Println("User soft-deleted successfully")
 	return c.JSON(http.StatusOK, echo.Map{"message": "User soft-deleted successfully"})
+}
+
+// DeactivateOrganization deactivates an organization
+func OrgAdminDeactivateOrganization(c echo.Context) error {
+	userID, ok := c.Get("userID").(int)
+	if !ok {
+		log.Println("Failed to get userID from context")
+		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
+	}
+
+	roleID, ok := c.Get("roleID").(int)
+	if !ok {
+		log.Println("Failed to get roleID from context")
+		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
+	}
+
+	// Log the received userID and roleID
+	log.Printf("Received UserID: %d, RoleID: %d", userID, roleID)
+
+	// Check if the roleID is for a Super Admin (roleID = 1)
+	if roleID != 6 {
+		log.Println("Permission denied: non-super admin trying to deactivate organization")
+		return c.JSON(http.StatusForbidden, echo.Map{"error": "Permission denied"})
+	}
+
+	orgID := c.QueryParam("organization_id")
+	if orgID == "" {
+		log.Println("Organization ID is required")
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Organization ID is required"})
+	}
+
+	var organization models.Organization
+	if err := db.GetDB().First(&organization, orgID).Error; err != nil {
+		log.Printf("Organization not found: %v", err)
+		return c.JSON(http.StatusNotFound, echo.Map{"error": "Organization not found"})
+	}
+
+	organization.IsActive = false
+	if err := db.GetDB().Save(&organization).Error; err != nil {
+		log.Printf("Error deactivating organization: %v", err)
+		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
+	}
+
+	log.Println("Organization deactivated successfully")
+	return c.JSON(http.StatusOK, echo.Map{"message": "Organization deactivated successfully", "organization": organization})
 }
 
 func OrganizationAdminActivateDeactivateUser(c echo.Context) error {

@@ -9,19 +9,18 @@ import (
 )
 
 func main() {
-	// Initialize the database
-	db.Init() // Changed from InitDB to Init
 
-	// Create a new Echo instance
+	db.Init() 
+	
 	e := echo.New()
-	// Set up routes
-	routes.RegisterRoutes(e) // Only pass the Echo instance
+
+	routes.RegisterRoutes(e) 
 	routes.SetupRoutes(e)
 
-	// Start the server
+
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "8000" // Default port if not specified
+		port = "8080" 
 	}
 	log.Fatal(e.Start(":" + port))
 }

@@ -10,13 +10,12 @@ import (
 )
 
 var (
-	JwtSecret = []byte("your-secret-key") // Replace with your actual secret key
+	JwtSecret = []byte("v2vrG4pXcSOSK7u2wjko/RFgrhlO7/rx3N2qLj0KLU0=") 
 	DB        *gorm.DB
 )
 
 var ErrInvalidToken = errors.New("invalid token")
 
-// Claims represents the JWT claims
 type Claims struct {
 	UserID uint `json:"user_id"`
 	RoleID uint `json:"role_id"`

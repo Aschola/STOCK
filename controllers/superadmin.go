@@ -1,18 +1,20 @@
 package controllers
 
 import (
-	"github.com/golang-jwt/jwt"
 	"log"
 	"net/http"
 	"strconv"
 	"time"
 
-	"github.com/labstack/echo/v4"
-	"gorm.io/gorm"
+	"github.com/golang-jwt/jwt"
+
 	"stock/db"
 	"stock/models"
 	"stock/utils"
 	"stock/validators"
+
+	"github.com/labstack/echo/v4"
+	"gorm.io/gorm"
 )
 
 func SuperAdminSignup(c echo.Context) error {
@@ -186,7 +188,6 @@ func SuperAdminAddOrganizationAdmin(c echo.Context) error {
 		return c.JSON(http.StatusForbidden, echo.Map{"error": "Permission denied"})
 	}
 
-	// Extract and validate organizationID from query parameters
 	orgIDStr := c.QueryParam("organizationID")
 	log.Printf("Received organization ID from query: %s", orgIDStr)
 	if orgIDStr == "" {
@@ -219,6 +220,14 @@ func SuperAdminAddOrganizationAdmin(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 	}
 
+	// Hash the password before saving the user
+	hashedPassword, err := utils.HashPassword(newUser.Password)
+	if err != nil {
+		log.Printf("HashPassword error: %v", err)
+		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not hash password"})
+	}
+	newUser.Password = hashedPassword
+
 	newUser.RoleID = models.OrganizationAdminRoleID
 	newUser.OrganizationID = uint(orgID)
 	newUser.CreatedBy = uint(userID) // Set who created this user
@@ -233,43 +242,77 @@ func SuperAdminAddOrganizationAdmin(c echo.Context) error {
 	return c.JSON(http.StatusOK, echo.Map{"message": "Organization admin added successfully", "user": newUser})
 }
 
-/*func SoftDeleteOrganization(c echo.Context) error {
-    id := c.Param("id")
-    log.Printf("SoftDeleteOrganization called with ID: %s", id)
+func SoftDeleteOrganization(c echo.Context) error {
+	id := c.Param("id")
+	log.Printf("SoftDeleteOrganization called with ID: %s", id)
 
-    // Retrieve roleID from the context
-    roleID := c.Get("roleID").(int)
-    if roleID != 2 {
-        return c.JSON(http.StatusForbidden, "Only admins can delete organizations")
+	// Retrieve roleID from the context
+	roleID, ok := c.Get("roleID").(int)
+	if !ok || roleID != 1 {
+		log.Println("Failed to get roleID from context or insufficient permissions")
+		return c.JSON(http.StatusForbidden, echo.Map{"error": "Only admins can delete organizations"})
+	}
+
+	var organization models.Organization
+
+	// Find the organization by ID
+	if err := db.GetDB().First(&organization, id).Error; err != nil {
+		log.Printf("Error finding organization: %v", err)
+		return c.JSON(http.StatusNotFound, echo.Map{"error": "Organization not found"})
+	}
+
+	// Check if the organization is eligible for soft-deletion
+	if organization.RoleID != 5 {
+		log.Println("Unauthorized: Only organizations can be deleted")
+		return c.JSON(http.StatusForbidden, echo.Map{"error": "Unauthorized: Only organizations can be deleted"})
+	}
+
+	// Soft-delete the organization by setting it as inactive
+	organization.IsActive = false
+	if err := db.GetDB().Save(&organization).Error; err != nil {
+		log.Printf("Error saving organization: %v", err)
+		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
+	}
+
+	// Deactivate all users associated with the organization
+	if err := db.GetDB().Model(&models.User{}).Where("organization_id = ?", id).Updates(map[string]interface{}{"is_active": false}).Error; err != nil {
+		log.Printf("Error deactivating users: %v", err)
+		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Error deactivating users"})
+	}
+
+	log.Println("Organization and associated users soft deleted successfully")
+	return c.JSON(http.StatusOK, echo.Map{"message": "Organization and associated users soft deleted successfully"})
+}
+
+func ReactivateOrganization(c echo.Context) error {
+    id := c.Param("id")
+    log.Printf("ActivateOrganization called with ID: %s", id)
+
+    // Retrieve roleID from the context (ensure only Super Admin can activate)
+    roleID, ok := c.Get("roleID").(int)
+    if !ok || roleID != 1 {
+        log.Println("Failed to get roleID from context or insufficient permissions")
+        return c.JSON(http.StatusForbidden, echo.Map{"error": "Only admins can activate organizations"})
     }
 
     var organization models.Organization
 
+    // Find the organization by ID
     if err := db.GetDB().First(&organization, id).Error; err != nil {
-        log.Printf("First error: %v", err)
+        log.Printf("Error finding organization: %v", err)
         return c.JSON(http.StatusNotFound, echo.Map{"error": "Organization not found"})
     }
 
-    if organization.RoleID != 5 {
-        return c.JSON(http.StatusForbidden, "Unauthorized: Only organizations can be deleted")
-    }
-
-    // Set DeletedAt field
-    organization.DeletedAt = &gorm.DeletedAt{
-        Time:  time.Now(),
-        Valid: true,
-    }
-
+    // Activate the organization by setting it as active
+    organization.IsActive = true
     if err := db.GetDB().Save(&organization).Error; err != nil {
-        log.Printf("Save error: %v", err)
+        log.Printf("Error saving organization: %v", err)
         return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
     }
 
-    log.Println("Organization soft deleted successfully")
-    return c.JSON(http.StatusOK, echo.Map{"message": "Organization soft deleted successfully"})
+    log.Println("Organization activated successfully")
+    return c.JSON(http.StatusOK, echo.Map{"message": "Organization activated successfully"})
 }
-am getting this error on postman  "error": "Access forbidden" and this error on 2024/07/30 15:10:22 Token parsed successfully. UserID: 30, RoleID: 1 Failed to get JWT token from context. help me fix it
-*/
 
 func SuperAdminLogin(c echo.Context) error {
 	var input struct {
@@ -285,7 +328,7 @@ func SuperAdminLogin(c echo.Context) error {
 	var user models.User
 	if err := db.GetDB().Where("username = ?", input.Username).First(&user).Error; err != nil {
 		log.Printf("Where error: %v", err)
-		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Invalid email or password"})
+		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Invalid username or password"})
 	}
 
 	if err := utils.CheckPasswordHash(input.Password, user.Password); err != nil {
@@ -588,34 +631,6 @@ func ActivateOrganization(c echo.Context) error {
 
 	// Log success and updated status
 	log.Printf("Successfully activated organization ID %s. Updated status: IsActive=%v", orgID, org.IsActive)
-	return c.JSON(http.StatusOK, org)
-}
-
-// DeactivateOrganization deactivates an organization
-func DeactivateOrganization(c echo.Context) error {
-	orgID := c.Param("id")
-	log.Printf("Deactivating organization with ID: %s", orgID) // Log the incoming request
-
-	var org models.Organization
-
-	// Try to find the organization
-	if err := db.GetDB().First(&org, orgID).Error; err != nil {
-		log.Printf("Organization not found with ID: %s. Error: %v", orgID, err)
-		return c.JSON(http.StatusNotFound, map[string]string{"message": "Organization not found"})
-	}
-
-	// Log current status before deactivation
-	log.Printf("Current status of organization ID %s: IsActive=%v", orgID, org.IsActive)
-
-	org.IsActive = false
-	// Try to save the updated organization
-	if err := db.GetDB().Save(&org).Error; err != nil {
-		log.Printf("Error saving organization ID %s. Error: %v", orgID, err)
-		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Error saving organization"})
-	}
-
-	// Log success and updated status
-	log.Printf("Successfully deactivated organization ID %s. Updated status: IsActive=%v", orgID, org.IsActive)
 	return c.JSON(http.StatusOK, org)
 }
 

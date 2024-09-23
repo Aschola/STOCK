@@ -1,0 +1,10 @@
+-- Create sale table
+CREATE TABLE sale (
+    sale_id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) DEFAULT NULL,
+    price DOUBLE(10,2) DEFAULT NULL,
+    quantity INT DEFAULT NULL,
+    user_id VARCHAR(255) DEFAULT NULL,
+    date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    category_name VARCHAR(255) DEFAULT NULL
+);

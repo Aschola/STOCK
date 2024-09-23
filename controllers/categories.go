@@ -10,29 +10,23 @@ import (
 	models "stock/models"
 )
 
-// Get all Categories
 func GetCategories(c echo.Context) error {
 	log.Println("Received request to fetch categories")
 
-	// Get the database connection
 	db := db.GetDB()
 
-	// Query all categories from the Categories table
 	var categories []models.Category
 	if err := db.Find(&categories).Error; err != nil {
 		log.Printf("Error querying categories from database: %s", err.Error())
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Internal Server Error"})
 	}
 
-	// Log the number of Categories fetched
 	log.Printf("Fetched %d categories", len(categories))
 
-	// Return the fetched Categories as JSON
 	return c.JSON(http.StatusOK, categories)
 }
 
 func GetCategoryByID(c echo.Context) error {
-	// Extract category_id from request parameters
 	categoryID := c.Param("category_id")
 	if categoryID == "" {
 		log.Printf("No category ID provided in the request")
@@ -90,10 +84,9 @@ func CreateCategories(c echo.Context) error {
 }
 
 func UpdateCategory(c echo.Context) error {
-	// Get the database connection
+
 	db := db.GetDB()
 
-	// Extract the category ID from the request parameters
 	categoryID := c.Param("category_id")
 
 	// Bind the request payload to a new Category struct
@@ -103,7 +96,6 @@ func UpdateCategory(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "Error binding payload")
 	}
 
-	// Execute the SQL UPDATE query to update the category in the database
 	if err := db.Model(&models.Category{}).Where("category_id = ?", categoryID).Updates(category).Error; err != nil {
 		log.Printf("Error updating a category: %s", err.Error())
 		return echo.NewHTTPError(http.StatusInternalServerError, "Error updating category")

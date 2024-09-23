@@ -51,6 +51,9 @@ func SetupRoutes(e *echo.Echo) {
 	e.POST("/logout", controllers.Logout)
 	e.POST("auditor/login", controllers.AuditorLogin)
 	e.POST("auditor/logout", controllers.AuditorLogout)
+	e.POST("/organizationadmin/login", controllers.OrganizationAdminLogin)
+	e.POST("/organizationadmin/logout", controllers.OrganizationAdminLogout)
+
 
 	// Super Admin routes
 	superadmin := e.Group("/superadmin")
@@ -59,6 +62,8 @@ func SetupRoutes(e *echo.Echo) {
 	superadmin.POST("/addadmin", controllers.AddAdmin)
 	superadmin.POST("/addorganization", controllers.SuperAdminAddOrganization)
 	superadmin.POST("/addorganizationadmin", controllers.SuperAdminAddOrganizationAdmin)
+	superadmin.PUT("/organization/:id/deactivate", controllers.SoftDeleteOrganization)
+    superadmin.PUT("/organization/:id/reactivate", controllers.ReactivateOrganization)
 
 	// Admin routes
 	adminGroup := e.Group("/admin")
@@ -77,9 +82,9 @@ func SetupRoutes(e *echo.Echo) {
 	adminGroup.GET("/organizations/active", controllers.GetActiveOrganizations)
 	adminGroup.GET("/organizations/inactive", controllers.GetInactiveOrganizations)
 	adminGroup.PUT("/organization/:id/activate", controllers.ActivateOrganization)
-	adminGroup.PUT("/organization/:id/deactivate", controllers.DeactivateOrganization)
 	//adminGroup.DELETE("/organization:id", controllers.AdminDeleteOrganization)
 
+	//organization admin
 	orgAdminGroup := e.Group("/orgadmin")
 	orgAdminGroup.Use(middlewares.AuthMiddleware(models.OrganizationAdminRoleID))
 	orgAdminGroup.POST("/adduser", controllers.OrganizationAdminAddUser)
@@ -87,5 +92,6 @@ func SetupRoutes(e *echo.Echo) {
 	orgAdminGroup.GET("/users", controllers.OrganizationAdminGetUsers)
 	orgAdminGroup.GET("/user/:id", controllers.OrganizationAdminGetUserByID)
 	orgAdminGroup.DELETE("/user/:id", controllers.OrganizationAdminSoftDeleteUser)
+	adminGroup.PUT("/organization/:id/deactivate", controllers.OrgAdminDeactivateOrganization)
 	orgAdminGroup.PATCH("/users/:id/activate-deactivate", controllers.OrganizationAdminActivateDeactivateUser)
 }
