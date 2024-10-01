@@ -11,7 +11,6 @@ type LoginInput struct {
 	Password string `json:"password" validate:"required,password"`
 }
 
-// SignupInput defines the structure for signup input validation
 type SignupInput struct {
 	Username string `json:"username" validate:"required,usernameNoSpace"`
 	Password string `json:"password" validate:"required,password"`
@@ -26,7 +25,6 @@ func usernameNoSpaceValidation(fl validator.FieldLevel) bool {
 	return !regexp.MustCompile(`\s`).MatchString(username)
 }
 
-// Custom validation function to check if the password contains both numbers and letters
 func passwordValidation(fl validator.FieldLevel) bool {
 	password := fl.Field().String()
 	if len(password) < 6 {

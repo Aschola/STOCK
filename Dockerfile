@@ -8,8 +8,8 @@ COPY . ./
 
 RUN go mod download
 
-RUN go build -o /sms-service
+RUN go build -o /stock
 
-EXPOSE 8080
+EXPOSE 80
 
 CMD ["/stock"]

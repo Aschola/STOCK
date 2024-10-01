@@ -40,6 +40,33 @@ func OrganizationAdminLogout(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]string{"message": "Logged out successfully"})
 }
 
+func OrganizationLogout(c echo.Context) error {
+	return c.JSON(http.StatusOK, map[string]string{"message": "logged out successfully"})
+}
+
+func OrganizationLogin(c echo.Context) error {
+	var user models.User
+	if err := c.Bind(&user); err != nil {
+		return err
+	}
+
+	var storedUser models.User
+	if err := db.GetDB().Where("username = ?", user.Username).First(&storedUser).Error; err != nil {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"message": "Invalid credentials"})
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(storedUser.Password), []byte(user.Password)); err != nil {
+		return c.JSON(http.StatusUnauthorized, map[string]string{"message": "Invalid credentials"})
+	}
+
+	token, err := utils.GenerateJWT(storedUser.ID, storedUser.RoleID)
+	if err != nil {
+		return err
+	}
+
+	return c.JSON(http.StatusOK, map[string]string{"token": token})
+}
+
 func OrganizationAdminAddUser(c echo.Context) error {
 	log.Println("OrganizationAdminAddUser called")
 

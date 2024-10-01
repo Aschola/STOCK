@@ -9,7 +9,6 @@ import (
 
 // RegisterRoutes initializes all the routes for the Echo server
 func RegisterRoutes(e *echo.Echo) {
-	//Define CRUD endpoints for categories with admin middleware
 	categoryGroup := e.Group("/categories")
 	categoryGroup.Use(middlewares.AdminMiddleware) // Apply middleware
 	categoryGroup.GET("", controllers.GetCategories)
@@ -20,7 +19,7 @@ func RegisterRoutes(e *echo.Echo) {
 
 	// Define CRUD endpoints for products with admin middleware
 	productGroup := e.Group("/products")
-	productGroup.Use(middlewares.AdminMiddleware) // Apply middleware
+	productGroup.Use(middlewares.AdminMiddleware) 
 	productGroup.GET("", controllers.GetProducts)
 	productGroup.GET("/:product_id", controllers.GetProductByID)
 	productGroup.POST("", controllers.AddProduct)
@@ -53,6 +52,9 @@ func SetupRoutes(e *echo.Echo) {
 	e.POST("auditor/logout", controllers.AuditorLogout)
 	e.POST("/organizationadmin/login", controllers.OrganizationAdminLogin)
 	e.POST("/organizationadmin/logout", controllers.OrganizationAdminLogout)
+	e.POST("/organization/logout", controllers.OrganizationLogout)
+	e.POST("/organization/login", controllers.OrganizationLogin)
+
 
 
 	// Super Admin routes
