@@ -1,31 +1,29 @@
 package routes
 
 import (
-	"github.com/labstack/echo/v4"
 	"stock/controllers"
 	"stock/middlewares"
 	"stock/models"
+
+	"github.com/labstack/echo/v4"
 )
 
 // RegisterRoutes initializes all the routes for the Echo server
 func RegisterRoutes(e *echo.Echo) {
-	categoryGroup := e.Group("/categories")
-	categoryGroup.Use(middlewares.AdminMiddleware) // Apply middleware
-	categoryGroup.GET("", controllers.GetCategories)
-	categoryGroup.GET("/:category_id", controllers.GetCategoryByID)
-	categoryGroup.POST("", controllers.CreateCategories)
-	categoryGroup.PUT("/:category_id", controllers.UpdateCategory)
-	categoryGroup.DELETE("/:id", controllers.DeleteCategoryByID)
+	e.GET("/categories", controllers.GetCategories)
+	e.GET("/categories/:category_id", controllers.GetCategoryByID)
+	e.POST("/categories", controllers.CreateCategories)
+	e.PUT("/categories/:category_id", controllers.UpdateCategory)
+	e.DELETE("/categories/:id", controllers.DeleteCategoryByID)
 
-	// Define CRUD endpoints for products with admin middleware
+	// Define CRUD endpoints for products without middleware
 	productGroup := e.Group("/products")
-	productGroup.Use(middlewares.AdminMiddleware) 
 	productGroup.GET("", controllers.GetProducts)
 	productGroup.GET("/:product_id", controllers.GetProductByID)
 	productGroup.POST("", controllers.AddProduct)
 	productGroup.PUT("/:product_id", controllers.UpdateProduct)
 	productGroup.DELETE("/:product_id", controllers.DeleteProduct)
-	productGroup.DELETE("/:product_id/pending-deletion", controllers.MoveProductToPendingDeletion)
+	productGroup.DELETE("/products/:product_id", controllers.MoveProductToPendingDeletion)
 	productGroup.PUT("/:product_id/recover", controllers.MoveProductFromPendingDeletion)
 
 	// Define CRUD endpoints for sales
@@ -55,8 +53,6 @@ func SetupRoutes(e *echo.Echo) {
 	e.POST("/organization/logout", controllers.OrganizationLogout)
 	e.POST("/organization/login", controllers.OrganizationLogin)
 
-
-
 	// Super Admin routes
 	superadmin := e.Group("/superadmin")
 	superadmin.POST("/signup", controllers.SuperAdminSignup)
@@ -65,7 +61,7 @@ func SetupRoutes(e *echo.Echo) {
 	superadmin.POST("/addorganization", controllers.SuperAdminAddOrganization)
 	superadmin.POST("/addorganizationadmin", controllers.SuperAdminAddOrganizationAdmin)
 	superadmin.PUT("/organization/:id/deactivate", controllers.SoftDeleteOrganization)
-    superadmin.PUT("/organization/:id/reactivate", controllers.ReactivateOrganization)
+	superadmin.PUT("/organization/:id/reactivate", controllers.ReactivateOrganization)
 
 	// Admin routes
 	adminGroup := e.Group("/admin")
