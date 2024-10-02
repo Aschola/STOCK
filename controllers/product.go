@@ -2,17 +2,15 @@ package controllers
 
 import (
 	"encoding/json"
-	"github.com/labstack/echo/v4"
-	"gorm.io/gorm"
 	"log"
 	"net/http"
 	"stock/db"
 	models "stock/models"
 	"strconv"
-)
-
-import (
 	"time"
+
+	"github.com/labstack/echo/v4"
+	"gorm.io/gorm"
 )
 
 // Convert the ISO 8601 date to TIMESTAMP format

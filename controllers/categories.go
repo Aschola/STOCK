@@ -2,12 +2,13 @@ package controllers
 
 import (
 	"encoding/json"
-	"github.com/labstack/echo/v4"
-	"gorm.io/gorm"
 	"log"
 	"net/http"
 	"stock/db"
 	models "stock/models"
+
+	"github.com/labstack/echo/v4"
+	"gorm.io/gorm"
 )
 
 func GetCategories(c echo.Context) error {
