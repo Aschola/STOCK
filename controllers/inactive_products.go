@@ -13,7 +13,7 @@ import (
 )
 
 // RestoreProductFromInactiveTable restores a product from the inactive_products table
-func RestoreProductFromInactiveTable(c echo.Context) error {
+func RestoreProductFromInactiveTablee(c echo.Context) error {
 	productID, err := strconv.Atoi(c.Param("product_id"))
 	if err != nil {
 		log.Printf("Error converting product ID: %v", err)
@@ -74,7 +74,7 @@ func RestoreProductFromInactiveTable(c echo.Context) error {
 }
 
 // DeleteProductFromInactiveTable handles the deletion of a product from the inactive_products table
-func DeleteProductFromInactiveTable(c echo.Context) error {
+func DeleteProductFromInactiveTablee(c echo.Context) error {
 	// Extract product ID from the URL parameters
 	productIDStr := c.Param("product_id")
 	productID, err := strconv.Atoi(productIDStr)
@@ -108,7 +108,7 @@ func DeleteProductFromInactiveTable(c echo.Context) error {
 }
 
 // GetAllInactiveProducts retrieves all products from the inactive_products table
-func GetAllInactiveProducts(c echo.Context) error {
+func GetAllInactiveProductss(c echo.Context) error {
 	// Initialize database connection
 	db := getDB()
 	if db == nil {
