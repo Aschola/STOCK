@@ -22,9 +22,11 @@ func RegisterRoutes(e *echo.Echo) {
 	productGroup.GET("/:product_id", controllers.GetProductByID)
 	productGroup.POST("", controllers.AddProduct)
 	productGroup.PUT("/:product_id", controllers.UpdateProduct)
-	productGroup.DELETE("/:product_id", controllers.DeleteProduct)
-	productGroup.DELETE("/products/:product_id", controllers.MoveProductToPendingDeletion)
-	productGroup.PUT("/:product_id/recover", controllers.MoveProductFromPendingDeletion)
+	productGroup.DELETE("/:product_id", controllers.MakeProductsInactive)
+
+	e.PUT("/products/inactive-products/:product_id", controllers.RestoreProductFromInactiveTable)
+	e.DELETE("/products/inactive-products/:product_id", controllers.DeleteProductFromInactiveTable)
+	e.GET("/products/inactive-products", controllers.GetAllInactiveProducts)
 
 	// Define CRUD endpoints for sales
 	e.GET("/sales", controllers.GetSales)

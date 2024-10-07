@@ -2,29 +2,31 @@ package controllers
 
 import (
 	"encoding/json"
-	"github.com/labstack/echo/v4"
-	"gorm.io/gorm"
 	"log"
 	"net/http"
 	models "stock/models"
 	"strconv"
 	"time"
+
+	"stock/payment"
+
+	"github.com/labstack/echo/v4"
+	"gorm.io/gorm"
 )
 
 // Get the database instance
-// func getDB() *gorm.DB {
-// db := database.GetDB()
 //
-//	if db == nil {
-//		return nil
+//	func getDB() *gorm.DB {
+//	    db := database.GetDB()
+//	    if db == nil {
+//	        return nil
+//	    }
+//	    return db
 //	}
-//
-// return db
-// }
 func SellProduct(c echo.Context) error {
 	productIDStr := c.Param("product_id")
 	quantitySoldStr := c.Param("quantity_sold")
-	userID := c.QueryParam("user_id") // Assuming user_id is passed as a query parameter
+	userID := c.QueryParam("user_id")
 
 	// Convert parameters to integer values
 	productID, err := strconv.Atoi(productIDStr)
@@ -73,21 +75,36 @@ func SellProduct(c echo.Context) error {
 	// Prepare the updated quantity
 	updatedQuantity := product.Quantity - quantitySold
 
+	// Calculate total cost and profit
+	totalCost := float64(quantitySold) * product.SellingPrice
+	profit := (product.SellingPrice - product.BuyingPrice) * float64(quantitySold)
+
+	// Call the payment process before inserting the sale record
+	if err := payment.ProcessPayment(userID, totalCost); err != nil {
+		log.Printf("Payment processing failed: %s", err.Error())
+		return echo.NewHTTPError(http.StatusPaymentRequired, "Payment processing failed")
+	}
+
 	// Update the quantity of the product in the 'products' table
 	if err := tx.Model(&models.Product{}).Where("product_id = ?", productID).Update("quantity", updatedQuantity).Error; err != nil {
 		log.Printf("Error updating product quantity: %s", err.Error())
 		return echo.NewHTTPError(http.StatusInternalServerError, "Internal Server Error")
 	}
 
-	// Insert sale record into the 'sale' table
+	// Create sale record
 	sale := models.Sale{
-		Name:         product.ProductName,
-		Price:        product.Price,
-		Quantity:     quantitySold,
-		UserID:       userID,
-		Date:         time.Now(),
-		CategoryName: product.CategoryName,
+		Name:             product.ProductName,
+		UnitPrice:        product.SellingPrice,
+		Quantity:         quantitySold,
+		UserID:           userID,
+		Date:             time.Now(),
+		CategoryName:     product.CategoryName,
+		TotalCost:        totalCost,
+		UnitBuyingPrice:  product.BuyingPrice,
+		TotalBuyingPrice: product.BuyingPrice * float64(quantitySold),
+		Profit:           profit,
 	}
+
 	if err := tx.Create(&sale).Error; err != nil {
 		log.Printf("Error inserting sale record: %s", err.Error())
 		return echo.NewHTTPError(http.StatusInternalServerError, "Internal Server Error")
@@ -102,16 +119,16 @@ func SellProduct(c echo.Context) error {
 	// Log successful sale
 	log.Printf("Sold %d units of product ID %d. Remaining quantity: %d", quantitySold, productID, updatedQuantity)
 
-	// Return success response
-	return c.JSON(http.StatusOK, map[string]string{
+	// Return success response with total cost
+	return c.JSON(http.StatusOK, map[string]interface{}{
 		"message":       "Sale processed successfully",
 		"product_id":    strconv.Itoa(productID),
 		"quantity_sold": strconv.Itoa(quantitySold),
 		"remaining_qty": strconv.Itoa(updatedQuantity),
+		"total_cost":    totalCost,
 	})
 }
 
-// getDB is a placeholder function to initialize and return the database connection
 // GetSales fetches all sales from the database.
 func GetSales(c echo.Context) error {
 	log.Println("Received request to fetch sales")
