@@ -5,40 +5,33 @@ import (
 	"log"
 	"net/http"
 	models "stock/models"
+	"stock/payment"
 	"strconv"
 	"time"
-
-	"stock/payment"
 
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
 )
 
-// Get the database instance
-//
-//	func getDB() *gorm.DB {
-//	    db := database.GetDB()
-//	    if db == nil {
-//	        return nil
-//	    }
-//	    return db
-//	}
+// SellProduct processes the sale of a product.
 func SellProduct(c echo.Context) error {
-	productIDStr := c.Param("product_id")
-	quantitySoldStr := c.Param("quantity_sold")
-	userID := c.QueryParam("user_id")
-
-	// Convert parameters to integer values
-	productID, err := strconv.Atoi(productIDStr)
-	if err != nil {
-		log.Printf("Invalid product ID: %s", productIDStr)
-		return echo.NewHTTPError(http.StatusBadRequest, "Invalid product ID")
+	// Define a struct to hold the request data
+	type SellProductRequest struct {
+		ProductID    int    `json:"product_id"`
+		QuantitySold int    `json:"quantity_sold"`
+		UserID       string `json:"user_id"`
+		Phone        string `json:"phone"`
 	}
 
-	quantitySold, err := strconv.Atoi(quantitySoldStr)
-	if err != nil {
-		log.Printf("Invalid quantity sold: %s", quantitySoldStr)
-		return echo.NewHTTPError(http.StatusBadRequest, "Invalid quantity sold")
+	// Parse the request body into the struct
+	var request SellProductRequest
+	if err := c.Bind(&request); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid input")
+	}
+
+	// Validate phone number
+	if request.Phone == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "Phone number is required")
 	}
 
 	// Initialize database connection
@@ -47,84 +40,61 @@ func SellProduct(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to connect to the database")
 	}
 
-	// Start a transaction
-	tx := db.Begin()
-	if tx.Error != nil {
-		log.Printf("Error starting transaction: %s", tx.Error.Error())
-		return echo.NewHTTPError(http.StatusInternalServerError, "Internal Server Error")
-	}
-	defer tx.Rollback()
-
-	// Retrieve the product details
+	// Retrieve the product details from active_products
 	var product models.Product
-	if err := tx.First(&product, productID).Error; err != nil {
+	if err := db.Table("active_products").First(&product, request.ProductID).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			log.Printf("Product not found with ID: %d", productID)
 			return echo.NewHTTPError(http.StatusNotFound, "Product not found")
 		}
-		log.Printf("Error querying product details: %s", err.Error())
 		return echo.NewHTTPError(http.StatusInternalServerError, "Internal Server Error")
 	}
 
 	// Check if enough quantity is available
-	if product.Quantity < quantitySold {
-		log.Printf("Insufficient quantity for product ID %d: Available %d, Requested %d", productID, product.Quantity, quantitySold)
+	if product.Quantity < request.QuantitySold {
 		return echo.NewHTTPError(http.StatusBadRequest, "Insufficient quantity")
 	}
 
-	// Prepare the updated quantity
-	updatedQuantity := product.Quantity - quantitySold
-
 	// Calculate total cost and profit
-	totalCost := float64(quantitySold) * product.SellingPrice
-	profit := (product.SellingPrice - product.BuyingPrice) * float64(quantitySold)
+	totalCost := float64(request.QuantitySold) * product.SellingPrice
+	profit := (product.SellingPrice - product.BuyingPrice) * float64(request.QuantitySold)
 
 	// Call the payment process before inserting the sale record
-	if err := payment.ProcessPayment(userID, totalCost); err != nil {
-		log.Printf("Payment processing failed: %s", err.Error())
-		return echo.NewHTTPError(http.StatusPaymentRequired, "Payment processing failed")
+	if err := payment.ProcessPayment(request.UserID, totalCost, request.Phone); err != nil {
+		return echo.NewHTTPError(http.StatusPaymentRequired, "Payment processing failed: "+err.Error())
 	}
 
-	// Update the quantity of the product in the 'products' table
-	if err := tx.Model(&models.Product{}).Where("product_id = ?", productID).Update("quantity", updatedQuantity).Error; err != nil {
-		log.Printf("Error updating product quantity: %s", err.Error())
+	// Prepare the updated quantity
+	updatedQuantity := product.Quantity - request.QuantitySold
+
+	// Update the quantity of the product in the 'active_products' table
+	if err := db.Table("active_products").Where("product_id = ?", request.ProductID).Update("quantity", updatedQuantity).Error; err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Internal Server Error")
 	}
 
 	// Create sale record
 	sale := models.Sale{
-		Name:             product.ProductName,
-		UnitPrice:        product.SellingPrice,
-		Quantity:         quantitySold,
-		UserID:           userID,
-		Date:             time.Now(),
-		CategoryName:     product.CategoryName,
-		TotalCost:        totalCost,
-		UnitBuyingPrice:  product.BuyingPrice,
-		TotalBuyingPrice: product.BuyingPrice * float64(quantitySold),
-		Profit:           profit,
+		Name:              product.ProductName,
+		UnitSellingPrice:  product.SellingPrice,
+		Quantity:          request.QuantitySold,
+		UserID:            request.UserID,
+		Date:              time.Now(),
+		CategoryName:      product.CategoryName,
+		TotalSellingPrice: totalCost,
+		UnitBuyingPrice:   product.BuyingPrice,
+		TotalBuyingPrice:  product.BuyingPrice * float64(request.QuantitySold),
+		Profit:            profit,
 	}
 
-	if err := tx.Create(&sale).Error; err != nil {
-		log.Printf("Error inserting sale record: %s", err.Error())
+	if err := db.Table("sales_by_STKPUSH").Create(&sale).Error; err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Internal Server Error")
 	}
-
-	// Commit the transaction
-	if err := tx.Commit().Error; err != nil {
-		log.Printf("Error committing transaction: %s", err.Error())
-		return echo.NewHTTPError(http.StatusInternalServerError, "Internal Server Error")
-	}
-
-	// Log successful sale
-	log.Printf("Sold %d units of product ID %d. Remaining quantity: %d", quantitySold, productID, updatedQuantity)
 
 	// Return success response with total cost
 	return c.JSON(http.StatusOK, map[string]interface{}{
 		"message":       "Sale processed successfully",
-		"product_id":    strconv.Itoa(productID),
-		"quantity_sold": strconv.Itoa(quantitySold),
-		"remaining_qty": strconv.Itoa(updatedQuantity),
+		"product_id":    request.ProductID,
+		"quantity_sold": request.QuantitySold,
+		"remaining_qty": updatedQuantity,
 		"total_cost":    totalCost,
 	})
 }
@@ -139,17 +109,17 @@ func GetSales(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to connect to the database")
 	}
 
-	// Query all sales from the Sales table
+	// Query all sales from the sales_by_STKPUSH table
 	var sales []models.Sale
-	if err := db.Find(&sales).Error; err != nil {
+	if err := db.Table("sales_by_STKPUSH").Find(&sales).Error; err != nil {
 		log.Printf("Error querying sales from database: %s", err.Error())
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Internal Server Error"})
 	}
 
-	// Log the number of Sales fetched
+	// Log the number of sales fetched
 	log.Printf("Fetched %d sales", len(sales))
 
-	// Return the fetched Sales as JSON
+	// Return the fetched sales as JSON
 	return c.JSON(http.StatusOK, sales)
 }
 
@@ -172,7 +142,7 @@ func GetSaleByID(c echo.Context) error {
 
 	// Query the sale by sale ID
 	var sale models.Sale
-	if err := db.First(&sale, saleID).Error; err != nil {
+	if err := db.Table("sales_by_STKPUSH").First(&sale, saleID).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			log.Printf("Sale not found with ID: %d", saleID)
 			return echo.NewHTTPError(http.StatusNotFound, "Sale not found")
@@ -184,7 +154,7 @@ func GetSaleByID(c echo.Context) error {
 	// Log the fetched sale
 	log.Printf("Fetched sale: %+v", sale)
 
-	// Return the fetched Sale as JSON
+	// Return the fetched sale as JSON
 	return c.JSON(http.StatusOK, sale)
 }
 
@@ -207,7 +177,7 @@ func AddSale(c echo.Context) error {
 	log.Printf("Received request to create a sale: %+v", sale)
 
 	// Execute the SQL INSERT query to add the sale to the database
-	if err := db.Create(&sale).Error; err != nil {
+	if err := db.Table("sales_by_STKPUSH").Create(&sale).Error; err != nil {
 		log.Printf("Error inserting sale: %s", err.Error())
 		return echo.NewHTTPError(http.StatusInternalServerError, "Error inserting sale")
 	}
@@ -247,17 +217,20 @@ func UpdateSale(c echo.Context) error {
 	// Log the update details
 	log.Printf("Received request to update sale ID %d: %+v", saleID, sale)
 
-	// Execute SQL UPDATE query to modify the sale in the database
-	if err := db.Model(&models.Sale{}).Where("sale_id = ?", saleID).Updates(sale).Error; err != nil {
-		log.Printf("Error updating sale: %s", err.Error())
+	// Execute the SQL UPDATE query to update the sale in the database
+	if err := db.Table("sales_by_STKPUSH").Model(&sale).Where("sale_id = ?", saleID).Updates(sale).Error; err != nil {
+		log.Printf("Error updating sale ID %d: %s", saleID, err.Error())
 		return echo.NewHTTPError(http.StatusInternalServerError, "Error updating sale")
 	}
 
-	// Log the update success
-	log.Printf("Updated sale with ID: %d", saleID)
+	// Log the successful update
+	log.Printf("Updated sale ID %d successfully", saleID)
 
 	// Return success response
-	return c.JSON(http.StatusOK, map[string]string{"message": "Sale updated successfully"})
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"message": "Sale updated successfully",
+		"sale_id": saleID,
+	})
 }
 
 // DeleteSale deletes a sale record from the database.
@@ -275,15 +248,18 @@ func DeleteSale(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to connect to the database")
 	}
 
-	// Execute SQL DELETE query to remove the sale from the database
-	if err := db.Delete(&models.Sale{}, saleID).Error; err != nil {
-		log.Printf("Error deleting sale: %s", err.Error())
+	// Execute the SQL DELETE query to remove the sale from the database
+	if err := db.Table("sales_by_STKPUSH").Delete(&models.Sale{}, saleID).Error; err != nil {
+		log.Printf("Error deleting sale ID %d: %s", saleID, err.Error())
 		return echo.NewHTTPError(http.StatusInternalServerError, "Error deleting sale")
 	}
 
-	// Log the deletion success
-	log.Printf("Deleted sale with ID: %d", saleID)
+	// Log the successful deletion
+	log.Printf("Deleted sale ID %d successfully", saleID)
 
 	// Return success response
-	return c.JSON(http.StatusOK, map[string]string{"message": "Sale deleted successfully"})
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"message": "Sale deleted successfully",
+		"sale_id": saleID,
+	})
 }

@@ -53,30 +53,34 @@ type RestoredProduct struct {
 	DateDeleted        *time.Time `json:"date_deleted"`  // Retain from pending_deletion_products
 	DateRestored       *time.Time `json:"date_restored"` // Set current time
 }
-
 type Sale struct {
-	SaleID           int       `json:"sale_id"`
-	Name             string    `json:"name"`
-	UnitPrice        float64   `json:"unit_price"`
-	UnitBuyingPrice  float64   `json:"unit_buying_price"` // New field
-	Quantity         int       `json:"quantity"`
-	UserID           string    `json:"user_id"`
-	Date             time.Time `json:"date"`
-	CategoryName     string    `json:"category_name"`
-	RoleID           uint64    `json:"role_id"`
-	TotalCost        float64   `json:"total_cost"`
-	TotalBuyingPrice float64   `json:"total_buying_price"` // New field
-	Profit           float64   `json:"profit"`             // New field
+	SaleID            int       `json:"sale_id" gorm:"primaryKey"`
+	Name              string    `json:"name"`
+	Quantity          int       `json:"quantity"`
+	UnitBuyingPrice   float64   `json:"unit_buying_price"`
+	TotalBuyingPrice  float64   `json:"total_buying_price"`
+	UnitSellingPrice  float64   `json:"unit_selling_price"`
+	UserID            string    `json:"user_id"`
+	Date              time.Time `json:"date"`
+	CategoryName      string    `json:"category_name"`
+	TotalSellingPrice float64   `json:"total_selling_price"`
+	Profit            float64   `json:"profit"`
 }
 
-type SaleByCategory struct {
-	SaleID       int     `json:"sale_id"`
-	Name         string  `json:"name"`
-	Price        float64 `json:"price"`
-	Quantity     int     `json:"quantity"`
-	UserID       string  `json:"user_id"`
-	Date         string  `json:"date"`
-	CategoryName string  `json:"category_name"`
+type SalebyCash struct {
+	SaleID            int       `json:"sale_id" gorm:"primaryKey"`
+	Name              string    `json:"name"`
+	Quantity          int       `json:"quantity"`
+	UnitBuyingPrice   float64   `json:"unit_buying_price"`
+	TotalBuyingPrice  float64   `json:"total_buying_price"`
+	UnitSellingPrice  float64   `json:"unit_selling_price"`
+	UserID            string    `json:"user_id"`
+	Date              time.Time `json:"date"`
+	CategoryName      string    `json:"category_name"`
+	TotalSellingPrice float64   `json:"total_selling_price"`
+	Profit            float64   `json:"profit"`
+	CashReceive       float64   `json:"cash_receive"`
+	Balance           float64   `json:"balance"`
 }
 
 type PendingDeletionProduct struct {
