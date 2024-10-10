@@ -33,9 +33,9 @@ func RegisterRoutes(e *echo.Echo) {
 	e.GET("/sales/:sale_id", controllers.GetSaleByID)
 	e.POST("/sales", controllers.AddSale)
 	e.DELETE("/sales/:sale_id", controllers.DeleteSale)
-	e.GET("/salebycategory/:category_name", controllers.FetchSalesByCategory)
-	e.GET("/salebycategory/:date", controllers.FetchSalesByDate)
-	e.GET("/salebycategory/:user_id", controllers.FetchSalesByUserID)
+	//e.GET("/salebycategory/:category_name", controllers.FetchSalesByCategory)
+	//e.GET("/salebycategory/:date", controllers.FetchSalesByDate)
+	//e.GET("/salebycategory/:user_id", controllers.FetchSalesByUserID)
 	// Endpoint for selling products
 	e.POST("/products/:product_id/sell/:quantity_sold", controllers.SellProduct)
 }

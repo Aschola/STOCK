@@ -59,7 +59,7 @@ func SellProduct(c echo.Context) error {
 	profit := (product.SellingPrice - product.BuyingPrice) * float64(request.QuantitySold)
 
 	// Call the payment process before inserting the sale record
-	if err := payment.ProcessPayment(request.UserID, totalCost, request.Phone); err != nil {
+	if err := payment.ProcessPayment(request.UserID, totalCost); err != nil {
 		return echo.NewHTTPError(http.StatusPaymentRequired, "Payment processing failed: "+err.Error())
 	}
 
