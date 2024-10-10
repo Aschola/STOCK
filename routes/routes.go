@@ -10,6 +10,7 @@ import (
 
 // RegisterRoutes initializes all the routes for the Echo server
 func RegisterRoutes(e *echo.Echo) {
+
 	e.GET("/categories", controllers.GetCategories)
 	e.GET("/categories/:category_id", controllers.GetCategoryByID)
 	e.POST("/categories", controllers.CreateCategories)
@@ -33,11 +34,20 @@ func RegisterRoutes(e *echo.Echo) {
 	e.GET("/sales/:sale_id", controllers.GetSaleByID)
 	e.POST("/sales", controllers.AddSale)
 	e.DELETE("/sales/:sale_id", controllers.DeleteSale)
-	//e.GET("/salebycategory/:category_name", controllers.FetchSalesByCategory)
-	//e.GET("/salebycategory/:date", controllers.FetchSalesByDate)
-	//e.GET("/salebycategory/:user_id", controllers.FetchSalesByUserID)
+
 	// Endpoint for selling products
-	e.POST("/products/:product_id/sell/:quantity_sold", controllers.SellProduct)
+	//e.POST("/products/:product_id/sell/:quantity_sold", controllers.SellProduct)
+	e.GET("/sales", controllers.GetSalesByCategory)
+	e.GET("/sales/user", controllers.GetSalesByUserID)
+	e.GET("/sales/date", controllers.GetSalesByDate)
+	e.POST("/sell-product", controllers.SellProduct)
+
+	// Cash sales routes
+	e.POST("/cash/sell", controllers.SellProductByCash)   // Sell a product by cash
+	e.GET("/cash/sales", controllers.GetCashSales)        // Get all cash sales
+	e.GET("/cash/sales/:id", controllers.GetCashSaleByID) // Get a cash sale by ID
+	e.POST("/cash/sales", controllers.AddSaleByCash)      // Add a new cash sale
+	e.DELETE("/cash/sales/:id", controllers.DeleteSaleByCash)
 }
 
 func SetupRoutes(e *echo.Echo) {
