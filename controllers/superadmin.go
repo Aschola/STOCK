@@ -433,7 +433,7 @@ func GetUserByID(c echo.Context) error {
 func AdminAddUser(c echo.Context) error {
 	log.Println("AdminAddUser - Entry")
 
-	userID, ok := c.Get("userID").(int)
+	userID, ok := c.Get("userID").(uint)
 	if !ok {
 		log.Println("AdminAddUser - Unauthorized: userID not found in context")
 		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
@@ -441,7 +441,7 @@ func AdminAddUser(c echo.Context) error {
 
 	roleName, ok := c.Get("roleName").(string) 
 	if !ok {
-		log.Println("AdminAddUser - Unauthorized: roleName not found in context")
+		log.Println("Admin - Unauthorized: roleName not found in context")
 		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
 	}
 
