@@ -72,13 +72,11 @@ func SetupRoutes(e *echo.Echo) {
 	superadmin.POST("/addadmin", controllers.AddAdmin)
 	superadmin.POST("/addorganization", controllers.SuperAdminAddOrganization)
 	superadmin.POST("/addorganizationadmin", controllers.SuperAdminAddOrganizationAdmin)
-<<<<<<< HEAD
 	superadmin.PUT("/organization/:id/deactivate", controllers.SoftDeleteOrganization)
 	superadmin.PUT("/organization/:id/reactivate", controllers.ReactivateOrganization)
-=======
 	superadmin.PATCH("/organization/:id/deactivate", controllers.SoftDeleteOrganization)
     superadmin.PUT("/organization/:id/reactivate", controllers.ReactivateOrganization)
->>>>>>> 108eff9 (changed to rolename)
+
 
 	// Admin routes
 	adminGroup := e.Group("/admin")
