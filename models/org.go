@@ -13,7 +13,7 @@ type Organization struct {
 	State       string     `json:"state"`
 	Country     string     `json:"country"`
 	Password    string     `json: "password"`
-	RoleID      uint       `json:"role_id"`
+	Role        string      `json:"role"`
 	IsActive    bool       `json:"is_active" gorm:"default:true"`
 	CreatedAt   time.Time  `gorm:"autoCreateTime" json:"createdAt"`
 	UpdatedAt   time.Time  `gorm:"autoUpdateTime" json:"updatedAt"`

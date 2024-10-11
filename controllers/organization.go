@@ -9,30 +9,49 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
-	"golang.org/x/crypto/bcrypt"
+	//"golang.org/x/crypto/bcrypt"
+	"stock/validators"
+
 )
-
 func OrganizationAdminLogin(c echo.Context) error {
+	var input struct {
+		Username string `json:"username" binding:"required"`
+		Password string `json:"password" binding:"required"`
+	}
+
+	if err := c.Bind(&input); err != nil {
+		log.Printf("Bind error: %v", err)
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
+	}
+
+	loginInput := validators.LoginInput{
+		Username: input.Username,
+		Password: input.Password,
+	}
+	if err := validators.ValidateLoginInput(loginInput); err != nil {
+        log.Printf("Validation error: %v", err)
+        return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
+    }
+
 	var user models.User
-	if err := c.Bind(&user); err != nil {
-		return err
+	if err := db.GetDB().Where("username = ?", input.Username).First(&user).Error; err != nil {
+		log.Printf("Where error: %v", err)
+		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Invalid username or password"})
 	}
 
-	var storedUser models.User
-	if err := db.GetDB().Where("username = ?", user.Username).First(&storedUser).Error; err != nil {
-		return c.JSON(http.StatusUnauthorized, map[string]string{"message": "Invalid credentials"})
+	if err := utils.CheckPasswordHash(input.Password, user.Password); err != nil {
+		log.Printf("CheckPasswordHash error: %v", err)
+		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Invalid username or password"})
 	}
 
-	if err := bcrypt.CompareHashAndPassword([]byte(storedUser.Password), []byte(user.Password)); err != nil {
-		return c.JSON(http.StatusUnauthorized, map[string]string{"message": "Invalid credentials"})
-	}
-
-	token, err := utils.GenerateJWT(storedUser.ID, storedUser.RoleID)
+	token, err := utils.GenerateJWT(user.ID, user.RoleName) 
 	if err != nil {
-		return err
+		log.Printf("GenerateJWT error: %v", err)
+		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not generate token"})
 	}
 
-	return c.JSON(http.StatusOK, map[string]string{"token": token})
+	log.Println("logged in successfully")
+	return c.JSON(http.StatusOK, echo.Map{"token": token})
 }
 
 func OrganizationAdminLogout(c echo.Context) error {
@@ -45,86 +64,98 @@ func OrganizationLogout(c echo.Context) error {
 }
 
 func OrganizationLogin(c echo.Context) error {
-	var user models.User
-	if err := c.Bind(&user); err != nil {
-		return err
+	var input struct {
+		Username string `json:"username" binding:"required"`
+		Password string `json:"password" binding:"required"`
 	}
 
-	var storedUser models.User
-	if err := db.GetDB().Where("username = ?", user.Username).First(&storedUser).Error; err != nil {
-		return c.JSON(http.StatusUnauthorized, map[string]string{"message": "Invalid credentials"})
-	}
-
-	if err := bcrypt.CompareHashAndPassword([]byte(storedUser.Password), []byte(user.Password)); err != nil {
-		return c.JSON(http.StatusUnauthorized, map[string]string{"message": "Invalid credentials"})
-	}
-
-	token, err := utils.GenerateJWT(storedUser.ID, storedUser.RoleID)
-	if err != nil {
-		return err
-	}
-
-	return c.JSON(http.StatusOK, map[string]string{"token": token})
-}
-
-func OrganizationAdminAddUser(c echo.Context) error {
-	log.Println("OrganizationAdminAddUser called")
-
-	roleID, ok := c.Get("roleID").(int)
-	if !ok {
-		log.Println("Failed to get roleID from context")
-		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
-	}
-
-	userID, ok := c.Get("userID").(int)
-	if !ok {
-		log.Println("Failed to get userID from context")
-		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
-	}
-
-	log.Printf("Received RoleID: %d, UserID: %d", roleID, userID)
-
-	if roleID != 6 {
-		log.Println("Permission denied: non-organization admin trying to add user")
-		return c.JSON(http.StatusForbidden, echo.Map{"error": "Permission denied"})
-	}
-
-	var newUser models.User
-	if err := c.Bind(&newUser); err != nil {
+	if err := c.Bind(&input); err != nil {
 		log.Printf("Bind error: %v", err)
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 	}
 
-	log.Printf("New user data: %+v", newUser)
+	loginInput := validators.LoginInput{
+		Username: input.Username,
+		Password: input.Password,
+	}
+	if err := validators.ValidateLoginInput(loginInput); err != nil {
+        log.Printf("Validation error: %v", err)
+        return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
+    }
 
-	if newUser.RoleID != 7 && newUser.RoleID != 8 {
-		log.Println("Invalid role ID")
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid role ID"})
+	var user models.User
+	if err := db.GetDB().Where("username = ?", input.Username).First(&user).Error; err != nil {
+		log.Printf("Where error: %v", err)
+		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Invalid username or password"})
 	}
 
-	var existingUser models.User
-	if err := db.GetDB().Where("username = ?", newUser.Username).First(&existingUser).Error; err == nil {
-		log.Println("Username already exists")
-		return c.JSON(http.StatusConflict, echo.Map{"error": "Username already exists"})
+	if err := utils.CheckPasswordHash(input.Password, user.Password); err != nil {
+		log.Printf("CheckPasswordHash error: %v", err)
+		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Invalid username or password"})
 	}
 
-	hashedPassword, err := utils.HashPassword(newUser.Password)
+	token, err := utils.GenerateJWT(user.ID, user.RoleName) 
 	if err != nil {
-		log.Printf("HashPassword error: %v", err)
+		log.Printf("GenerateJWT error: %v", err)
+		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not generate token"})
+	}
+
+	log.Println("logged in successfully")
+	return c.JSON(http.StatusOK, echo.Map{"token": token})
+}
+func OrganizationAdminAddUser(c echo.Context) error {
+	log.Println("AdminAddUser - Entry")
+
+	userID, ok := c.Get("userID").(int)
+	if !ok {
+		log.Println("AdminAddUser - Unauthorized: userID not found in context")
+		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
+	}
+
+	roleName, ok := c.Get("roleName").(string) 
+	if !ok {
+		log.Println("AdminAddUser - Unauthorized: roleName not found in context")
+		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
+	}
+
+	log.Printf("AdminAddUser - Received RoleName: %s, UserID: %d", roleName, userID)
+
+	// Check if the roleName is "admin"
+	if roleName != "admin" {
+		log.Println("AdminAddUser - Permission denied: non-admin trying to add user")
+		return c.JSON(http.StatusForbidden, echo.Map{"error": "Permission denied"})
+	}
+
+	var input models.User
+	if err := c.Bind(&input); err != nil {
+		log.Printf("AdminAddUser - Bind error: %v", err)
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
+	}
+
+	log.Printf("AdminAddUser - New user data: %+v", input)
+
+	// Validate roleName for new user
+	if input.RoleName != "shopkeeper" && input.RoleName != "auditor" && input.RoleName != "admin" {
+		log.Println("AdminAddUser - Invalid role name provided")
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid role name. Allowed roles: shopkeeper, auditor, admin"})
+	}
+	input.CreatedBy = uint(userID)
+
+	hashedPassword, err := utils.HashPassword(input.Password)
+	if err != nil {
+		log.Printf("AdminAddUser - HashPassword error: %v", err)
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not hash password"})
 	}
-	newUser.Password = hashedPassword
-	newUser.CreatedBy = uint(userID) // Convert userID to uint
+	input.Password = hashedPassword
 
-	log.Printf("Saving new user to database")
-
-	if err := db.GetDB().Create(&newUser).Error; err != nil {
-		log.Printf("Create error: %v", err)
+	if err := db.GetDB().Create(&input).Error; err != nil {
+		log.Printf("AdminAddUser - Create error: %v", err)
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
 	}
 
-	log.Println("User added successfully")
-	return c.JSON(http.StatusCreated, echo.Map{"message": "User added successfully", "user": newUser})
+	log.Println("AdminAddUser - User created successfully")
+	log.Println("AdminAddUser - Exit")
+	return c.JSON(http.StatusOK, echo.Map{"message": "User created successfully"})
 }
 
 func OrganizationAdminEditUser(c echo.Context) error {

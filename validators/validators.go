@@ -5,7 +5,6 @@ import (
 	"regexp"
 )
 
-// LoginInput defines the structure for login input validation
 type LoginInput struct {
 	Username string `json:"username" validate:"required"`
 	Password string `json:"password" validate:"required,password"`
@@ -14,6 +13,14 @@ type LoginInput struct {
 type SignupInput struct {
 	Username string `json:"username" validate:"required,usernameNoSpace"`
 	Password string `json:"password" validate:"required,password"`
+}
+
+type AdminEditInput struct {
+	Username  string `json:"username" validate:"required,usernameNoSpace"`
+	FirstName string `json:"firstname" validate:"required,alpha"`
+	LastName  string `json:"lastname" validate:"required,alpha"`   
+	Email     string `json:"email" validate:"required,email"`      
+	Password  string `json:"password" validate:"omitempty,password"` 
 }
 
 // Custom validation function to check if the username contains no spaces
@@ -46,7 +53,6 @@ func ValidateLoginInput(input LoginInput) error {
 	return validate.Struct(input)
 }
 
-// ValidateSignupInput validates the signup input based on custom rules
 func ValidateSignupInput(input SignupInput) error {
 	validate := validator.New()
 
@@ -54,6 +60,15 @@ func ValidateSignupInput(input SignupInput) error {
 	validate.RegisterValidation("usernameNoSpace", usernameNoSpaceValidation)
 	validate.RegisterValidation("password", passwordValidation)
 
-	// Validate the input
+	return validate.Struct(input)
+}
+
+func ValidateAdminEditInput(input AdminEditInput) error {
+	validate := validator.New()
+
+	// Register custom validation functions
+	validate.RegisterValidation("usernameNoSpace", usernameNoSpaceValidation)
+	validate.RegisterValidation("password", passwordValidation)
+
 	return validate.Struct(input)
 }
