@@ -37,17 +37,22 @@ func RegisterRoutes(e *echo.Echo) {
 
 	// Endpoint for selling products
 	//e.POST("/products/:product_id/sell/:quantity_sold", controllers.SellProduct)
-	e.GET("/sales", controllers.GetSalesByCategory)
-	e.GET("/sales/user", controllers.GetSalesByUserID)
-	e.GET("/sales/date", controllers.GetSalesByDate)
+	e.POST("/cashsalesbycategory", controllers.GetSalesByCategory)
+	e.POST("/sales/date", controllers.GetSalesByDate)
 	e.POST("/sell-product", controllers.SellProduct)
+	e.POST("/sales/user", controllers.GetSalesByUserID)
 
-	// Cash sales routes
+	// Define the endpoint for fetching STKPUSH sales by date
+	e.POST("/api/stkpush/sales", controllers.GetSTKPUSHSalesByDate)
+	e.POST("/api/sales/stkpusher", controllers.GetSalesBySTKPUSH)
+
+	//Cash sales routes
 	e.POST("/cash/sell", controllers.SellProductByCash)   // Sell a product by cash
 	e.GET("/cash/sales", controllers.GetCashSales)        // Get all cash sales
 	e.GET("/cash/sales/:id", controllers.GetCashSaleByID) // Get a cash sale by ID
 	e.POST("/cash/sales", controllers.AddSaleByCash)      // Add a new cash sale
 	e.DELETE("/cash/sales/:id", controllers.DeleteSaleByCash)
+
 }
 
 func SetupRoutes(e *echo.Echo) {

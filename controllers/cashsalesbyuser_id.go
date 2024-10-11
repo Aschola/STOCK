@@ -12,27 +12,40 @@ import (
 func GetSalesByUserID(c echo.Context) error {
 	log.Println("Received request to fetch sales by user ID")
 
-	// Extract user ID from query parameters
-	userID := c.QueryParam("user_id")
-	if userID == "" {
+	// Create an anonymous struct to hold the request body
+	var request struct {
+		UserID string `json:"user_id"`
+	}
+
+	// Bind the incoming JSON to the struct
+	if err := c.Bind(&request); err != nil {
+		log.Println("Failed to parse JSON:", err)
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid JSON")
+	}
+
+	// Validate the user ID
+	if request.UserID == "" {
+		log.Println("User ID is required")
 		return echo.NewHTTPError(http.StatusBadRequest, "User ID is required")
 	}
+	log.Printf("User ID received: %s", request.UserID)
 
 	// Initialize database connection
 	db := getDB()
 	if db == nil {
+		log.Println("Failed to connect to the database")
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to connect to the database")
 	}
 
 	// Query sales by user ID
-	var sales []models.Sale
-	if err := db.Where("user_id = ?", userID).Find(&sales).Error; err != nil {
+	var sales []models.SalebyCash
+	if err := db.Where("user_id = ?", request.UserID).Find(&sales).Error; err != nil {
 		log.Printf("Error querying sales by user ID: %s", err.Error())
 		return echo.NewHTTPError(http.StatusInternalServerError, "Internal Server Error")
 	}
 
 	// Log the number of sales fetched
-	log.Printf("Fetched %d sales for user ID: %s", len(sales), userID)
+	log.Printf("Fetched %d sales for user ID: %s", len(sales), request.UserID)
 
 	// Return the fetched sales as JSON
 	return c.JSON(http.StatusOK, sales)
