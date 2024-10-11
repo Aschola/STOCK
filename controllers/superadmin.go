@@ -448,7 +448,7 @@ func AdminAddUser(c echo.Context) error {
 	log.Printf("AdminAddUser - Received RoleName: %s, UserID: %d", roleName, userID)
 
 	// Check if the roleName is "admin"
-	if roleName != "admin" {
+	if roleName != "Admin" {
 		log.Println("AdminAddUser - Permission denied: non-admin trying to add user")
 		return c.JSON(http.StatusForbidden, echo.Map{"error": "Permission denied"})
 	}
