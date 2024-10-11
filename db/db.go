@@ -11,7 +11,6 @@ import (
 
 var dbInstance *gorm.DB
 
-// Init initializes the GORM database connection
 func Init() {
 	// Load environment variables from .env file if present
 	err := godotenv.Load()

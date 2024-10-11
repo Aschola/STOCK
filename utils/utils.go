@@ -17,8 +17,8 @@ var (
 var ErrInvalidToken = errors.New("invalid token")
 
 type Claims struct {
-	UserID uint `json:"user_id"`
-	RoleID uint `json:"role_id"`
+	UserID   uint   `json:"user_id"`
+	RoleName string `json:"role_name"` 
 	jwt.StandardClaims
 }
 
@@ -42,13 +42,13 @@ func ParseToken(tokenString string) (*jwt.Token, error) {
 	return token, nil
 }
 
-// GenerateJWT generates a JWT token with userID and roleID
-func GenerateJWT(userID, roleID uint) (string, error) {
-	log.Printf("Generating JWT for userID: %d, roleID: %d", userID, roleID)
+// GenerateJWT generates a JWT token with userID and roleName
+func GenerateJWT(userID uint, roleName string) (string, error) { 
+	log.Printf("Generating JWT for userID: %d, roleName: %s", userID, roleName) 
 	expirationTime := time.Now().Add(24 * time.Hour)
 	claims := &Claims{
-		UserID: userID,
-		RoleID: roleID,
+		UserID:   userID,
+		RoleName: roleName, 
 		StandardClaims: jwt.StandardClaims{
 			ExpiresAt: expirationTime.Unix(),
 		},
@@ -84,7 +84,7 @@ func VerifyJWT(tokenString string) (*Claims, error) {
 		return nil, ErrInvalidToken
 	}
 
-	log.Printf("Verified JWT with userID: %d, roleID: %d", claims.UserID, claims.RoleID)
+	log.Printf("Verified JWT with userID: %d, roleName: %s", claims.UserID, claims.RoleName) 
 	return claims, nil
 }
 
