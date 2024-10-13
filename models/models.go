@@ -68,19 +68,24 @@ type Sale struct {
 }
 
 type SalebyCash struct {
-	SaleID            int       `json:"sale_id" gorm:"primaryKey"`
+	SaleID            int       `gorm:"primaryKey;autoIncrement" json:"sale_id"`
 	Name              string    `json:"name"`
-	Quantity          int       `json:"quantity"`
 	UnitBuyingPrice   float64   `json:"unit_buying_price"`
 	TotalBuyingPrice  float64   `json:"total_buying_price"`
+	Quantity          int       `json:"quantity"`
 	UnitSellingPrice  float64   `json:"unit_selling_price"`
-	UserID            string    `json:"user_id"`
-	Date              time.Time `json:"date"`
-	CategoryName      string    `json:"category_name"`
 	TotalSellingPrice float64   `json:"total_selling_price"`
 	Profit            float64   `json:"profit"`
 	CashReceive       float64   `json:"cash_receive"`
 	Balance           float64   `json:"balance"`
+	UserID            string    `json:"user_id"`
+	Date              time.Time `json:"date"`
+	CategoryName      string    `json:"category_name"`
+}
+
+// TableName specifies the table name for GORM
+func (SalebyCash) TableName() string {
+	return "sales_by_cash"
 }
 
 type PendingDeletionProduct struct {
@@ -95,4 +100,38 @@ type PendingDeletionProduct struct {
 	ReorderLevel       int       `json:"reorder_level"`
 	Price              float64   `json:"price"`
 	DateDeleted        time.Time `json:"date_deleted"`
+}
+
+type CombinedSale struct {
+	SaleID            int       `json:"sale_id" gorm:"column:sale_id"`
+	Name              string    `json:"name" gorm:"column:name"`
+	Quantity          int       `json:"quantity" gorm:"column:quantity"`
+	UnitBuyingPrice   float64   `json:"unit_buying_price" gorm:"column:unit_buying_price"`
+	TotalBuyingPrice  float64   `json:"total_buying_price" gorm:"column:total_buying_price"`
+	UnitSellingPrice  float64   `json:"unit_selling_price" gorm:"column:unit_selling_price"`
+	TotalSellingPrice float64   `json:"total_selling_price" gorm:"column:total_selling_price"`
+	Profit            float64   `json:"profit" gorm:"column:profit"`
+	CashReceive       float64   `json:"cash_receive" gorm:"column:cash_receive"`
+	Balance           float64   `json:"balance" gorm:"column:balance"`
+	UserID            string    `json:"user_id" gorm:"column:user_id"`
+	Date              time.Time `json:"date" gorm:"column:date"`
+	CategoryName      string    `json:"category_name" gorm:"column:category_name"`
+	SaleType          string    `json:"sale_type" gorm:"column:sale_type"`
+	TotalCost         float64   `json:"total_cost" gorm:"column:total_cost"`
+	ProductID         int       `json:"product_id" gorm:"column:product_id"`
+}
+
+// SalebySTKPUSH represents a sale entry in the sales_by_STKPUSH table.
+type SalebySTKPUSH struct {
+	SaleID            int       `gorm:"primaryKey" json:"sale_id"`
+	Name              string    `json:"name"`
+	Quantity          int       `json:"quantity"`
+	UnitBuyingPrice   float64   `json:"unit_buying_price"`
+	TotalBuyingPrice  float64   `json:"total_buying_price"`
+	UnitSellingPrice  float64   `json:"unit_selling_price"`
+	TotalSellingPrice float64   `json:"total_selling_price"`
+	Profit            float64   `json:"profit"`
+	UserID            string    `json:"user_id"`
+	Date              time.Time `json:"date"`
+	CategoryName      string    `json:"category_name"`
 }

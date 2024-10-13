@@ -18,66 +18,67 @@ type CashSaleRequest struct {
 	ProductID    int     `json:"product_id"`
 	QuantitySold int     `json:"quantity_sold"`
 	UserID       string  `json:"user_id"`
-	CashReceived float64 `json:"cash_received"` // Add this field
+	CashReceived float64 `json:"cash_received"` // Amount received from the customer
 }
 
+// SellProductByCash processes a cash sale.
 func SellProductByCash(c echo.Context) error {
 	var request CashSaleRequest
 
 	if err := c.Bind(&request); err != nil {
+		log.Printf("Failed to bind request: %v", err)
 		return echo.NewHTTPError(http.StatusBadRequest, "Invalid input")
 	}
 
-	// Validate input
 	if request.QuantitySold <= 0 {
+		log.Println("Quantity sold must be greater than zero")
 		return echo.NewHTTPError(http.StatusBadRequest, "Quantity sold must be greater than zero")
 	}
 
 	db := getDB()
 	if db == nil {
+		log.Println("Failed to connect to the database")
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to connect to the database")
 	}
 
-	// Begin a transaction
 	tx := db.Begin()
 	defer func() {
 		if r := recover(); r != nil {
+			log.Println("Recovering from panic; rolling back transaction")
 			tx.Rollback()
 		}
 	}()
 
-	// Retrieve the product details
 	var product models.Product
 	if err := tx.Table("active_products").First(&product, request.ProductID).Error; err != nil {
 		tx.Rollback()
 		if err == gorm.ErrRecordNotFound {
+			log.Printf("Product not found: ID %d", request.ProductID)
 			return echo.NewHTTPError(http.StatusNotFound, "Product not found")
 		}
+		log.Printf("Error retrieving product: %s", err.Error())
 		return echo.NewHTTPError(http.StatusInternalServerError, "Internal Server Error")
 	}
 
-	// Check if enough quantity is available
 	if product.Quantity < request.QuantitySold {
 		tx.Rollback()
+		log.Printf("Insufficient quantity for product ID %d. Available: %d, Requested: %d", request.ProductID, product.Quantity, request.QuantitySold)
 		return echo.NewHTTPError(http.StatusBadRequest, "Insufficient quantity")
 	}
 
-	// Calculate total cost, total selling price, profit
 	totalCost := float64(request.QuantitySold) * product.BuyingPrice
 	totalSellingPrice := float64(request.QuantitySold) * product.SellingPrice
 	profit := totalSellingPrice - totalCost
 
-	// Update the quantity of the product in the 'active_products' table
 	updatedQuantity := product.Quantity - request.QuantitySold
 	if err := tx.Table("active_products").Where("product_id = ?", request.ProductID).Update("quantity", updatedQuantity).Error; err != nil {
 		tx.Rollback()
+		log.Printf("Error updating product quantity for ID %d: %s", request.ProductID, err.Error())
 		return echo.NewHTTPError(http.StatusInternalServerError, "Internal Server Error")
 	}
 
-	// Calculate balance
 	balance := request.CashReceived - totalSellingPrice
 
-	// Create cash sale record
 	cashSale := models.SalebyCash{
 		Name:              product.ProductName,
 		UnitBuyingPrice:   product.BuyingPrice,
@@ -93,19 +94,42 @@ func SellProductByCash(c echo.Context) error {
 		Balance:           balance,
 	}
 
-	// Insert the sale into the sales_by_cash table
 	if err := tx.Table("sales_by_cash").Create(&cashSale).Error; err != nil {
 		tx.Rollback()
 		log.Printf("Error inserting cash sale: %s", err.Error())
 		return echo.NewHTTPError(http.StatusInternalServerError, "Internal Server Error")
 	}
 
-	// Commit the transaction
+	combinedSale := models.CombinedSale{
+		Name:              cashSale.Name,
+		Quantity:          cashSale.Quantity,
+		UnitBuyingPrice:   cashSale.UnitBuyingPrice,
+		TotalBuyingPrice:  cashSale.TotalBuyingPrice,
+		UnitSellingPrice:  cashSale.UnitSellingPrice,
+		TotalSellingPrice: cashSale.TotalSellingPrice,
+		Profit:            cashSale.Profit,
+		CashReceive:       cashSale.CashReceive,
+		Balance:           balance,
+		UserID:            cashSale.UserID,
+		Date:              cashSale.Date,
+		CategoryName:      cashSale.CategoryName,
+		SaleType:          "cash",
+		TotalCost:         totalCost,
+		ProductID:         request.ProductID,
+	}
+
+	if err := tx.Table("combined_sales").Create(&combinedSale).Error; err != nil {
+		tx.Rollback()
+		log.Printf("Error inserting into combined sales: %s", err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, "Internal Server Error")
+	}
+
 	if err := tx.Commit().Error; err != nil {
+		log.Printf("Failed to commit transaction: %s", err.Error())
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to commit transaction")
 	}
 
-	// Return success response with total cost and balance
+	log.Printf("Cash sale processed successfully: Product ID %d, Quantity Sold %d, Balance %f", request.ProductID, request.QuantitySold, balance)
 	return c.JSON(http.StatusOK, map[string]interface{}{
 		"message":             "Cash sale processed successfully",
 		"product_id":          request.ProductID,
@@ -123,6 +147,7 @@ func GetCashSales(c echo.Context) error {
 
 	db := getDB()
 	if db == nil {
+		log.Println("Failed to connect to the database")
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to connect to the database")
 	}
 
@@ -148,6 +173,7 @@ func GetCashSaleByID(c echo.Context) error {
 
 	db := getDB()
 	if db == nil {
+		log.Println("Failed to connect to the database")
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to connect to the database")
 	}
 
@@ -167,8 +193,11 @@ func GetCashSaleByID(c echo.Context) error {
 
 // AddSaleByCash adds a new sale record to the sales_by_cash table.
 func AddSaleByCash(c echo.Context) error {
+	log.Println("Received request to add a new cash sale")
+
 	db := getDB()
 	if db == nil {
+		log.Println("Failed to connect to the database")
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to connect to the database")
 	}
 
@@ -178,7 +207,7 @@ func AddSaleByCash(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "Error decoding JSON")
 	}
 
-	log.Printf("Received request to create a sale: %+v", sale)
+	log.Printf("Received sale data: %+v", sale)
 
 	if err := db.Table("sales_by_cash").Create(&sale).Error; err != nil {
 		log.Printf("Error inserting sale: %s", err.Error())
@@ -202,6 +231,7 @@ func DeleteSaleByCash(c echo.Context) error {
 
 	db := getDB()
 	if db == nil {
+		log.Println("Failed to connect to the database")
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to connect to the database")
 	}
 
