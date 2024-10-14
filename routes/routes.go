@@ -52,7 +52,6 @@ func RegisterRoutes(e *echo.Echo) {
 	e.GET("/cash/sales/:id", controllers.GetCashSaleByID) // Get a cash sale by ID
 	e.POST("/cash/sales", controllers.AddSaleByCash)      // Add a new cash sale
 	e.DELETE("/cash/sales/:id", controllers.DeleteSaleByCash)
-
 	e.POST("/send-sms", controllers.SendSmsHandler) // Route for sending SMS
 
 }
