@@ -53,6 +53,8 @@ func RegisterRoutes(e *echo.Echo) {
 	e.POST("/cash/sales", controllers.AddSaleByCash)      // Add a new cash sale
 	e.DELETE("/cash/sales/:id", controllers.DeleteSaleByCash)
 
+	e.POST("/send-sms", controllers.SendSmsHandler) // Route for sending SMS
+
 }
 
 func SetupRoutes(e *echo.Echo) {
@@ -73,19 +75,18 @@ func SetupRoutes(e *echo.Echo) {
 	// Super Admin routes
 	superadmin := e.Group("/superadmin")
 	superadmin.POST("/signup", controllers.SuperAdminSignup)
-	superadmin.Use(middlewares.AuthMiddleware(models.SuperAdminRoleName)) 
+	superadmin.Use(middlewares.AuthMiddleware(models.SuperAdminRoleName))
 	superadmin.POST("/addadmin", controllers.AddAdmin)
 	superadmin.POST("/addorganization", controllers.SuperAdminAddOrganization)
 	superadmin.POST("/addorganizationadmin", controllers.SuperAdminAddOrganizationAdmin)
 	superadmin.PUT("/organization/:id/deactivate", controllers.SoftDeleteOrganization)
 	superadmin.PUT("/organization/:id/reactivate", controllers.ReactivateOrganization)
 	superadmin.PATCH("/organization/:id/deactivate", controllers.SoftDeleteOrganization)
-    superadmin.PUT("/organization/:id/reactivate", controllers.ReactivateOrganization)
-
+	superadmin.PUT("/organization/:id/reactivate", controllers.ReactivateOrganization)
 
 	// Admin routes
 	adminGroup := e.Group("/admin")
-	adminGroup.Use(middlewares.AuthMiddleware(models.AdminRoleName)) 
+	adminGroup.Use(middlewares.AuthMiddleware(models.AdminRoleName))
 	adminGroup.POST("/adduser", controllers.AdminAddUser)
 	adminGroup.GET("/user/:id", controllers.GetUserByID)
 	adminGroup.PUT("/user/:id", controllers.EditUser)
