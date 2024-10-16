@@ -94,7 +94,7 @@ func SetupRoutes(e *echo.Echo) {
 	adminGroup.GET("/organization/:id", controllers.GetOrganizationByID)
 	adminGroup.GET("/organizations", controllers.GetAllOrganizations)
 	adminGroup.GET("/users/active", controllers.GetActiveUsers)
-	//adminGroup.PUT("/user/activate", controllers.ActivateUser)
+	adminGroup.PUT("/user/reactivate", controllers.ReactivateUser)
 	adminGroup.PUT("/user/deactivate", controllers.DeactivateUser)
 	adminGroup.GET("/users/inactive", controllers.GetInactiveUsers)
 	adminGroup.GET("/organizations/active", controllers.GetActiveOrganizations)

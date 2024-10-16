@@ -4,9 +4,11 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt"
+	"gorm.io/gorm"
 
 	"stock/db"
 	"stock/models"
@@ -533,7 +535,7 @@ func AdminViewAllUsers(c echo.Context) error {
 
 	log.Printf("AdminViewAllUsers - Received RoleName: %s", roleName)
 
-	if roleName != "admin" {
+	if roleName != "Admin" {
 		log.Println("AdminViewAllUsers - Permission denied: non-admin trying to view users")
 		return c.JSON(http.StatusForbidden, echo.Map{"error": "Permission denied"})
 	}
@@ -577,35 +579,43 @@ func SoftDeleteUser(c echo.Context) error {
 }
 
 func ReactivateUser(c echo.Context) error {
-	id := c.Param("id")
-	log.Printf("ReactivateUser called with ID: %s", id)
+    id := strings.TrimSpace(c.Param("id")) 
+    log.Printf("ReactivateUser called with ID: '%s'", id)
 
-	roleName, ok := c.Get("roleName").(string)
-	if !ok || (roleName != "Admin" && roleName != "OrganizationAdmin") {
-		log.Println("Failed to get roleName from context or insufficient permissions")
-		return c.JSON(http.StatusForbidden, echo.Map{"error": "Only admins or organization admins can reactivate users"})
-	}
+    roleName, ok := c.Get("roleName").(string)
+    if !ok || (roleName != "Admin" && roleName != "OrganizationAdmin") {
+        log.Println("Failed to get roleName from context or insufficient permissions")
+        return c.JSON(http.StatusForbidden, echo.Map{"error": "Only admins or organization admins can reactivate users"})
+    }
 
-	var user models.User
+    var user models.User
 
-	if err := db.GetDB().First(&user, id).Error; err != nil {
-		log.Printf("Error finding user: %v", err)
-		return c.JSON(http.StatusNotFound, echo.Map{"error": "User not found"})
-	}
+    if err := db.GetDB().Unscoped().Where("id = ?", id).First(&user).Error; err != nil {
+        log.Printf("Error finding user: %v", err)
+        return c.JSON(http.StatusNotFound, echo.Map{"error": "User not found"})
+    }
 
-	if user.IsActive {
-		log.Println("User is already active")
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "User is already active"})
-	}
+    if user.IsActive {
+        log.Println("User is already active")
+        return c.JSON(http.StatusBadRequest, echo.Map{"error": "User is already active"})
+    }
 
-	user.IsActive = true
-	if err := db.GetDB().Save(&user).Error; err != nil {
-		log.Printf("Error saving user: %v", err)
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
-	}
+    if user.DeletedAt.Valid {
+        user.DeletedAt = gorm.DeletedAt{} 
+    }
 
-	log.Println("User reactivated successfully")
-	return c.JSON(http.StatusOK, echo.Map{"message": "User reactivated successfully", "user": user})
+    
+    if !user.IsActive {
+        user.IsActive = true 
+    }
+
+    if err := db.GetDB().Save(&user).Error; err != nil {
+        log.Printf("Error saving user: %v", err)
+        return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
+    }
+
+    log.Println("User reactivated successfully")
+    return c.JSON(http.StatusOK, echo.Map{"message": "User reactivated successfully", "user": user})
 }
 
 

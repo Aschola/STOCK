@@ -8,23 +8,17 @@ import (
 	"strings"
 )
 
-var roleMap = map[string]int{
-	"superadmin":         1,
-	"admin":              2,
-	"shop_attendant":     3,
-	"organization_admin": 6,
-	"auditor":            4,
-}
+// AdminMiddleware checks if the user has the 'admin' role.
 func AdminMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		// Extract user role from context or request header
-		role := c.Request().Header.Get("Role") 
-		if role != "admin" {                       
+		role := c.Get("roleName").(string) 
+		if role != "Admin" { 
 			return c.JSON(http.StatusForbidden, map[string]string{"message": "Access denied"})
 		}
 		return next(c)
 	}
 }
+
 // AuthMiddleware validates the JWT token and checks if the user's role is allowed.
 func AuthMiddleware(allowedRoles ...string) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
@@ -57,7 +51,7 @@ func AuthMiddleware(allowedRoles ...string) echo.MiddlewareFunc {
 			}
 
 			userID := claims.UserID
-			roleName := claims.RoleName // Use roleName directly
+			roleName := claims.RoleName 
 			log.Printf("Token parsed successfully. UserID: %d, RoleName: %s", userID, roleName)
 
 			// Set context values
@@ -74,6 +68,7 @@ func AuthMiddleware(allowedRoles ...string) echo.MiddlewareFunc {
 	}
 }
 
+// Utility function to check if a slice contains a value.
 func contains(slice []string, value string) bool {
 	for _, v := range slice {
 		if v == value {

@@ -13,3 +13,6 @@ RUN go build -o /stock
 EXPOSE 80
 
 CMD ["/stock"]
+
+
+

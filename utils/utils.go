@@ -106,3 +106,4 @@ func CheckPasswordHash(password, hash string) error {
 	}
 	return err
 }
+
