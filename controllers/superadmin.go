@@ -57,7 +57,7 @@ func SuperAdminSignup(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
 	}
 
-	token, err := utils.GenerateJWT(input.ID, input.RoleName)  
+	token, err := utils.GenerateJWT(input.ID, input.RoleName)
 	if err != nil {
 		log.Printf("GenerateJWT error: %v", err)
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not generate token"})
@@ -70,7 +70,7 @@ func SuperAdminSignup(c echo.Context) error {
 func AddAdmin(c echo.Context) error {
 	log.Println("AddAdmin called")
 
-	roleName, ok := c.Get("roleName").(string) 
+	roleName, ok := c.Get("roleName").(string)
 	if !ok {
 		log.Println("Failed to get roleName from context")
 		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
@@ -108,15 +108,7 @@ func AddAdmin(c echo.Context) error {
 	}
 	newAdmin.CreatedBy = uint(userID)
 
-	newAdmin.RoleName = "Admin" 
-
-	// Hash the admin's password
-	hashedPassword, err := utils.HashPassword(newAdmin.Password)
-	if err != nil {
-		log.Printf("HashPassword error: %v", err)
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not hash password"})
-	}
-	newAdmin.Password = hashedPassword
+	newAdmin.RoleName = "Admin"
 
 	log.Printf("Saving new admin to database")
 
@@ -174,7 +166,6 @@ func SuperAdminAddOrganization(c echo.Context) error {
 	return c.JSON(http.StatusOK, echo.Map{"message": "Organization added successfully", "organization": newOrganization})
 }
 
-
 func SuperAdminAddOrganizationAdmin(c echo.Context) error {
 	// Retrieve userID and roleName from context
 	userID, ok := c.Get("userID").(int)
@@ -196,7 +187,6 @@ func SuperAdminAddOrganizationAdmin(c echo.Context) error {
 		log.Println("Permission denied: non-super admin trying to add organization admin")
 		return c.JSON(http.StatusForbidden, echo.Map{"error": "Permission denied"})
 	}
-
 
 	orgIDStr := c.QueryParam("organizationID")
 	log.Printf("Received organization ID from query: %s", orgIDStr)
@@ -236,9 +226,9 @@ func SuperAdminAddOrganizationAdmin(c echo.Context) error {
 	}
 	newUser.Password = hashedPassword
 
-	newUser.RoleName = models.OrganizationAdminRoleName  
-	newUser.OrganizationID = uint(orgID)    
-	newUser.CreatedBy = uint(userID)              
+	newUser.RoleName = models.OrganizationAdminRoleName
+	newUser.OrganizationID = uint(orgID)
+	newUser.CreatedBy = uint(userID)
 
 	// Create new user in the database
 	if err := db.GetDB().Create(&newUser).Error; err != nil {
@@ -255,7 +245,7 @@ func SoftDeleteOrganization(c echo.Context) error {
 	log.Printf("SoftDeleteOrganization called with ID: %s", id)
 
 	roleName, ok := c.Get("roleName").(string)
-	if !ok || roleName != "superadmin" { 
+	if !ok || roleName != "superadmin" {
 		log.Println("Failed to get roleName from context or insufficient permissions")
 		return c.JSON(http.StatusForbidden, echo.Map{"error": "Only superadmins can delete organizations"})
 	}
@@ -341,9 +331,9 @@ func SuperAdminLogin(c echo.Context) error {
 		Password: input.Password,
 	}
 	if err := validators.ValidateLoginInput(loginInput); err != nil {
-        log.Printf("Validation error: %v", err)
-        return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
-    }
+		log.Printf("Validation error: %v", err)
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
+	}
 
 	var user models.User
 	if err := db.GetDB().Where("username = ?", input.Username).First(&user).Error; err != nil {
@@ -356,7 +346,7 @@ func SuperAdminLogin(c echo.Context) error {
 		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Invalid username or password"})
 	}
 
-	token, err := utils.GenerateJWT(user.ID, user.RoleName) 
+	token, err := utils.GenerateJWT(user.ID, user.RoleName)
 	if err != nil {
 		log.Printf("GenerateJWT error: %v", err)
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not generate token"})
@@ -365,7 +355,6 @@ func SuperAdminLogin(c echo.Context) error {
 	log.Println("Super admin logged in successfully")
 	return c.JSON(http.StatusOK, echo.Map{"token": token})
 }
-
 
 func SuperAdminLogout(c echo.Context) error {
 	log.Println("Super admin logged out successfully")
@@ -389,9 +378,9 @@ func AdminLogin(c echo.Context) error {
 		Password: input.Password,
 	}
 	if err := validators.ValidateLoginInput(loginInput); err != nil {
-        log.Printf("Validation error: %v", err)
-        return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
-    }
+		log.Printf("Validation error: %v", err)
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
+	}
 
 	log.Printf("AdminLogin - Received input: %+v", input)
 
@@ -441,7 +430,7 @@ func AdminAddUser(c echo.Context) error {
 		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
 	}
 
-	roleName, ok := c.Get("roleName").(string) 
+	roleName, ok := c.Get("roleName").(string)
 	if !ok {
 		log.Println("Admin - Unauthorized: roleName not found in context")
 		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
@@ -478,13 +467,6 @@ func AdminAddUser(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 	}
 	input.CreatedBy = uint(userID)
-
-	hashedPassword, err := utils.HashPassword(input.Password)
-	if err != nil {
-		log.Printf("AdminAddUser - HashPassword error: %v", err)
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not hash password"})
-	}
-	input.Password = hashedPassword
 
 	if err := db.GetDB().Create(&input).Error; err != nil {
 		log.Printf("AdminAddUser - Create error: %v", err)
@@ -527,7 +509,7 @@ func AdminViewAllUsers(c echo.Context) error {
 	log.Println("AdminViewAllUsers - Entry")
 
 	// Retrieve roleName from context set by middleware
-	roleName, ok := c.Get("roleName").(string) 
+	roleName, ok := c.Get("roleName").(string)
 	if !ok {
 		log.Println("AdminViewAllUsers - Failed to get roleName from context")
 		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
@@ -579,45 +561,43 @@ func SoftDeleteUser(c echo.Context) error {
 }
 
 func ReactivateUser(c echo.Context) error {
-    id := strings.TrimSpace(c.Param("id")) 
-    log.Printf("ReactivateUser called with ID: '%s'", id)
+	id := strings.TrimSpace(c.Param("id"))
+	log.Printf("ReactivateUser called with ID: '%s'", id)
 
-    roleName, ok := c.Get("roleName").(string)
-    if !ok || (roleName != "Admin" && roleName != "OrganizationAdmin") {
-        log.Println("Failed to get roleName from context or insufficient permissions")
-        return c.JSON(http.StatusForbidden, echo.Map{"error": "Only admins or organization admins can reactivate users"})
-    }
+	roleName, ok := c.Get("roleName").(string)
+	if !ok || (roleName != "Admin" && roleName != "OrganizationAdmin") {
+		log.Println("Failed to get roleName from context or insufficient permissions")
+		return c.JSON(http.StatusForbidden, echo.Map{"error": "Only admins or organization admins can reactivate users"})
+	}
 
-    var user models.User
+	var user models.User
 
-    if err := db.GetDB().Unscoped().Where("id = ?", id).First(&user).Error; err != nil {
-        log.Printf("Error finding user: %v", err)
-        return c.JSON(http.StatusNotFound, echo.Map{"error": "User not found"})
-    }
+	if err := db.GetDB().Unscoped().Where("id = ?", id).First(&user).Error; err != nil {
+		log.Printf("Error finding user: %v", err)
+		return c.JSON(http.StatusNotFound, echo.Map{"error": "User not found"})
+	}
 
-    if user.IsActive {
-        log.Println("User is already active")
-        return c.JSON(http.StatusBadRequest, echo.Map{"error": "User is already active"})
-    }
+	if user.IsActive {
+		log.Println("User is already active")
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "User is already active"})
+	}
 
-    if user.DeletedAt.Valid {
-        user.DeletedAt = gorm.DeletedAt{} 
-    }
+	if user.DeletedAt.Valid {
+		user.DeletedAt = gorm.DeletedAt{}
+	}
 
-    
-    if !user.IsActive {
-        user.IsActive = true 
-    }
+	if !user.IsActive {
+		user.IsActive = true
+	}
 
-    if err := db.GetDB().Save(&user).Error; err != nil {
-        log.Printf("Error saving user: %v", err)
-        return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
-    }
+	if err := db.GetDB().Save(&user).Error; err != nil {
+		log.Printf("Error saving user: %v", err)
+		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
+	}
 
-    log.Println("User reactivated successfully")
-    return c.JSON(http.StatusOK, echo.Map{"message": "User reactivated successfully", "user": user})
+	log.Println("User reactivated successfully")
+	return c.JSON(http.StatusOK, echo.Map{"message": "User reactivated successfully", "user": user})
 }
-
 
 func DeactivateUser(c echo.Context) error {
 	userID := c.Param("id")
@@ -666,7 +646,7 @@ func GetAllOrganizations(c echo.Context) error {
 
 func ActivateOrganization(c echo.Context) error {
 	orgID := c.Param("id")
-	log.Printf("Activating organization with ID: %s", orgID) 
+	log.Printf("Activating organization with ID: %s", orgID)
 
 	var org models.Organization
 
@@ -730,7 +710,7 @@ func Login(c echo.Context) error {
 	log.Println("Login - Entry")
 
 	var loginData struct {
-		Username    string `json:"username" binding:"required"`
+		Username string `json:"username" binding:"required"`
 		Password string `json:"password" binding:"required"`
 	}
 
@@ -753,9 +733,9 @@ func Login(c echo.Context) error {
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"userID": user.ID,
+		"userID":   user.ID,
 		"roleName": user.RoleName,
-		"exp":    time.Now().Add(time.Hour * 72).Unix(),
+		"exp":      time.Now().Add(time.Hour * 72).Unix(),
 	})
 
 	tokenString, err := token.SignedString(utils.JwtSecret)
@@ -780,7 +760,7 @@ func AuditorLogin(c echo.Context) error {
 	log.Println("AuditorLogin - Entry")
 
 	var loginData struct {
-		Username    string `json:"username" binding:"required"`
+		Username string `json:"username" binding:"required"`
 		Password string `json:"password" binding:"required"`
 	}
 
@@ -803,9 +783,9 @@ func AuditorLogin(c echo.Context) error {
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"userID": user.ID,
+		"userID":   user.ID,
 		"roleName": user.RoleName,
-		"exp":    time.Now().Add(time.Hour * 72).Unix(),
+		"exp":      time.Now().Add(time.Hour * 72).Unix(),
 	})
 
 	tokenString, err := token.SignedString(utils.JwtSecret)
