@@ -7,6 +7,10 @@ import (
 	"gorm.io/gorm"
 	"log"
 	"time"
+	"fmt"
+	"net/smtp"
+	"crypto/rand"
+    "encoding/hex"
 )
 
 var (
@@ -105,5 +109,23 @@ func CheckPasswordHash(password, hash string) error {
 		log.Printf("Password hash mismatch: %v", err)
 	}
 	return err
+}
+
+func GenerateResetToken() string {
+    bytes := make([]byte, 16)
+    rand.Read(bytes)
+    return hex.EncodeToString(bytes)
+}
+func SendPasswordResetEmail(to string, resetLink string) {
+    from := "akinyischolastica764@gmail.com"
+    password := "Newvera@764"
+
+    smtpHost := "smtp.example.com"
+    smtpPort := "587"
+
+    message := []byte(fmt.Sprintf("To: %s\r\nSubject: Password Reset\r\n\r\nClick the following link to reset your password: %s", to, resetLink))
+
+    auth := smtp.PlainAuth("", from, password, smtpHost)
+    smtp.SendMail(smtpHost+":"+smtpPort, auth, from, []string{to}, message)
 }
 

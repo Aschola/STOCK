@@ -21,4 +21,6 @@ type User struct {
 	DeletedAt      gorm.DeletedAt `json:"deleted_at" gorm:"index"`
 	CreatedBy      uint           `json:"created_by"`
 	Phonenumber    int64          `json:"phonenumber"`
+	ResetToken       string    
+    ResetTokenExpiry time.Time 
 }

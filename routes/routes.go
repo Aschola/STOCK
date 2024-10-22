@@ -70,6 +70,10 @@ func SetupRoutes(e *echo.Echo) {
 	e.POST("/organizationadmin/logout", controllers.OrganizationAdminLogout)
 	e.POST("/organization/logout", controllers.OrganizationLogout)
 	e.POST("/organization/login", controllers.OrganizationLogin)
+	e.POST("/forgot-password", controllers.ForgotPassword)
+	e.POST("/reset-password", controllers.ResetPassword)
+
+
 
 	// Super Admin routes
 	superadmin := e.Group("/superadmin")
@@ -100,6 +104,8 @@ func SetupRoutes(e *echo.Echo) {
 	adminGroup.GET("/organizations/active", controllers.GetActiveOrganizations)
 	adminGroup.GET("/organizations/inactive", controllers.GetInactiveOrganizations)
 	adminGroup.PUT("/organization/:id/activate", controllers.ActivateOrganization)
+
+
 	//adminGroup.DELETE("/organization:id", controllers.AdminDeleteOrganization)
 
 	//organization admin
