@@ -19,7 +19,7 @@ import (
 	//"gorm.io/gorm"
 )
 
-func SuperAdminSignup(c echo.Context) error {
+func AdminSignup(c echo.Context) error {
 	var input models.User
 	if err := c.Bind(&input); err != nil {
 		log.Printf("Bind error: %v", err)
@@ -35,14 +35,9 @@ func SuperAdminSignup(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 	}
 
-	log.Printf("Received JSON: %+v", input)
-	log.Printf("Received RoleName: %s", input.RoleName)
+	// Automatically set role to "Admin"
 
-	// Check for roleName instead of roleID
-	if input.RoleName != "Superadmin" {
-		log.Println("Unauthorized signup attempt detected")
-		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Only Superadmin can sign up"})
-	}
+	log.Printf("Received JSON: %+v", input)
 
 	// Hash the password
 	hashedPassword, err := utils.HashPassword(input.Password)
@@ -52,193 +47,281 @@ func SuperAdminSignup(c echo.Context) error {
 	}
 	input.Password = hashedPassword
 
+	// Create the organization and associate the admin
+	organization := models.Organization{
+		Name:  input.Username,
+		Email: input.Email,
+	}
+	if err := db.GetDB().Create(&organization).Error; err != nil {
+		log.Printf("Organization creation error: %v", err)
+		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not create organization"})
+	}
+
+	// Set organization ID for the user
+	input.OrganizationID = organization.ID
+	input.RoleName = "Admin"
+
+
+	// Create the user with the assigned organization ID and admin role
 	if err := db.GetDB().Create(&input).Error; err != nil {
-		log.Printf("Create error: %v", err)
+		log.Printf("User creation error: %v", err)
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
 	}
 
+	// Generate JWT token
 	token, err := utils.GenerateJWT(input.ID, input.RoleName)
 	if err != nil {
 		log.Printf("GenerateJWT error: %v", err)
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not generate token"})
 	}
 
-	log.Println("Superadmin signed up successfully")
+	log.Println("Admin signed up successfully")
 	return c.JSON(http.StatusOK, echo.Map{"token": token})
 }
 
-func AddAdmin(c echo.Context) error {
-	log.Println("AddAdmin called")
+func GetOrganizationByID(c echo.Context) error {
+	id, _ := strconv.Atoi(c.Param("id"))
+	log.Printf("GetOrganizationByID - Entry with ID: %d", id)
+
+	var org models.Organization
+	if err := db.GetDB().First(&org, id).Error; err != nil {
+		log.Printf("GetOrganizationByID - First error: %v", err)
+		return c.JSON(http.StatusNotFound, echo.Map{"error": "Organization not found"})
+	}
+
+	log.Printf("GetOrganizationByID - Organization found: %+v", org)
+	log.Println("GetOrganizationByID - Exit")
+	return c.JSON(http.StatusOK, org)
+}
+
+func GetAllOrganizations(c echo.Context) error {
+	log.Println("GetAllOrganizations - Entry")
+
+	var orgs []models.Organization
+	if err := db.GetDB().Find(&orgs).Error; err != nil {
+		log.Printf("GetAllOrganizations - Find error: %v", err)
+		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Error retrieving organizations"})
+	}
+
+	log.Printf("GetAllOrganizations - Organizations found: %+v", orgs)
+	log.Println("GetAllOrganizations - Exit")
+	return c.JSON(http.StatusOK, orgs)
+}
+
+func ActivateOrganization(c echo.Context) error {
+	orgID := c.Param("id")
+	log.Printf("Activating organization with ID: %s", orgID)
+
+	var org models.Organization
+
+	if err := db.GetDB().First(&org, orgID).Error; err != nil {
+		log.Printf("Organization not found with ID: %s. Error: %v", orgID, err)
+		return c.JSON(http.StatusNotFound, map[string]string{"message": "Organization not found"})
+	}
+
+	log.Printf("Current status of organization name %s: IsActive=%v", orgID, org.IsActive)
+
+	org.IsActive = true
+	if err := db.GetDB().Save(&org).Error; err != nil {
+		log.Printf("Error saving organization name %s. Error: %v", orgID, err)
+		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Error saving organization"})
+	}
+
+	log.Printf("Successfully activated organization ID %s. Updated status: IsActive=%v", orgID, org.IsActive)
+	return c.JSON(http.StatusOK, org)
+}
+func DeleteOrganization(c echo.Context) error {
+	id := c.Param("id")
+	log.Printf("AdminDeleteStock - Entry with ID: %s", id)
 
 	roleName, ok := c.Get("roleName").(string)
-	if !ok {
-		log.Println("Failed to get roleName from context")
-		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
-	}
-
-	userID, ok := c.Get("userID").(uint)
-	if !ok {
-		log.Println("Failed to get userID from context")
-		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
-	}
-
-	log.Printf("Received RoleName: %s, UserID: %d", roleName, userID)
-
-	if roleName != "Superadmin" {
-		log.Println("Permission denied: only superadmin can add admin")
+	if !ok || roleName != "Admin" {
+		log.Println("AdminDeleteStock - Permission denied: non-admin trying to delete stock")
 		return c.JSON(http.StatusForbidden, echo.Map{"error": "Permission denied"})
 	}
 
-	var newAdmin models.User
-	if err := c.Bind(&newAdmin); err != nil {
-		log.Printf("Bind error: %v", err)
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
+	if err := db.GetDB().Unscoped().Delete(&models.Stock{}, id).Error; err != nil {
+		log.Printf("AdminDeleteStock - Delete error: %v", err)
+		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Failed to delete stock item"})
 	}
 
-	log.Printf("New admin data: %+v", newAdmin)
-
-	//validations
-	signupInput := validators.SignupInput{
-		Username: newAdmin.Username,
-		Password: newAdmin.Password,
-	}
-	if err := validators.ValidateSignupInput(signupInput); err != nil {
-		log.Printf("Validation error: %v", err)
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
-	}
-	newAdmin.CreatedBy = uint(userID)
-
-	newAdmin.RoleName = "Admin"
-
-	log.Printf("Saving new admin to database")
-
-	// Save the new admin in the database
-	if err := db.GetDB().Create(&newAdmin).Error; err != nil {
-		log.Printf("Create error: %v", err)
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
-	}
-
-	log.Println("Admin added successfully")
-	return c.JSON(http.StatusOK, echo.Map{"message": "Admin added successfully", "admin": newAdmin})
+	log.Println("AdminDeleteStock - Stock item permanently deleted successfully")
+	log.Println("AdminDeleteStock - Exit")
+	return c.JSON(http.StatusOK, echo.Map{"message": "Stock item permanently deleted successfully"})
 }
 
-func SuperAdminAddOrganization(c echo.Context) error {
-	userID, ok := c.Get("userID").(uint)
-	if !ok {
-		log.Println("Failed to get userID from context")
-		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
-	}
+// func AddAdmin(c echo.Context) error {
+// 	log.Println("AddAdmin called")
 
-	roleName, ok := c.Get("roleName").(string)
-	if !ok {
-		log.Println("Failed to get roleName from context")
-		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
-	}
+// 	roleName, ok := c.Get("roleName").(string)
+// 	if !ok {
+// 		log.Println("Failed to get roleName from context")
+// 		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
+// 	}
 
-	log.Printf("Received UserID: %d, RoleName: %s", userID, roleName)
+// 	userID, ok := c.Get("userID").(uint)
+// 	if !ok {
+// 		log.Println("Failed to get userID from context")
+// 		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
+// 	}
 
-	if roleName != "Superadmin" {
-		log.Println("Permission denied: non-super admin trying to add an organization")
-		return c.JSON(http.StatusForbidden, echo.Map{"error": "Permission denied"})
-	}
+// 	log.Printf("Received RoleName: %s, UserID: %d", roleName, userID)
 
-	// Bind request body to the organization model
-	var newOrganization models.Organization
-	if err := c.Bind(&newOrganization); err != nil {
-		log.Printf("Bind error: %v", err)
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
-	}
+// 	if roleName != "Superadmin" {
+// 		log.Println("Permission denied: only superadmin can add admin")
+// 		return c.JSON(http.StatusForbidden, echo.Map{"error": "Permission denied"})
+// 	}
 
-	// Validate the organization details
-	if newOrganization.Name == "" {
-		log.Println("Organization name is missing")
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Organization name is required"})
-	}
+// 	var newAdmin models.User
+// 	if err := c.Bind(&newAdmin); err != nil {
+// 		log.Printf("Bind error: %v", err)
+// 		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
+// 	}
 
-	//newOrganization.CreatedBy = uint(userID)
+// 	log.Printf("New admin data: %+v", newAdmin)
 
-	if err := db.GetDB().Create(&newOrganization).Error; err != nil {
-		log.Printf("Create error: %v", err)
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
-	}
+// 	//validations
+// 	signupInput := validators.SignupInput{
+// 		Username: newAdmin.Username,
+// 		Password: newAdmin.Password,
+// 	}
+// 	if err := validators.ValidateSignupInput(signupInput); err != nil {
+// 		log.Printf("Validation error: %v", err)
+// 		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
+// 	}
+// 	newAdmin.CreatedBy = uint(userID)
 
-	log.Println("Organization added successfully")
-	return c.JSON(http.StatusOK, echo.Map{"message": "Organization added successfully", "organization": newOrganization})
-}
+// 	newAdmin.RoleName = "Admin"
 
-func SuperAdminAddOrganizationAdmin(c echo.Context) error {
-	// Retrieve userID and roleName from context
-	userID, ok := c.Get("userID").(int)
-	if !ok {
-		log.Println("Failed to get userID from context")
-		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
-	}
+// 	log.Printf("Saving new admin to database")
 
-	roleName, ok := c.Get("roleName").(string)
-	if !ok {
-		log.Println("Failed to get roleName from context")
-		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
-	}
+// 	// Save the new admin in the database
+// 	if err := db.GetDB().Create(&newAdmin).Error; err != nil {
+// 		log.Printf("Create error: %v", err)
+// 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
+// 	}
 
-	log.Printf("Received UserID: %d, RoleName: %s", userID, roleName)
+// 	log.Println("Admin added successfully")
+// 	return c.JSON(http.StatusOK, echo.Map{"message": "Admin added successfully", "admin": newAdmin})
+// }
 
-	// Check if the roleName is for a Super Admin (roleName = "SuperAdmin")
-	if roleName != "SuperAdmin" {
-		log.Println("Permission denied: non-super admin trying to add organization admin")
-		return c.JSON(http.StatusForbidden, echo.Map{"error": "Permission denied"})
-	}
+// func SuperAdminAddOrganization(c echo.Context) error {
+// 	userID, ok := c.Get("userID").(uint)
+// 	if !ok {
+// 		log.Println("Failed to get userID from context")
+// 		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
+// 	}
 
-	orgIDStr := c.QueryParam("organizationID")
-	log.Printf("Received organization ID from query: %s", orgIDStr)
-	if orgIDStr == "" {
-		log.Println("Organization ID is missing from the request")
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Organization ID is required"})
-	}
+// 	roleName, ok := c.Get("roleName").(string)
+// 	if !ok {
+// 		log.Println("Failed to get roleName from context")
+// 		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
+// 	}
 
-	orgID, err := strconv.ParseUint(orgIDStr, 10, 64)
-	if err != nil {
-		log.Printf("Error parsing organization ID: %v", err)
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid organization ID"})
-	}
+// 	log.Printf("Received UserID: %d, RoleName: %s", userID, roleName)
 
-	// Check if the organization exists in the database
-	var orgCount int64
-	if err := db.GetDB().Model(&models.Organization{}).Where("id = ?", orgID).Count(&orgCount).Error; err != nil {
-		log.Printf("Error querying organization: %v", err)
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Error querying organization"})
-	}
+// 	if roleName != "Superadmin" {
+// 		log.Println("Permission denied: non-super admin trying to add an organization")
+// 		return c.JSON(http.StatusForbidden, echo.Map{"error": "Permission denied"})
+// 	}
 
-	if orgCount == 0 {
-		log.Println("Organization ID does not exist")
-		return c.JSON(http.StatusNotFound, echo.Map{"error": "Organization ID not found"})
-	}
+// 	// Bind request body to the organization model
+// 	var newOrganization models.Organization
+// 	if err := c.Bind(&newOrganization); err != nil {
+// 		log.Printf("Bind error: %v", err)
+// 		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
+// 	}
 
-	var newUser models.User
-	if err := c.Bind(&newUser); err != nil {
-		log.Printf("Bind error: %v", err)
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
-	}
+// 	// Validate the organization details
+// 	if newOrganization.Name == "" {
+// 		log.Println("Organization name is missing")
+// 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Organization name is required"})
+// 	}
 
-	hashedPassword, err := utils.HashPassword(newUser.Password)
-	if err != nil {
-		log.Printf("HashPassword error: %v", err)
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not hash password"})
-	}
-	newUser.Password = hashedPassword
+// 	//newOrganization.CreatedBy = uint(userID)
 
-	newUser.RoleName = models.OrganizationAdminRoleName
-	newUser.OrganizationID = uint(orgID)
-	newUser.CreatedBy = uint(userID)
+// 	if err := db.GetDB().Create(&newOrganization).Error; err != nil {
+// 		log.Printf("Create error: %v", err)
+// 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
+// 	}
 
-	// Create new user in the database
-	if err := db.GetDB().Create(&newUser).Error; err != nil {
-		log.Printf("Create error: %v", err)
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
-	}
+// 	log.Println("Organization added successfully")
+// 	return c.JSON(http.StatusOK, echo.Map{"message": "Organization added successfully", "organization": newOrganization})
+// }
 
-	log.Println("Organization admin added successfully")
-	return c.JSON(http.StatusOK, echo.Map{"message": "Organization admin added successfully", "user": newUser})
-}
+// func SuperAdminAddOrganizationAdmin(c echo.Context) error {
+// 	// Retrieve userID and roleName from context
+// 	userID, ok := c.Get("userID").(int)
+// 	if !ok {
+// 		log.Println("Failed to get userID from context")
+// 		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
+// 	}
+
+// 	roleName, ok := c.Get("roleName").(string)
+// 	if !ok {
+// 		log.Println("Failed to get roleName from context")
+// 		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
+// 	}
+
+// 	log.Printf("Received UserID: %d, RoleName: %s", userID, roleName)
+
+// 	// Check if the roleName is for a Super Admin (roleName = "SuperAdmin")
+// 	if roleName != "SuperAdmin" {
+// 		log.Println("Permission denied: non-super admin trying to add organization admin")
+// 		return c.JSON(http.StatusForbidden, echo.Map{"error": "Permission denied"})
+// 	}
+
+// 	orgIDStr := c.QueryParam("organizationID")
+// 	log.Printf("Received organization ID from query: %s", orgIDStr)
+// 	if orgIDStr == "" {
+// 		log.Println("Organization ID is missing from the request")
+// 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Organization ID is required"})
+// 	}
+
+// 	orgID, err := strconv.ParseUint(orgIDStr, 10, 64)
+// 	if err != nil {
+// 		log.Printf("Error parsing organization ID: %v", err)
+// 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid organization ID"})
+// 	}
+
+// 	// Check if the organization exists in the database
+// 	var orgCount int64
+// 	if err := db.GetDB().Model(&models.Organization{}).Where("id = ?", orgID).Count(&orgCount).Error; err != nil {
+// 		log.Printf("Error querying organization: %v", err)
+// 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Error querying organization"})
+// 	}
+
+// 	if orgCount == 0 {
+// 		log.Println("Organization ID does not exist")
+// 		return c.JSON(http.StatusNotFound, echo.Map{"error": "Organization ID not found"})
+// 	}
+
+// 	var newUser models.User
+// 	if err := c.Bind(&newUser); err != nil {
+// 		log.Printf("Bind error: %v", err)
+// 		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
+// 	}
+
+// 	hashedPassword, err := utils.HashPassword(newUser.Password)
+// 	if err != nil {
+// 		log.Printf("HashPassword error: %v", err)
+// 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not hash password"})
+// 	}
+// 	newUser.Password = hashedPassword
+
+// 	newUser.RoleName = models.OrganizationAdminRoleName
+// 	newUser.OrganizationID = uint(orgID)
+// 	newUser.CreatedBy = uint(userID)
+
+// 	// Create new user in the database
+// 	if err := db.GetDB().Create(&newUser).Error; err != nil {
+// 		log.Printf("Create error: %v", err)
+// 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
+// 	}
+
+// 	log.Println("Organization admin added successfully")
+// 	return c.JSON(http.StatusOK, echo.Map{"message": "Organization admin added successfully", "user": newUser})
+// }
 
 func SoftDeleteOrganization(c echo.Context) error {
 	id := c.Param("id")
@@ -544,11 +627,15 @@ func SoftDeleteUser(c echo.Context) error {
 	}
 
 	var user models.User
-
 	if err := db.GetDB().First(&user, id).Error; err != nil {
 		log.Printf("Error finding user: %v", err)
 		return c.JSON(http.StatusNotFound, echo.Map{"error": "User not found"})
 	}
+	user.IsActive = false
+	if !strings.HasPrefix(user.Username, "deleted_") { 
+		user.Username = "deleted_" + user.Username
+	}
+
 
 	user.IsActive = false
 	if err := db.GetDB().Save(&user).Error; err != nil {
@@ -615,57 +702,7 @@ func DeactivateUser(c echo.Context) error {
 	return c.JSON(http.StatusOK, user)
 }
 
-func GetOrganizationByID(c echo.Context) error {
-	id, _ := strconv.Atoi(c.Param("id"))
-	log.Printf("GetOrganizationByID - Entry with ID: %d", id)
 
-	var org models.Organization
-	if err := db.GetDB().First(&org, id).Error; err != nil {
-		log.Printf("GetOrganizationByID - First error: %v", err)
-		return c.JSON(http.StatusNotFound, echo.Map{"error": "Organization not found"})
-	}
-
-	log.Printf("GetOrganizationByID - Organization found: %+v", org)
-	log.Println("GetOrganizationByID - Exit")
-	return c.JSON(http.StatusOK, org)
-}
-
-func GetAllOrganizations(c echo.Context) error {
-	log.Println("GetAllOrganizations - Entry")
-
-	var orgs []models.Organization
-	if err := db.GetDB().Find(&orgs).Error; err != nil {
-		log.Printf("GetAllOrganizations - Find error: %v", err)
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Error retrieving organizations"})
-	}
-
-	log.Printf("GetAllOrganizations - Organizations found: %+v", orgs)
-	log.Println("GetAllOrganizations - Exit")
-	return c.JSON(http.StatusOK, orgs)
-}
-
-func ActivateOrganization(c echo.Context) error {
-	orgID := c.Param("id")
-	log.Printf("Activating organization with ID: %s", orgID)
-
-	var org models.Organization
-
-	if err := db.GetDB().First(&org, orgID).Error; err != nil {
-		log.Printf("Organization not found with ID: %s. Error: %v", orgID, err)
-		return c.JSON(http.StatusNotFound, map[string]string{"message": "Organization not found"})
-	}
-
-	log.Printf("Current status of organization name %s: IsActive=%v", orgID, org.IsActive)
-
-	org.IsActive = true
-	if err := db.GetDB().Save(&org).Error; err != nil {
-		log.Printf("Error saving organization name %s. Error: %v", orgID, err)
-		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Error saving organization"})
-	}
-
-	log.Printf("Successfully activated organization ID %s. Updated status: IsActive=%v", orgID, org.IsActive)
-	return c.JSON(http.StatusOK, org)
-}
 
 func GetActiveUsers(c echo.Context) error {
 	var users []models.User

@@ -58,6 +58,7 @@ func RegisterRoutes(e *echo.Echo) {
 
 func SetupRoutes(e *echo.Echo) {
 	// Public routes
+	e.POST("admin/signup", controllers.AdminSignup)
 	e.POST("/superadmin/login", controllers.SuperAdminLogin)
 	e.POST("/superadmin/logout", controllers.SuperAdminLogout)
 	e.POST("admin/login", controllers.AdminLogin)
@@ -77,33 +78,37 @@ func SetupRoutes(e *echo.Echo) {
 
 	// Super Admin routes
 	superadmin := e.Group("/superadmin")
-	superadmin.POST("/signup", controllers.SuperAdminSignup)
+	superadmin.POST("/signup", controllers.AdminSignup)
 	superadmin.Use(middlewares.AuthMiddleware(models.SuperAdminRoleName))
-	superadmin.POST("/addadmin", controllers.AddAdmin)
-	superadmin.POST("/addorganization", controllers.SuperAdminAddOrganization)
-	superadmin.POST("/addorganizationadmin", controllers.SuperAdminAddOrganizationAdmin)
+	//superadmin.POST("/addadmin", controllers.AddAdmin)
+	//superadmin.POST("/addorganization", controllers.SuperAdminAddOrganization)
+	//superadmin.POST("/addorganizationadmin", controllers.SuperAdminAddOrganizationAdmin)
 	superadmin.PUT("/organization/:id/deactivate", controllers.SoftDeleteOrganization)
 	superadmin.PUT("/organization/:id/reactivate", controllers.ReactivateOrganization)
 	superadmin.PATCH("/organization/:id/deactivate", controllers.SoftDeleteOrganization)
-	superadmin.PUT("/organization/:id/reactivate", controllers.ReactivateOrganization)
+	superadmin.GET("/organization/:id", controllers.GetOrganizationByID)
+	superadmin.GET("/organizations", controllers.GetAllOrganizations)
+	superadmin.PUT("/organization/:id/activate", controllers.ActivateOrganization)
+
 
 	// Admin routes
 	adminGroup := e.Group("/admin")
 	adminGroup.Use(middlewares.AuthMiddleware(models.AdminRoleName))
+	//superadmin.POST("/signup", controllers.AdminSignup)
 	adminGroup.POST("/adduser", controllers.AdminAddUser)
+	adminGroup.POST("/createstock", controllers.CreateStock)
+	adminGroup.POST("/deletestock", controllers.DeleteStock)
+	adminGroup.PUT("/editstock", controllers.EditStock)
 	adminGroup.GET("/user/:id", controllers.GetUserByID)
 	adminGroup.PUT("/user/:id", controllers.EditUser)
 	adminGroup.PATCH("/user/:id", controllers.SoftDeleteUser)
 	adminGroup.GET("/user", controllers.AdminViewAllUsers)
-	adminGroup.GET("/organization/:id", controllers.GetOrganizationByID)
-	adminGroup.GET("/organizations", controllers.GetAllOrganizations)
 	adminGroup.GET("/users/active", controllers.GetActiveUsers)
 	adminGroup.PUT("/user/reactivate", controllers.ReactivateUser)
 	adminGroup.PUT("/user/deactivate", controllers.DeactivateUser)
 	adminGroup.GET("/users/inactive", controllers.GetInactiveUsers)
 	adminGroup.GET("/organizations/active", controllers.GetActiveOrganizations)
 	adminGroup.GET("/organizations/inactive", controllers.GetInactiveOrganizations)
-	adminGroup.PUT("/organization/:id/activate", controllers.ActivateOrganization)
 
 
 	//adminGroup.DELETE("/organization:id", controllers.AdminDeleteOrganization)
@@ -116,6 +121,7 @@ func SetupRoutes(e *echo.Echo) {
 	orgAdminGroup.GET("/users", controllers.OrganizationAdminGetUsers)
 	orgAdminGroup.GET("/user/:id", controllers.OrganizationAdminGetUserByID)
 	orgAdminGroup.DELETE("/user/:id", controllers.OrganizationAdminSoftDeleteUser)
+	//orgAdminGroup.DELETE("/user/:id", controllers.Delete)
 	adminGroup.PUT("/organization/:id/deactivate", controllers.OrgAdminDeactivateOrganization)
 	orgAdminGroup.PATCH("/users/:id/activate-deactivate", controllers.OrganizationAdminActivateDeactivateUser)
 }

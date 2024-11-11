@@ -135,3 +135,9 @@ type SalebySTKPUSH struct {
 	Date              time.Time `json:"date"`
 	CategoryName      string    `json:"category_name"`
 }
+
+type Suppliers struct {
+	ID            int       `gorm:"primaryKey" json:"_id"`
+	Name          string     `json:"name"`
+	Phonenumber    int64          `json:"phonenumber"`
+}

@@ -21,6 +21,19 @@ type User struct {
 	DeletedAt      gorm.DeletedAt `json:"deleted_at" gorm:"index"`
 	CreatedBy      uint           `json:"created_by"`
 	Phonenumber    int64          `json:"phonenumber"`
-	ResetToken       string    
-    ResetTokenExpiry time.Time 
+	//ResetToken       string    
+    //ResetTokenExpiry time.Time 
 }
+
+type Users struct {
+    ID                  uint       `gorm:"primaryKey" json:"id"`
+    UserID              uint       `gorm:"not null" json:"user_id"`
+	Email          string         `json:"email"`
+	Password       string         `json:"password"`
+    ResetToken          string     
+    ResetTokenExpiry    time.Time 
+}
+
+
+
+

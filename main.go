@@ -3,7 +3,7 @@ package main
 import (
 	"log"
 	"os"
-	"stock/controllers"
+	//"stock/controllers"
 	"stock/db"
 	"stock/routes"
 
@@ -26,7 +26,7 @@ func main() {
 	// Register routes
 	routes.RegisterRoutes(e)
 	routes.SetupRoutes(e)
-	go controllers.GetProductsfornotification()
+	//go controllers.GetProductsfornotification()
 
 	port := os.Getenv("PORT")
 	if port == "" {
