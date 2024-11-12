@@ -38,6 +38,14 @@ func AdminSignup(c echo.Context) error {
 	// Automatically set role to "Admin"
 
 	log.Printf("Received JSON: %+v", input)
+	var user models.User
+	if err := db.GetDB().Where("username = ?", input.Username).First(&user).Error; err == nil {
+		return c.JSON(http.StatusConflict, echo.Map{"error": "Username already exists"})
+	}
+
+	if err := db.GetDB().Where("email = ?", input.Email).First(&user).Error; err == nil {
+		return c.JSON(http.StatusConflict, echo.Map{"error": "Email already exists"})
+	}
 
 	// Hash the password
 	hashedPassword, err := utils.HashPassword(input.Password)
@@ -49,7 +57,7 @@ func AdminSignup(c echo.Context) error {
 
 	// Create the organization and associate the admin
 	organization := models.Organization{
-		Name:  input.Username,
+		Name:  input.Organization,
 		Email: input.Email,
 	}
 	if err := db.GetDB().Create(&organization).Error; err != nil {
@@ -534,6 +542,17 @@ func AdminAddUser(c echo.Context) error {
 	}
 
 	log.Printf("AdminAddUser - New user data: %+v", input)
+
+	var user models.User
+	if err := db.GetDB().Where("username = ?", input.Username).First(&user).Error; err == nil {
+		// Username already exists
+		return c.JSON(http.StatusConflict, echo.Map{"error": "Username already exists"})
+	}
+
+	if err := db.GetDB().Where("email = ?", input.Email).First(&user).Error; err == nil {
+		// Email already exists
+		return c.JSON(http.StatusConflict, echo.Map{"error": "Email already exists"})
+	}
 
 	// Validate roleName for new user
 	if input.RoleName != "Shopkeeper" && input.RoleName != "Auditor" && input.RoleName != "Admin" {
