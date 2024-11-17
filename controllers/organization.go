@@ -528,6 +528,32 @@ func SoftDeleteUser(c echo.Context) error {
 	return c.JSON(http.StatusOK, echo.Map{"message": "User soft deleted successfully", "user": user})
 }
 
+func DeleteUser(c echo.Context) error {
+	id := c.Param("id")
+	log.Printf("DeleteUser called with ID: %s", id)
+
+	roleName, ok := c.Get("roleName").(string)
+	if !ok || (roleName != "Admin" && roleName != "OrganizationAdmin" && roleName != "SuperAdmin") {
+		log.Println("Failed to get roleName from context or insufficient permissions")
+		return c.JSON(http.StatusForbidden, echo.Map{"error": "Only admins or super admins can delete users"})
+	}
+
+	var user models.User
+	// Use Unscoped to include both soft-deleted and active users
+	if err := db.GetDB().Unscoped().First(&user, id).Error; err != nil {
+		log.Printf("Error finding user: %v", err)
+		return c.JSON(http.StatusNotFound, echo.Map{"error": "User not found"})
+	}
+
+	if err := db.GetDB().Unscoped().Delete(&user).Error; err != nil {
+		log.Printf("Error deleting user: %v", err)
+		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
+	}
+
+	log.Println("User deleted permanently successfully")
+	return c.JSON(http.StatusOK, echo.Map{"message": "User deleted permanently"})
+}
+
 func ReactivateUser(c echo.Context) error {
 	id := strings.TrimSpace(c.Param("id"))
 	log.Printf("ReactivateUser called with ID: '%s'", id)
