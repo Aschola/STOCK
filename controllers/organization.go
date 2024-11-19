@@ -140,23 +140,22 @@ func AdminLogout(c echo.Context) error {
 func AdminAddUser(c echo.Context) error {
 	log.Println("AdminAddUser - Entry")
 
-	userID, ok := c.Get("userID").(int)
+	userID, ok := c.Get("userID").(uint)
 	if !ok {
 		log.Println("AdminAddUser - Unauthorized: userID not found in context")
 		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
 	}
 
-	roleName, ok := c.Get("roleName").(string) 
+	roleName, ok := c.Get("roleName").(string)
 	if !ok {
-		log.Println("AdminAddUser - Unauthorized: roleName not found in context")
+		log.Println("Admin - Unauthorized: roleName not found in context")
 		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
 	}
 
 	log.Printf("AdminAddUser - Received RoleName: %s, UserID: %d", roleName, userID)
-	
 
 	// Check if the roleName is "admin"
-	if roleName != "admin" {
+	if roleName != "Admin" {
 		log.Println("AdminAddUser - Permission denied: non-admin trying to add user")
 		return c.JSON(http.StatusForbidden, echo.Map{"error": "Permission denied"})
 	}
@@ -170,18 +169,20 @@ func AdminAddUser(c echo.Context) error {
 	log.Printf("AdminAddUser - New user data: %+v", input)
 
 	// Validate roleName for new user
-	if input.RoleName != "shopkeeper" && input.RoleName != "auditor" && input.RoleName != "admin" {
+	if input.RoleName != "Shopkeeper" && input.RoleName != "Auditor" && input.RoleName != "Admin" {
 		log.Println("AdminAddUser - Invalid role name provided")
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid role name. Allowed roles: shopkeeper, auditor, admin"})
 	}
-	input.CreatedBy = uint(userID)
 
-	hashedPassword, err := utils.HashPassword(input.Password)
-	if err != nil {
-		log.Printf("AdminAddUser - HashPassword error: %v", err)
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not hash password"})
+	signupInput := validators.SignupInput{
+		Username: input.Username,
+		Password: input.Password,
 	}
-	input.Password = hashedPassword
+	if err := validators.ValidateSignupInput(signupInput); err != nil {
+		log.Printf("AdminAddUser - Validation error: %v", err)
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
+	}
+	input.CreatedBy = uint(userID)
 
 	if err := db.GetDB().Create(&input).Error; err != nil {
 		log.Printf("AdminAddUser - Create error: %v", err)
