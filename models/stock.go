@@ -20,3 +20,7 @@ type Stock struct {
 	CreatedAt         time.Time `gorm:"autoCreateTime" json:"created_at"`
 	ReorderLevel      int       `gorm:"not null" json:"reorder_level"`
 }
+
+func (Stock) TableName() string {
+	return "stock" // Explicitly set the table name to "stock"
+}

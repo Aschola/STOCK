@@ -3,20 +3,23 @@ package controllers
 import (
 	"log"
 	"net/http"
-	//"strings"
 
 	"github.com/labstack/echo/v4"
-	//"gorm.io/gorm"
 	"stock/db"
 	"stock/models"
 )
 
-// AdminCreateStock creates a new stock item
+// AdminCreateStock handles the creation of a stock item
 func CreateStock(c echo.Context) error {
 	log.Println("AdminCreateStock - Entry")
 
 	roleName, ok := c.Get("roleName").(string)
-	if !ok || roleName != "Admin" {
+	if !ok {
+		log.Println("AdminCreateStock - Unauthorized: roleName not found in context")
+		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
+	}
+
+	if roleName != "Admin" {
 		log.Println("AdminCreateStock - Permission denied: non-admin trying to create stock")
 		return c.JSON(http.StatusForbidden, echo.Map{"error": "Permission denied"})
 	}
@@ -39,17 +42,22 @@ func CreateStock(c echo.Context) error {
 	return c.JSON(http.StatusOK, echo.Map{"message": "Stock item created successfully"})
 }
 
-// AdminEditStock edits an existing stock item
+// AdminEditStock handles editing of a stock item
 func EditStock(c echo.Context) error {
-	id := c.Param("id")
-	log.Printf("AdminEditStock - Entry with ID: %s", id)
+	log.Println("AdminEditStock - Entry")
 
 	roleName, ok := c.Get("roleName").(string)
-	if !ok || roleName != "Admin" {
+	if !ok {
+		log.Println("AdminEditStock - Unauthorized: roleName not found in context")
+		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
+	}
+
+	if roleName != "Admin" {
 		log.Println("AdminEditStock - Permission denied: non-admin trying to edit stock")
 		return c.JSON(http.StatusForbidden, echo.Map{"error": "Permission denied"})
 	}
 
+	id := c.Param("id")
 	var stock models.Stock
 	if err := db.GetDB().First(&stock, id).Error; err != nil {
 		log.Printf("AdminEditStock - Stock not found: %v", err)
@@ -73,17 +81,22 @@ func EditStock(c echo.Context) error {
 	return c.JSON(http.StatusOK, stock)
 }
 
-// AdminDeleteStock permanently deletes a stock item
+// AdminDeleteStock handles permanent deletion of a stock item
 func DeleteStock(c echo.Context) error {
-	id := c.Param("id")
-	log.Printf("AdminDeleteStock - Entry with ID: %s", id)
+	log.Println("AdminDeleteStock - Entry")
 
 	roleName, ok := c.Get("roleName").(string)
-	if !ok || roleName != "Admin" {
+	if !ok {
+		log.Println("AdminDeleteStock - Unauthorized: roleName not found in context")
+		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
+	}
+
+	if roleName != "Admin" {
 		log.Println("AdminDeleteStock - Permission denied: non-admin trying to delete stock")
 		return c.JSON(http.StatusForbidden, echo.Map{"error": "Permission denied"})
 	}
 
+	id := c.Param("id")
 	if err := db.GetDB().Unscoped().Delete(&models.Stock{}, id).Error; err != nil {
 		log.Printf("AdminDeleteStock - Delete error: %v", err)
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Failed to delete stock item"})
@@ -93,23 +106,34 @@ func DeleteStock(c echo.Context) error {
 	log.Println("AdminDeleteStock - Exit")
 	return c.JSON(http.StatusOK, echo.Map{"message": "Stock item permanently deleted successfully"})
 }
+
+// AdminViewAllStock retrieves all stock items
 func ViewAllStock(c echo.Context) error {
-    var stocks []models.Stock
+	log.Println("AdminViewAllStock - Entry")
 
-    if err := db.GetDB().Find(&stocks).Error; err != nil {
-        return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not retrieve stock items"})
-    }
+	var stocks []models.Stock
+	if err := db.GetDB().Find(&stocks).Error; err != nil {
+		log.Printf("AdminViewAllStock - Retrieve error: %v", err)
+		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not retrieve stock items"})
+	}
 
-    return c.JSON(http.StatusOK, echo.Map{"stocks": stocks})
+	log.Println("AdminViewAllStock - Stock items retrieved successfully")
+	log.Println("AdminViewAllStock - Exit")
+	return c.JSON(http.StatusOK, echo.Map{"stocks": stocks})
 }
 
+// AdminViewStockByID retrieves a stock item by its ID
 func ViewStockByID(c echo.Context) error {
-    id := c.Param("id")
-    var stock models.Stock
+	log.Println("AdminViewStockByID - Entry")
 
-    if err := db.GetDB().First(&stock, id).Error; err != nil {
-        return c.JSON(http.StatusNotFound, echo.Map{"error": "Stock item not found"})
-    }
+	id := c.Param("id")
+	var stock models.Stock
+	if err := db.GetDB().First(&stock, id).Error; err != nil {
+		log.Printf("AdminViewStockByID - Stock item not found: %v", err)
+		return c.JSON(http.StatusNotFound, echo.Map{"error": "Stock item not found"})
+	}
 
-    return c.JSON(http.StatusOK, echo.Map{"stock": stock})
+	log.Println("AdminViewStockByID - Stock item retrieved successfully")
+	log.Println("AdminViewStockByID - Exit")
+	return c.JSON(http.StatusOK, echo.Map{"stock": stock})
 }
