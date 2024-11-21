@@ -106,10 +106,10 @@ func SetupRoutes(e *echo.Echo) {
 	adminGroup.GET("/user/:id", controllers.GetUserByID)
 	adminGroup.PUT("/user/:id", controllers.EditUser)
 	adminGroup.PATCH("/user/:id", controllers.SoftDeleteUser)
-	adminGroup.GET("/user", controllers.AdminViewAllUsers)
+	adminGroup.GET("/users", controllers.AdminViewAllUsers)
 	adminGroup.GET("/users/active", controllers.GetActiveUsers)
-	adminGroup.PUT("/user/reactivate", controllers.ReactivateUser)
-	adminGroup.PUT("/user/deactivate", controllers.DeactivateUser)
+	adminGroup.PUT("/user/:id/reactivate", controllers.ReactivateUser)
+	adminGroup.PUT("/user/:id/deactivate", controllers.DeactivateUser)
 	adminGroup.GET("/users/inactive", controllers.GetInactiveUsers)
 	
 

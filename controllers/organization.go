@@ -595,20 +595,52 @@ func ReactivateUser(c echo.Context) error {
 }
 
 func DeactivateUser(c echo.Context) error {
-	userID := c.Param("id")
-	var user models.User
+	userID, ok := c.Get("userID").(int)
+	if !ok {
+		log.Println("Failed to get userID from context")
+		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
+	}
 
-	if err := db.GetDB().First(&user, userID).Error; err != nil {
-		return c.JSON(http.StatusNotFound, map[string]string{"message": "User not found"})
+	// Retrieve roleName from the context
+	roleName, ok := c.Get("roleName").(string)
+	if !ok {
+		log.Println("Failed to get roleName from context")
+		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
+	}
+
+	log.Printf("Received UserID: %d, RoleName: %s", userID, roleName)
+
+	if roleName != "Admin" && roleName != "SuperAdmin" {
+		log.Println("Permission denied: unauthorized role trying to deactivate a user")
+		return c.JSON(http.StatusForbidden, echo.Map{"error": "Permission denied"})
+	}
+
+	// Retrieve the user ID to be deactivated from query parameters
+	deactivateUserID := c.QueryParam("user_id")
+	if deactivateUserID == "" {
+		log.Println("User ID is required")
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "User ID is required"})
+	}
+
+	var user models.User
+	if err := db.GetDB().First(&user, deactivateUserID).Error; err != nil {
+		log.Printf("User not found: %v", err)
+		return c.JSON(http.StatusNotFound, echo.Map{"error": "User not found"})
 	}
 
 	user.IsActive = false
 	if err := db.GetDB().Save(&user).Error; err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Error saving user"})
+		log.Printf("Error deactivating user: %v", err)
+		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
 	}
 
-	return c.JSON(http.StatusOK, user)
+	log.Println("User deactivated successfully")
+	return c.JSON(http.StatusOK, echo.Map{
+		"message": "User deactivated successfully",
+		"user":    user,
+	})
 }
+
 
 func GetActiveUsers(c echo.Context) error {
 	var users []models.User
