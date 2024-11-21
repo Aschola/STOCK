@@ -10,6 +10,25 @@ type Category struct {
 	ProductDescription string `json:"product_description"`
 }
 
+type Categories_only struct {
+	CategoryID   int    `json:"category_id" gorm:"primaryKey;autoIncrement"`
+	CategoryName string `json:"category_name"`
+}
+
+// TableName specifies the table name in the database
+func (Categories_only) TableName() string {
+	return "new_categories"
+}
+
+type CategoriesOnly struct {
+	CategoryID   int    `json:"category_id" gorm:"column:category_id"`
+	CategoryName string `json:"category_name" gorm:"column:category_name"`
+}
+
+func (CategoriesOnly) TableName() string {
+	return "new_categories"
+}
+
 type Product struct {
 	ProductID          int        `json:"product_id"`
 	CategoryName       string     `json:"category_name"`
@@ -137,7 +156,7 @@ type SalebySTKPUSH struct {
 }
 
 type Suppliers struct {
-	ID            int       `gorm:"primaryKey" json:"_id"`
-	Name          string     `json:"name"`
-	Phonenumber    int64          `json:"phonenumber"`
+	ID          int    `gorm:"primaryKey" json:"_id"`
+	Name        string `json:"name"`
+	Phonenumber int64  `json:"phonenumber"`
 }
