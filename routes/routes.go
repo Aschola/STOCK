@@ -9,13 +9,15 @@ import (
 )
 
 // RegisterRoutes initializes all the routes for the Echo server
-func RegisterRoutes(e *echo.Echo) {
-
-	e.GET("/categories", controllers.GetCategories)
-	e.GET("/categories/:category_id", controllers.GetCategoryByID)
+func RegisterRoutes(e *echo.Echo) { // Category routes
 	e.POST("/categories", controllers.CreateCategories)
-	e.PUT("/categories/:category_id", controllers.UpdateCategory)
-	e.DELETE("/categories/:id", controllers.DeleteCategoryByID)
+	e.GET("/categories", controllers.GetCategories)
+	e.PUT("/update_category_name/:category_id", controllers.UpdateCategoryName)
+	//e.DELETE("/categories/:category_id", controllers.DeleteCategoryByID)
+	e.DELETE("/new_categories/:category_id", controllers.DeleteCategoryByID)
+	e.GET("/categories/:category_id", controllers.GetCategoryByID)
+	e.GET("/categoriesOnly", controllers.GetCategoriesOnly)
+	e.POST("/add_category_name", controllers.AddingCategoriesOnly)
 
 	// Define CRUD endpoints for products without middleware
 	productGroup := e.Group("/products")
@@ -72,8 +74,6 @@ func SetupRoutes(e *echo.Echo) {
 	e.POST("/forgot-password", controllers.ForgotPassword)
 	e.POST("/reset-password", controllers.ResetPassword)
 
-
-
 	// Super Admin routes
 	superadmin := e.Group("/superadmin")
 	superadmin.POST("/signup", controllers.AdminSignup)
@@ -86,12 +86,11 @@ func SetupRoutes(e *echo.Echo) {
 	superadmin.PATCH("/organization/:id", controllers.SoftDeleteOrganization)
 	superadmin.GET("/organization/:id", controllers.GetOrganizationByID)
 	superadmin.GET("/organizations", controllers.GetAllOrganizations)
-	superadmin.PUT("/organization/edit", controllers.EditOrganization )
+	superadmin.PUT("/organization/edit", controllers.EditOrganization)
 	superadmin.DELETE("/organization/:id", controllers.DeleteOrganization)
 	superadmin.PUT("/organization/:id/activate", controllers.ActivateOrganization)
 	superadmin.GET("/organizations/active", controllers.GetActiveOrganizations)
 	superadmin.GET("/organizations/inactive", controllers.GetInactiveOrganizations)
-
 
 	// Admin routes
 	adminGroup := e.Group("/admin")
@@ -111,8 +110,6 @@ func SetupRoutes(e *echo.Echo) {
 	adminGroup.PUT("/user/:id/reactivate", controllers.ReactivateUser)
 	adminGroup.PUT("/user/:id/deactivate", controllers.DeactivateUser)
 	adminGroup.GET("/users/inactive", controllers.GetInactiveUsers)
-	
-
 
 	//adminGroup.DELETE("/organization:id", controllers.AdminDeleteOrganization)
 
