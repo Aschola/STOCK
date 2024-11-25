@@ -117,10 +117,10 @@ func GenerateResetToken() string {
     return hex.EncodeToString(bytes)
 }
 func SendPasswordResetEmail(to string, resetLink string) {
-    from := "akinyischolastica764@gmail.com"
-    password := "Newvera@764"
+    from := "smsafrica@infinitytechafrica.com"
+    password := "Ngatia@01"
 
-    smtpHost := "smtp.example.com"
+    smtpHost := "smtp.gmail.com"
     smtpPort := "587"
 
     message := []byte(fmt.Sprintf("To: %s\r\nSubject: Password Reset\r\n\r\nClick the following link to reset your password: %s", to, resetLink))
