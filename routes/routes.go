@@ -78,7 +78,7 @@ func SetupRoutes(e *echo.Echo) {
 	superadmin := e.Group("/superadmin")
 	superadmin.POST("/signup", controllers.AdminSignup)
 	superadmin.Use(middlewares.AuthMiddleware(models.SuperAdminRoleName))
-	//superadmin.POST("/addadmin", controllers.AddAdmin)
+	superadmin.POST("/addadmin", controllers.AddAdmin)
 	//superadmin.POST("/addorganization", controllers.SuperAdminAddOrganization)
 	//superadmin.POST("/addorganizationadmin", controllers.SuperAdminAddOrganizationAdmin)
 	superadmin.PUT("/organization/:id/deactivate", controllers.SoftDeleteOrganization)
@@ -125,3 +125,4 @@ func SetupRoutes(e *echo.Echo) {
 	adminGroup.PUT("/organization/:id/deactivate", controllers.OrgAdminDeactivateOrganization)
 	orgAdminGroup.PATCH("/users/:id/activate-deactivate", controllers.OrganizationAdminActivateDeactivateUser)
 }
+

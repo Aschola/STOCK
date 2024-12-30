@@ -2,6 +2,9 @@ package models
 
 import (
 	"time"
+	"encoding/json"
+
+	
 )
 
 // Product represents the product model.
@@ -21,4 +24,27 @@ type Stock struct {
 
 func (Stock) TableName() string {
 	return "stock" // Explicitly set the table name to "stock"
+}
+func (s *Stock) UnmarshalJSON(data []byte) error {
+    type Alias Stock
+    aux := &struct {
+        ExpiryDate string `json:"expiry_date"`
+        *Alias
+    }{
+        Alias: (*Alias)(s),
+    }
+    
+    if err := json.Unmarshal(data, &aux); err != nil {
+        return err
+    }
+    
+    if aux.ExpiryDate != "" {
+        t, err := time.Parse("2006-01-02", aux.ExpiryDate)
+        if err != nil {
+            return err
+        }
+        s.ExpiryDate = &t
+    }
+    
+    return nil
 }

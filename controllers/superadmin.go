@@ -250,60 +250,60 @@ func GetInactiveOrganizations(c echo.Context) error {
 	return c.JSON(http.StatusOK, orgs)
 }
 
-// func AddAdmin(c echo.Context) error {
-// 	log.Println("AddAdmin called")
+func AddAdmin(c echo.Context) error {
+	log.Println("AddAdmin called")
 
-// 	roleName, ok := c.Get("roleName").(string)
-// 	if !ok {
-// 		log.Println("Failed to get roleName from context")
-// 		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
-// 	}
+	roleName, ok := c.Get("roleName").(string)
+	if !ok {
+		log.Println("Failed to get roleName from context")
+		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
+	}
 
-// 	userID, ok := c.Get("userID").(uint)
-// 	if !ok {
-// 		log.Println("Failed to get userID from context")
-// 		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
-// 	}
+	userID, ok := c.Get("userID").(uint)
+	if !ok {
+		log.Println("Failed to get userID from context")
+		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
+	}
 
-// 	log.Printf("Received RoleName: %s, UserID: %d", roleName, userID)
+	log.Printf("Received RoleName: %s, UserID: %d", roleName, userID)
 
-// 	if roleName != "Superadmin" {
-// 		log.Println("Permission denied: only superadmin can add admin")
-// 		return c.JSON(http.StatusForbidden, echo.Map{"error": "Permission denied"})
-// 	}
+	if roleName != "Superadmin" {
+		log.Println("Permission denied: only superadmin can add admin")
+		return c.JSON(http.StatusForbidden, echo.Map{"error": "Permission denied"})
+	}
 
-// 	var newAdmin models.User
-// 	if err := c.Bind(&newAdmin); err != nil {
-// 		log.Printf("Bind error: %v", err)
-// 		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
-// 	}
+	var newAdmin models.User
+	if err := c.Bind(&newAdmin); err != nil {
+		log.Printf("Bind error: %v", err)
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
+	}
 
-// 	log.Printf("New admin data: %+v", newAdmin)
+	log.Printf("New admin data: %+v", newAdmin)
 
-// 	//validations
-// 	signupInput := validators.SignupInput{
-// 		Username: newAdmin.Username,
-// 		Password: newAdmin.Password,
-// 	}
-// 	if err := validators.ValidateSignupInput(signupInput); err != nil {
-// 		log.Printf("Validation error: %v", err)
-// 		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
-// 	}
-// 	newAdmin.CreatedBy = uint(userID)
+	//validations
+	signupInput := validators.SignupInput{
+		Username: newAdmin.Username,
+		Password: newAdmin.Password,
+	}
+	if err := validators.ValidateSignupInput(signupInput); err != nil {
+		log.Printf("Validation error: %v", err)
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
+	}
+	newAdmin.CreatedBy = uint(userID)
 
-// 	newAdmin.RoleName = "Admin"
+	newAdmin.RoleName = "Admin"
 
-// 	log.Printf("Saving new admin to database")
+	log.Printf("Saving new admin to database")
 
-// 	// Save the new admin in the database
-// 	if err := db.GetDB().Create(&newAdmin).Error; err != nil {
-// 		log.Printf("Create error: %v", err)
-// 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
-// 	}
+	// Save the new admin in the database
+	if err := db.GetDB().Create(&newAdmin).Error; err != nil {
+		log.Printf("Create error: %v", err)
+		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
+	}
 
-// 	log.Println("Admin added successfully")
-// 	return c.JSON(http.StatusOK, echo.Map{"message": "Admin added successfully", "admin": newAdmin})
-// }
+	log.Println("Admin added successfully")
+	return c.JSON(http.StatusOK, echo.Map{"message": "Admin added successfully", "admin": newAdmin})
+}
 
 // func SuperAdminAddOrganization(c echo.Context) error {
 // 	userID, ok := c.Get("userID").(uint)

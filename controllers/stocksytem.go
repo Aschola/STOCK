@@ -6,7 +6,9 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"stock/db"
+	//"gorm.io/gorm"
 	"stock/models"
+	
 )
 
 // AdminCreateStock handles the creation of a stock item
@@ -109,18 +111,79 @@ func DeleteStock(c echo.Context) error {
 
 // AdminViewAllStock retrieves all stock items
 func ViewAllStock(c echo.Context) error {
-	log.Println("AdminViewAllStock - Entry")
+	// Retrieve the GORM database instance
+	gormDB := db.GetDB()
 
-	var stocks []models.Stock
-	if err := db.GetDB().Find(&stocks).Error; err != nil {
-		log.Printf("AdminViewAllStock - Retrieve error: %v", err)
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not retrieve stock items"})
+	// Raw SQL query to join stock and products
+	query := `
+		SELECT s.id, s.product_id, p.product_name AS product_name, s.quantity, s.buying_price, s.selling_price, s.expiry_date, 
+		       s.product_description
+		FROM stock s
+		INNER JOIN products p ON s.product_id = p.product_id
+	`
+
+	// Use raw SQL query with GORM
+	rows, err := gormDB.Raw(query).Rows()
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to fetch stock"})
+	}
+	defer rows.Close()
+
+	var stocks []map[string]interface{}
+
+	for rows.Next() {
+		var (
+			id                uint64
+			productID         uint64
+			productName       string
+			quantity          int
+			buyingPrice       float64
+			sellingPrice      float64
+			expiryDate        *string
+			productDescription string
+		)
+
+		// Scan the row into variables
+		err = rows.Scan(&id, &productID, &productName, &quantity, &buyingPrice, &sellingPrice, &expiryDate, &productDescription)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Error reading stock data"})
+		}
+
+		// Create a map for the stock
+		stock := map[string]interface{}{
+			"id":                  id,
+			"product_id":          productID,
+			"product_name":        productName,
+			"quantity":            quantity,
+			"buying_price":        buyingPrice,
+			"selling_price":       sellingPrice,
+			"expiry_date":         expiryDate,
+			"product_description": productDescription,
+		}
+
+		// Append to the list of stocks
+		stocks = append(stocks, stock)
 	}
 
-	log.Println("AdminViewAllStock - Stock items retrieved successfully")
-	log.Println("AdminViewAllStock - Exit")
-	return c.JSON(http.StatusOK, echo.Map{"stocks": stocks})
+	// Return the list of stocks as JSON
+	return c.JSON(http.StatusOK, stocks)
 }
+
+
+// func ViewAllStock(c echo.Context) error {
+// 	log.Println("AdminViewAllStock - Entry")
+
+// 	var stocks []models.Stock
+// 	if err := db.GetDB().Find(&stocks).Error; err != nil {
+// 		log.Printf("AdminViewAllStock - Retrieve error: %v", err)
+// 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not retrieve stock items"})
+// 	}
+
+
+// 	log.Println("AdminViewAllStock - Stock items retrieved successfully")
+// 	log.Println("AdminViewAllStock - Exit")
+// 	return c.JSON(http.StatusOK, echo.Map{"stocks": stocks})
+// }
 
 // AdminViewStockByID retrieves a stock item by its ID
 func ViewStockByID(c echo.Context) error {
