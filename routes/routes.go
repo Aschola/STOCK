@@ -9,53 +9,38 @@ import (
 )
 
 // RegisterRoutes initializes all the routes for the Echo server
-func RegisterRoutes(e *echo.Echo) { // Category routes
-	e.POST("/categories", controllers.CreateCategories)
-	e.GET("/categories", controllers.GetCategories)
-	e.PUT("/update_category_name/:category_id", controllers.UpdateCategoryName)
-	//e.DELETE("/categories/:category_id", controllers.DeleteCategoryByID)
-	e.DELETE("/new_categories/:category_id", controllers.DeleteCategoryByID)
-	e.GET("/categories/:category_id", controllers.GetCategoryByID)
-	e.GET("/categoriesOnly", controllers.GetCategoriesOnly)
-	e.POST("/add_category_name", controllers.AddingCategoriesOnly)
-
-	// Define CRUD endpoints for products without middleware
+func RegisterRoutes(e *echo.Echo) {
 	productGroup := e.Group("/products")
-	productGroup.GET("", controllers.GetProducts)
-	productGroup.GET("/:product_id", controllers.GetProductByID)
-	productGroup.POST("", controllers.AddProduct)
-	productGroup.PUT("/:product_id", controllers.UpdateProduct)
-	productGroup.DELETE("/:product_id", controllers.MakeProductsInactive)
+	productGroup.GET("", controllers.GetProducts)                  // Fetch all products
+	productGroup.GET("/:product_id", controllers.GetProductByID)   // Fetch a single product by ID
+	productGroup.POST("", controllers.AddProduct)                  // Add a new product
+	productGroup.PUT("/:product_id", controllers.UpdateProduct)    // Update product details
+	productGroup.DELETE("/:product_id", controllers.DeleteProduct) // Delete a product
 
-	e.PUT("/products/inactive-products/:product_id", controllers.RestoreProductFromInactiveTablee)
-	e.DELETE("/products/inactive-products/:product_id", controllers.DeleteProductFromInactiveTablee)
-	e.GET("/products/inactive-products", controllers.GetAllInactiveProductss)
+	// Define CRUD endpoints for categories without admin middleware
+	categoryGroup := e.Group("/categories")
+	categoryGroup.GET("", controllers.GetCategories)
+	categoryGroup.GET("/:category_id", controllers.GetCategoryByID)
+	categoryGroup.POST("", controllers.CreateCategories)
+	categoryGroup.PUT("/:category_id", controllers.UpdateCategory)
+	categoryGroup.DELETE("/:id", controllers.DeleteCategoryByID)
+	categoryGroup.GET("/only", controllers.GetCategoriesOnly)
+
+	//e.POST("/categories_only", controllers.Categories_Only)
+	//e.PUT("/categories_only/:category_id", controllers.EditCategories_Only)
 
 	// Define CRUD endpoints for sales
-	e.GET("/sales", controllers.GetSales)
-	e.GET("/sales/:sale_id", controllers.GetSaleByID)
-	e.POST("/sales", controllers.AddSale)
-	e.DELETE("/sales/:sale_id", controllers.DeleteSale)
+	// Define the new route in main.go or wherever you define your routes.
+	e.POST("/sell", controllers.SellProduct)
+	e.GET("/cash/sales", controllers.GetAllSales)
+	e.GET("/cash/salesbyuser_id/:user_id", controllers.GetSalesByUser)
+	e.GET("/salebycategory/:category_name", controllers.FetchSalesByCategory)
+	// Register the route to get sales by date
+	e.GET("/sales/date/:date", controllers.GetSalesByDate)
 
+	e.GET("/salebycategory/:user_id", controllers.FetchSalesByUserID)
 	// Endpoint for selling products
-	//e.POST("/products/:product_id/sell/:quantity_sold", controllers.SellProduct)
-	e.POST("/cashsalesbycategory", controllers.GetSalesByCategory)
-	e.POST("/sales/date", controllers.GetSalesByDate)
-	e.POST("/sell-product", controllers.SellProduct)
-	e.POST("/sales/user", controllers.GetSalesByUserID)
-
-	// Define the endpoint for fetching STKPUSH sales by date
-	e.POST("/api/stkpush/sales", controllers.GetSTKPUSHSalesByDate)
-	e.POST("/api/sales/stkpusher", controllers.GetSalesBySTKPUSH)
-
-	//Cash sales routes
-	e.POST("/cash/sell", controllers.SellProductByCash)   // Sell a product by cash
-	e.GET("/cash/sales", controllers.GetCashSales)        // Get all cash sales
-	e.GET("/cash/sales/:id", controllers.GetCashSaleByID) // Get a cash sale by ID
-	e.POST("/cash/sales", controllers.AddSaleByCash)      // Add a new cash sale
-	e.DELETE("/cash/sales/:id", controllers.DeleteSaleByCash)
-	e.POST("/send-sms", controllers.SendSmsHandler) // Route for sending SMS
-
+	e.POST("/products/:product_id/sell/:quantity_sold", controllers.SellProduct)
 }
 
 func SetupRoutes(e *echo.Echo) {
@@ -125,4 +110,3 @@ func SetupRoutes(e *echo.Echo) {
 	adminGroup.PUT("/organization/:id/deactivate", controllers.OrgAdminDeactivateOrganization)
 	orgAdminGroup.PATCH("/users/:id/activate-deactivate", controllers.OrganizationAdminActivateDeactivateUser)
 }
-

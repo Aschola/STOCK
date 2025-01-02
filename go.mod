@@ -1,6 +1,6 @@
 module stock
 
-go 1.22.2
+go 1.19
 
 require (
 	github.com/go-playground/validator/v10 v10.22.0

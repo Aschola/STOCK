@@ -4,11 +4,12 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/labstack/echo/v4"
 	"stock/db"
+
+	"github.com/labstack/echo/v4"
+
 	//"gorm.io/gorm"
 	"stock/models"
-	
 )
 
 // AdminCreateStock handles the creation of a stock item
@@ -133,13 +134,13 @@ func ViewAllStock(c echo.Context) error {
 
 	for rows.Next() {
 		var (
-			id                uint64
-			productID         uint64
-			productName       string
-			quantity          int
-			buyingPrice       float64
-			sellingPrice      float64
-			expiryDate        *string
+			id                 uint64
+			productID          uint64
+			productName        string
+			quantity           int
+			buyingPrice        float64
+			sellingPrice       float64
+			expiryDate         *string
 			productDescription string
 		)
 
@@ -169,7 +170,6 @@ func ViewAllStock(c echo.Context) error {
 	return c.JSON(http.StatusOK, stocks)
 }
 
-
 // func ViewAllStock(c echo.Context) error {
 // 	log.Println("AdminViewAllStock - Entry")
 
@@ -178,7 +178,6 @@ func ViewAllStock(c echo.Context) error {
 // 		log.Printf("AdminViewAllStock - Retrieve error: %v", err)
 // 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not retrieve stock items"})
 // 	}
-
 
 // 	log.Println("AdminViewAllStock - Stock items retrieved successfully")
 // 	log.Println("AdminViewAllStock - Exit")
