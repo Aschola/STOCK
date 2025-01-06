@@ -32,9 +32,9 @@ func RegisterRoutes(e *echo.Echo) {
 	// Define CRUD endpoints for sales
 	// Define the new route in main.go or wherever you define your routes.
 	e.POST("/sell", controllers.SellProduct)
-	e.GET("/cash/sales", controllers.GetAllSales)
+	//e.GET("/cash/sales", controllers.GetAllSales)
 	e.GET("/cash/salesbyuser_id/:user_id", controllers.GetSalesByUser)
-	e.GET("/salebycategory/:category_name", controllers.FetchSalesByCategory)
+	//e.GET("/salebycategory/:category_name", controllers.FetchSalesByCategory)
 	// Register the route to get sales by date
 	e.GET("/sales/date/:date", controllers.GetSalesByDate)
 

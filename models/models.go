@@ -21,28 +21,12 @@ func (Categories_Only) TableName() string {
 
 type Product struct {
 	ProductID          int       `gorm:"primaryKey;autoIncrement" json:"product_id"`
-	Category           string    `json:"category"`
-	Name               string    `json:"name"`
+	CategoryName       string    `json:"category_name"` // Updated field name and JSON tag
+	ProductName        string    `json:"product_name"`  // Updated field name and JSON tag
 	ProductDescription string    `json:"product_description"`
 	ReorderLevel       int       `json:"reorder_level"`
 	CreatedAt          time.Time `json:"created_at"`
 	UpdatedAt          time.Time `json:"updated_at"`
-}
-
-type Stock_pas struct {
-	ID           int        `json:"id"`
-	ProductID    int        `json:"product_id"`
-	Quantity     int        `json:"quantity"`
-	BuyingPrice  float64    `json:"buying_price"`
-	SellingPrice float64    `json:"selling_price"`
-	CreatedAt    time.Time  `json:"created_at"`
-	UpdatedAt    time.Time  `json:"updated_at"`
-	DeletedAt    *time.Time `json:"deleted_at"`
-}
-
-// TableName explicitly defines the table name for the Stock model
-func (Stock) TableName() string {
-	return "stock" // Here we specify the correct table name
 }
 
 type SaleByCategory struct {

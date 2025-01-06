@@ -19,7 +19,7 @@ type Stock struct {
 	DeletedAt          *time.Time `gorm:"type:timestamp;column:deleted_at" json:"deleted_at,omitempty"`
 }
 
-func (Stock) TableNamee() string {
+func (Stock) TableName() string {
 	return "stock" // Explicitly set the table name to "stock"
 }
 func (s *Stock) UnmarshalJSON(data []byte) error {

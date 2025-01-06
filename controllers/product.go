@@ -65,6 +65,7 @@ func GetProductByID(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, prod)
 }
+
 func AddProduct(c echo.Context) error {
 	db := getDB()
 	if db == nil {
@@ -76,7 +77,18 @@ func AddProduct(c echo.Context) error {
 		return errorResponse(c, http.StatusBadRequest, "Error decoding JSON")
 	}
 
-	// Set CreatedAt and UpdatedAt if they are not automatically handled
+	// Step 1: Check if the category exists in the 'categories_onlies' table
+	var count int64
+	if err := db.Table("categories_onlies").Where("category_name = ?", product.CategoryName).Count(&count).Error; err != nil {
+		return errorResponse(c, http.StatusInternalServerError, "Error checking category existence")
+	}
+
+	// Step 2: If no category is found, return an error response
+	if count == 0 {
+		return errorResponse(c, http.StatusBadRequest, "Category does not exist")
+	}
+
+	// Step 3: Set CreatedAt and UpdatedAt if they are not automatically handled
 	if product.CreatedAt.IsZero() {
 		product.CreatedAt = time.Now()
 	}
@@ -84,12 +96,12 @@ func AddProduct(c echo.Context) error {
 		product.UpdatedAt = time.Now()
 	}
 
-	// Insert the product and retrieve the auto-generated product_id
+	// Step 4: Insert the product into the database
 	if err := db.Table("products").Create(&product).Error; err != nil {
 		return errorResponse(c, http.StatusInternalServerError, "Error inserting product")
 	}
 
-	// The product struct now includes the auto-generated product_id
+	// Step 5: Return the created product (including the auto-generated product_id)
 	return c.JSON(http.StatusCreated, product)
 }
 
