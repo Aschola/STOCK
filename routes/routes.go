@@ -26,8 +26,10 @@ func RegisterRoutes(e *echo.Echo) {
 	categoryGroup.DELETE("/:id", controllers.DeleteCategoryByID)
 	categoryGroup.GET("/only", controllers.GetCategoriesOnly)
 
+	e.POST("/categories_only", controllers.CreateCategoryInCategoriesOnly)
+	e.GET("/categories_only/:id", controllers.GetCategoryNameByID)
 	//e.POST("/categories_only", controllers.Categories_Only)
-	//e.PUT("/categories_only/:category_id", controllers.EditCategories_Only)
+	e.PUT("/categories_only/:id", controllers.EditCategoryNames)
 
 	// Define CRUD endpoints for sales
 	// Define the new route in main.go or wherever you define your routes.

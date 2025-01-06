@@ -165,3 +165,133 @@ func GetCategoriesOnly(c echo.Context) error {
 	// Return the fetched categories as JSON
 	return c.JSON(http.StatusOK, categoriesOnlies)
 }
+
+// CreateCategoryInCategoriesOnly adds a new category to the categories_onlies table
+func CreateCategoryInCategoriesOnly(c echo.Context) error {
+	// Retrieve the database connection
+	db := db.GetDB()
+
+	// Struct to hold the category data
+	var category models.Categories_Only
+
+	// Bind the incoming JSON request data to the category struct
+	if err := c.Bind(&category); err != nil {
+		log.Printf("Error binding payload: %s", err.Error())
+		return echo.NewHTTPError(http.StatusBadRequest, "Error binding payload")
+	}
+
+	// Validate if the category name is provided
+	if category.CategoryName == "" {
+		log.Printf("Category name is required")
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Category name is required"})
+	}
+
+	// Check if the category name already exists in the categories_onlies table
+	var existingCategory models.Categories_Only
+	if err := db.Where("category_name = ?", category.CategoryName).First(&existingCategory).Error; err == nil {
+		// Category already exists, return a message
+		log.Printf("Category with name '%s' already exists", category.CategoryName)
+		return c.JSON(http.StatusConflict, map[string]string{
+			"error": "Category name already exists. Please choose a different name.",
+		})
+	}
+
+	// Insert the new category into the categories_onlies table
+	if err := db.Create(&category).Error; err != nil {
+		log.Printf("Error inserting category into categories_onlies table: %s", err.Error())
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"error": "Error inserting category into categories_onlies table",
+		})
+	}
+
+	// Log success and return the newly created category as JSON
+	log.Printf("Category created successfully. category_id: %d, category_name: %s", category.CategoryID, category.CategoryName)
+	return c.JSON(http.StatusCreated, category)
+}
+
+// GetCategoryByID retrieves a single category from categories_onlies based on the provided category_id
+func GetCategoryNameByID(c echo.Context) error {
+	// Get the category_id from the URL parameter
+	categoryID := c.Param("id")
+
+	// Log the received category ID
+	log.Printf("Received request to fetch category with ID: %s", categoryID)
+
+	// Retrieve the database connection
+	db := db.GetDB()
+
+	// Query for the category with the given category_id
+	var category models.Categories_Only
+	if err := db.First(&category, categoryID).Error; err != nil {
+		// If no category found, return a 404 error
+		if err.Error() == "record not found" {
+			log.Printf("Category with ID %s not found", categoryID)
+			return c.JSON(http.StatusNotFound, map[string]string{
+				"error": "Category not found",
+			})
+		}
+		// If there is any other error, return a 500 error
+		log.Printf("Error querying category: %s", err.Error())
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"error": "Internal Server Error",
+		})
+	}
+
+	// Log success and return the found category
+	log.Printf("Fetched category with ID %s: %+v", categoryID, category)
+	return c.JSON(http.StatusOK, category)
+}
+
+// EditCategoryNames updates the category name for a given category_id
+func EditCategoryNames(c echo.Context) error {
+	// Retrieve category_id from URL parameters
+	categoryID := c.Param("id")
+	log.Printf("Received request to update category with ID: %s", categoryID)
+
+	// Retrieve the database connection
+	db := db.GetDB()
+
+	// Define a variable to hold the category data from the request body
+	var category models.Categories_Only
+
+	// Bind the request body to the category struct
+	if err := c.Bind(&category); err != nil {
+		log.Printf("Error binding payload: %s", err.Error())
+		return echo.NewHTTPError(http.StatusBadRequest, "Error binding payload")
+	}
+
+	// Check if the category exists in the database
+	var existingCategory models.Categories_Only
+	if err := db.First(&existingCategory, categoryID).Error; err != nil {
+		// If the category is not found, return an error
+		if err.Error() == "record not found" {
+			log.Printf("Category with ID %s not found", categoryID)
+			return c.JSON(http.StatusNotFound, map[string]string{
+				"error": "Category not found",
+			})
+		}
+		// If there is another error, return a 500 error
+		log.Printf("Error querying category: %s", err.Error())
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"error": "Internal Server Error",
+		})
+	}
+
+	// Category exists, now update the category_name field if provided
+	if category.CategoryName != "" {
+		// Update the category name in the database
+		if err := db.Model(&existingCategory).Where("category_id = ?", categoryID).Update("category_name", category.CategoryName).Error; err != nil {
+			log.Printf("Error updating category: %s", err.Error())
+			return c.JSON(http.StatusInternalServerError, map[string]string{
+				"error": "Error updating category",
+			})
+		}
+	}
+
+	// Log success and return the updated category
+	log.Printf("Category with ID %s updated successfully", categoryID)
+	return c.JSON(http.StatusOK, map[string]string{
+		"message":       "Category updated successfully",
+		"category_name": category.CategoryName,
+	})
+}
