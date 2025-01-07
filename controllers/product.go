@@ -28,7 +28,7 @@ func errorResponse(c echo.Context, statusCode int, message string) error {
 	return echo.NewHTTPError(statusCode, message)
 }
 
-// GetProducts fetches all products
+// GetProducts fetches all products along with their stock details
 func GetProducts(c echo.Context) error {
 	db := getDB()
 	if db == nil {
@@ -36,30 +36,62 @@ func GetProducts(c echo.Context) error {
 		return errorResponse(c, http.StatusInternalServerError, "Failed to connect to the database")
 	}
 
-	var products []models.Product
-	if err := db.Table("products").Where("deleted_at IS NULL").Find(&products).Error; err != nil {
-		log.Printf("Failed to fetch products: %v", err)
+	// Declare a struct to hold the product and stock details together
+	type ProductWithStock struct {
+		models.Product
+		Quantity     int     `json:"quantity"`
+		BuyingPrice  float64 `json:"buying_price"`
+		SellingPrice float64 `json:"selling_price"`
+	}
+
+	var products []ProductWithStock
+	// Log the query details for debugging
+	log.Println("Fetching products along with stock details...")
+
+	// Perform the join between the products and stock tables based on product_id
+	if err := db.Table("products").
+		Select("products.*, stock.quantity, stock.buying_price, stock.selling_price").
+		Joins("LEFT JOIN stock ON products.product_id = stock.product_id").
+		Where("products.deleted_at IS NULL"). // Ensure no soft-deleted products are fetched
+		Find(&products).Error; err != nil {
+		log.Printf("Error fetching products: %v", err)
 		return errorResponse(c, http.StatusInternalServerError, "Failed to fetch products")
 	}
 
+	// Log the number of products retrieved
+	log.Printf("Retrieved %d products from the database", len(products))
+
+	// Log the products with their stock details for debugging
+	for _, product := range products {
+		log.Printf("Product ID: %d, Name: %s, Category: %s, Quantity: %d, Buying Price: %.2f, Selling Price: %.2f",
+			product.ProductID, product.ProductName, product.CategoryName, product.Quantity, product.BuyingPrice, product.SellingPrice)
+	}
+
+	// Return the products with stock details in the response
 	return c.JSON(http.StatusOK, products)
 }
 
-// GetProductByID fetches a product by its ID
+// GetProductByID fetches a product by its ID and includes stock details
 func GetProductByID(c echo.Context) error {
+	// Get product_id from the URL parameter
 	productID, err := strconv.Atoi(c.Param("product_id"))
 	if err != nil {
 		log.Printf("Invalid product ID: %s", c.Param("product_id"))
 		return errorResponse(c, http.StatusBadRequest, "Invalid product ID")
 	}
 
+	// Get database connection
 	db := getDB()
 	if db == nil {
 		log.Println("Failed to get database instance while fetching product by ID")
 		return errorResponse(c, http.StatusInternalServerError, "Failed to connect to the database")
 	}
 
+	// Declare variables for product and stock details
 	var prod models.Product
+	var stock models.Stock
+
+	// Fetch the product details from the 'products' table
 	if err := db.Table("products").Where("product_id = ? AND deleted_at IS NULL", productID).First(&prod).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			log.Printf("Product not found with ID: %d", productID)
@@ -69,7 +101,44 @@ func GetProductByID(c echo.Context) error {
 		return errorResponse(c, http.StatusInternalServerError, "Failed to fetch product")
 	}
 
-	return c.JSON(http.StatusOK, prod)
+	// Fetch the stock details from the 'stock' table
+	if err := db.Table("stock").Where("product_id = ?", productID).First(&stock).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			log.Printf("Stock details not found for Product ID: %d", productID)
+			return errorResponse(c, http.StatusNotFound, "Stock details not found")
+		}
+		log.Printf("Failed to fetch stock details for product ID: %v", err)
+		return errorResponse(c, http.StatusInternalServerError, "Failed to fetch stock details")
+	}
+
+	// Combine the product and stock details into the desired response struct
+	productWithStockDetails := struct {
+		ProductID          int     `json:"product_id"`
+		CategoryName       string  `json:"category_name"`
+		ProductName        string  `json:"product_name"`
+		ProductDescription string  `json:"product_description"`
+		ReorderLevel       int     `json:"reorder_level"`
+		CreatedAt          string  `json:"created_at"`
+		UpdatedAt          string  `json:"updated_at"`
+		Quantity           int     `json:"quantity"`
+		BuyingPrice        float64 `json:"buying_price"`
+		SellingPrice       float64 `json:"selling_price"`
+	}{
+		ProductID:          prod.ProductID,
+		CategoryName:       prod.CategoryName,
+		ProductName:        prod.ProductName,
+		ProductDescription: prod.ProductDescription,
+		ReorderLevel:       prod.ReorderLevel,
+		CreatedAt:          prod.CreatedAt.Format(time.RFC3339), // Format as RFC3339
+		UpdatedAt:          prod.UpdatedAt.Format(time.RFC3339), // Format as RFC3339
+		Quantity:           stock.Quantity,
+		BuyingPrice:        stock.BuyingPrice,
+		SellingPrice:       stock.SellingPrice,
+	}
+
+	// Return the combined product and stock details as JSON
+	log.Printf("Fetched product and stock details successfully for Product ID: %d", productID)
+	return c.JSON(http.StatusOK, productWithStockDetails)
 }
 
 // AddProduct adds a new product to the database
