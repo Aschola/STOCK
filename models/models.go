@@ -20,13 +20,14 @@ func (Categories_Only) TableName() string {
 }
 
 type Product struct {
-	ProductID          int       `gorm:"primaryKey;autoIncrement" json:"product_id"`
-	CategoryName       string    `json:"category_name"` // Updated field name and JSON tag
-	ProductName        string    `json:"product_name"`  // Updated field name and JSON tag
-	ProductDescription string    `json:"product_description"`
-	ReorderLevel       int       `json:"reorder_level"`
-	CreatedAt          time.Time `json:"created_at"`
-	UpdatedAt          time.Time `json:"updated_at"`
+	ProductID          int        `gorm:"primaryKey;autoIncrement" json:"product_id"`
+	CategoryName       string     `json:"category_name"`                     // Name of the category
+	ProductName        string     `json:"product_name"`                      // Name of the product
+	ProductDescription string     `json:"product_description"`               // Description of the product
+	ReorderLevel       int        `json:"reorder_level"`                     // Reorder level for inventory
+	CreatedAt          time.Time  `gorm:"autoCreateTime" json:"created_at"`  // Timestamp when created
+	UpdatedAt          time.Time  `gorm:"autoUpdateTime" json:"updated_at"`  // Timestamp when last updated
+	DeletedAt          *time.Time `gorm:"index" json:"deleted_at,omitempty"` // Soft delete timestamp, nullable
 }
 
 type SaleByCategory struct {

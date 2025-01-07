@@ -17,6 +17,11 @@ func RegisterRoutes(e *echo.Echo) {
 	productGroup.PUT("/:product_id", controllers.UpdateProduct)    // Update product details
 	productGroup.DELETE("/:product_id", controllers.DeleteProduct) // Delete a product
 
+	e.PATCH("/products/softdelete/:product_id", controllers.SoftDeleteProduct)
+	e.GET("/products/softdeleted", controllers.GetSoftDeletedProducts)
+	e.PATCH("/products/activate/:product_id", controllers.ActivateProduct)
+
+
 	// Define CRUD endpoints for categories without admin middleware
 	categoryGroup := e.Group("/categories")
 	categoryGroup.GET("", controllers.GetCategories)
@@ -30,6 +35,7 @@ func RegisterRoutes(e *echo.Echo) {
 	e.GET("/categories_only/:id", controllers.GetCategoryNameByID)
 	//e.POST("/categories_only", controllers.Categories_Only)
 	e.PUT("/categories_only/:id", controllers.EditCategoryNames)
+	e.DELETE("/categories_onlies/:id", controllers.DeleteCategoryFromCategoriesOnly)
 
 	// Define CRUD endpoints for sales
 	// Define the new route in main.go or wherever you define your routes.

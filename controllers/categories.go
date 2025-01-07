@@ -295,3 +295,32 @@ func EditCategoryNames(c echo.Context) error {
 		"category_name": category.CategoryName,
 	})
 }
+
+// DeleteCategoryFromCategoriesOnly deletes a category from the categories_onlies table by ID
+func DeleteCategoryFromCategoriesOnly(c echo.Context) error {
+	// Retrieve category_id from URL parameters
+	categoryID := c.Param("id")
+	log.Printf("Received request to delete category from categories_onlies with ID: %s", categoryID)
+
+	// Get the database connection
+	db := db.GetDB()
+
+	// Delete the category from categories_onlies table
+	result := db.Delete(&models.Categories_Only{}, categoryID)
+
+	// Handle possible errors
+	if result.Error != nil {
+		log.Printf("Error deleting category from categories_onlies: %s", result.Error.Error())
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Internal Server Error"})
+	}
+
+	// If no rows were affected, return a not found error
+	if result.RowsAffected == 0 {
+		log.Printf("Category with ID %s not found in categories_onlies", categoryID)
+		return c.JSON(http.StatusNotFound, map[string]string{"error": "Category not found"})
+	}
+
+	// Log success and return a success message
+	log.Printf("Successfully deleted category from categories_onlies with ID %s", categoryID)
+	return c.JSON(http.StatusOK, map[string]string{"message": "Category deleted successfully from categories_onlies"})
+}
