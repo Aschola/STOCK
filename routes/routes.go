@@ -110,6 +110,14 @@ func SetupRoutes(e *echo.Echo) {
 	adminGroup.PUT("/user/:id/reactivate", controllers.ReactivateUser)
 	adminGroup.PUT("/user/:id/deactivate", controllers.DeactivateUser)
 	adminGroup.GET("/users/inactive", controllers.GetInactiveUsers)
+	adminGroup.POST("/addsupplier", controllers.AddSupplier)
+	adminGroup.PUT("/editsupplier/:id", controllers.EditSupplier)
+	adminGroup.DELETE("/deletesupplier", controllers.DeleteSupplier)
+	adminGroup.GET("/viewallsuppliers", controllers.GetAllSuppliers)
+	adminGroup.GET("/viewsupplier/:id", controllers.GetSupplier)
+
+
+
 
 	//adminGroup.DELETE("/organization:id", controllers.AdminDeleteOrganization)
 

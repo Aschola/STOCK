@@ -1,0 +1,6 @@
+CREATE TABLE suppliers (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(255) DEFAULT NULL,
+    phonenumber BIGINT DEFAULT NULL
+);
+

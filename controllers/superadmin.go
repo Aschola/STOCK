@@ -450,6 +450,13 @@ func Login(c echo.Context) error {
 		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Invalid username or password"})
 	}
 
+	// var organization models.Organization
+	// if !user.Organization.IsActive {
+    //     return c.JSON(http.StatusForbidden, echo.Map{
+    //         "error": "Organization is inactive. Please contact administrator.",
+    //     })
+    // }
+
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"userID":   user.ID,
 		"roleName": user.RoleName,

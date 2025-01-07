@@ -3,6 +3,7 @@ package controllers
 import (
 	"log"
 	"net/http"
+	"fmt"
 
 	"github.com/labstack/echo/v4"
 	"stock/db"
@@ -111,64 +112,67 @@ func DeleteStock(c echo.Context) error {
 
 // AdminViewAllStock retrieves all stock items
 func ViewAllStock(c echo.Context) error {
-	// Retrieve the GORM database instance
-	gormDB := db.GetDB()
+    gormDB := db.GetDB()
 
-	// Raw SQL query to join stock and products
-	query := `
-		SELECT s.id, s.product_id, p.product_name AS product_name, s.quantity, s.buying_price, s.selling_price, s.expiry_date, 
-		       s.product_description
-		FROM stock s
-		INNER JOIN products p ON s.product_id = p.product_id
-	`
+    // SQL Query with INNER JOIN to ensure only valid products are matched
+    query := `
+        SELECT 
+            s.id,
+            s.product_id,
+            p.product_name AS product_name,
+            s.quantity,
+            s.buying_price,
+            s.selling_price,
+            s.expiry_date,
+            p.product_description AS product_description  
+        FROM stock s
+        INNER JOIN products p ON s.product_id = p.product_id
+        WHERE p.product_id IS NOT NULL -- Ensures that we only get products that exist in the products table
+    `
 
-	// Use raw SQL query with GORM
-	rows, err := gormDB.Raw(query).Rows()
-	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to fetch stock"})
-	}
-	defer rows.Close()
+    // Execute the query
+    rows, err := gormDB.Raw(query).Rows()
+    if err != nil {
+        fmt.Printf("Query execution failed: %v\nQuery: %s\n", err, query)
+        return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to fetch stock"})
+    }
+    defer rows.Close()
 
-	var stocks []map[string]interface{}
+    var stocks []map[string]interface{}
+    for rows.Next() {
+        var (
+            id                uint64
+            productID         uint64
+            productName       string
+            quantity          int
+            buyingPrice       float64
+            sellingPrice      float64
+            expiryDate        *string
+            productDescription string
+        )
 
-	for rows.Next() {
-		var (
-			id                uint64
-			productID         uint64
-			productName       string
-			quantity          int
-			buyingPrice       float64
-			sellingPrice      float64
-			expiryDate        *string
-			productDescription string
-		)
+        err = rows.Scan(&id, &productID, &productName, &quantity, &buyingPrice, &sellingPrice, &expiryDate, &productDescription)
+        if err != nil {
+            fmt.Printf("Error scanning row: %v\n", err)
+            return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Error reading stock data"})
+        }
 
-		// Scan the row into variables
-		err = rows.Scan(&id, &productID, &productName, &quantity, &buyingPrice, &sellingPrice, &expiryDate, &productDescription)
-		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Error reading stock data"})
-		}
+        stock := map[string]interface{}{
+            "id":                 id,
+            "product_id":         productID,
+            "product_name":       productName,
+            "quantity":           quantity,
+            "buying_price":       buyingPrice,
+            "selling_price":      sellingPrice,
+            "expiry_date":        expiryDate,
+            "product_description": productDescription,
+        }
 
-		// Create a map for the stock
-		stock := map[string]interface{}{
-			"id":                  id,
-			"product_id":          productID,
-			"product_name":        productName,
-			"quantity":            quantity,
-			"buying_price":        buyingPrice,
-			"selling_price":       sellingPrice,
-			"expiry_date":         expiryDate,
-			"product_description": productDescription,
-		}
+        stocks = append(stocks, stock)
+    }
 
-		// Append to the list of stocks
-		stocks = append(stocks, stock)
-	}
-
-	// Return the list of stocks as JSON
-	return c.JSON(http.StatusOK, stocks)
+    return c.JSON(http.StatusOK, stocks)
 }
-
 
 // func ViewAllStock(c echo.Context) error {
 // 	log.Println("AdminViewAllStock - Entry")

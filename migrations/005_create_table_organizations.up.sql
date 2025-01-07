@@ -1,5 +1,5 @@
 CREATE TABLE organizations (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
     name VARCHAR(255) NOT NULL,
     description TEXT,
     address VARCHAR(255),
