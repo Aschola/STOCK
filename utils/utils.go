@@ -53,6 +53,7 @@ func GenerateJWT(userID uint, roleName string) (string, error) {
 	claims := &Claims{
 		UserID:   userID,
 		RoleName: roleName, 
+		//OrganizationID: organizationID,
 		StandardClaims: jwt.StandardClaims{
 			ExpiresAt: expirationTime.Unix(),
 		},

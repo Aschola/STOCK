@@ -115,6 +115,8 @@ func SetupRoutes(e *echo.Echo) {
 	adminGroup.DELETE("/deletesupplier", controllers.DeleteSupplier)
 	adminGroup.GET("/viewallsuppliers", controllers.GetAllSuppliers)
 	adminGroup.GET("/viewsupplier/:id", controllers.GetSupplier)
+	adminGroup.DELETE("/user/:id", controllers.DeleteUser)
+
 
 
 

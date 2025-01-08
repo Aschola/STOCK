@@ -6,6 +6,7 @@ import (
 	"stock/db"
 	"stock/models"
 	"stock/utils"
+	"fmt"
 	//"time"
 	"strings"
 	"strconv"
@@ -62,6 +63,7 @@ import (
 // 	return c.JSON(http.StatusOK, map[string]string{"message": "Logged out successfully"})
 // }
 
+// 
 func AdminSignup(c echo.Context) error {
 	var input models.User
 	if err := c.Bind(&input); err != nil {
@@ -112,7 +114,6 @@ func AdminSignup(c echo.Context) error {
 	input.OrganizationID = organization.ID
 	input.RoleName = "Admin"
 
-
 	// Create the user with the assigned organization ID and admin role
 	if err := db.GetDB().Create(&input).Error; err != nil {
 		log.Printf("User creation error: %v", err)
@@ -120,15 +121,22 @@ func AdminSignup(c echo.Context) error {
 	}
 
 	// Generate JWT token
-	token, err := utils.GenerateJWT(input.ID, input.RoleName)
+	token, err := utils.GenerateJWT(input.ID, input.RoleName, )
 	if err != nil {
 		log.Printf("GenerateJWT error: %v", err)
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not generate token"})
 	}
 
+	// Return the organization info and token
 	log.Println("Admin signed up successfully")
-	return c.JSON(http.StatusOK, echo.Map{"token": token})
+	return c.JSON(http.StatusOK, echo.Map{
+		"message":         "Admin created successfully",
+		"token":           token,
+		"organization_id": organization.ID,
+		"organization_url": fmt.Sprintf("/organization/%d", organization.ID),
+	})
 }
+
 
 func AdminLogout(c echo.Context) error {
 	log.Println("AdminLogout - Entry")
