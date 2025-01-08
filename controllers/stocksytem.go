@@ -1,15 +1,16 @@
 package controllers
 
 import (
+	"fmt"
 	"log"
 	"net/http"
-	"fmt"
+
+	"stock/db"
 
 	"github.com/labstack/echo/v4"
-	"stock/db"
+
 	//"gorm.io/gorm"
 	"stock/models"
-	
 )
 
 // AdminCreateStock handles the creation of a stock item
@@ -112,10 +113,10 @@ func DeleteStock(c echo.Context) error {
 
 // AdminViewAllStock retrieves all stock items
 func ViewAllStock(c echo.Context) error {
-    gormDB := db.GetDB()
+	gormDB := db.GetDB()
 
-    // SQL Query with INNER JOIN to ensure only valid products are matched
-    query := `
+	// SQL Query with INNER JOIN to ensure only valid products are matched
+	query := `
         SELECT 
             s.id,
             s.product_id,
@@ -130,48 +131,48 @@ func ViewAllStock(c echo.Context) error {
         WHERE p.product_id IS NOT NULL -- Ensures that we only get products that exist in the products table
     `
 
-    // Execute the query
-    rows, err := gormDB.Raw(query).Rows()
-    if err != nil {
-        fmt.Printf("Query execution failed: %v\nQuery: %s\n", err, query)
-        return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to fetch stock"})
-    }
-    defer rows.Close()
+	// Execute the query
+	rows, err := gormDB.Raw(query).Rows()
+	if err != nil {
+		fmt.Printf("Query execution failed: %v\nQuery: %s\n", err, query)
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to fetch stock"})
+	}
+	defer rows.Close()
 
-    var stocks []map[string]interface{}
-    for rows.Next() {
-        var (
-            id                uint64
-            productID         uint64
-            productName       string
-            quantity          int
-            buyingPrice       float64
-            sellingPrice      float64
-            expiryDate        *string
-            productDescription string
-        )
+	var stocks []map[string]interface{}
+	for rows.Next() {
+		var (
+			id                 uint64
+			productID          uint64
+			productName        string
+			quantity           int
+			buyingPrice        float64
+			sellingPrice       float64
+			expiryDate         *string
+			productDescription string
+		)
 
-        err = rows.Scan(&id, &productID, &productName, &quantity, &buyingPrice, &sellingPrice, &expiryDate, &productDescription)
-        if err != nil {
-            fmt.Printf("Error scanning row: %v\n", err)
-            return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Error reading stock data"})
-        }
+		err = rows.Scan(&id, &productID, &productName, &quantity, &buyingPrice, &sellingPrice, &expiryDate, &productDescription)
+		if err != nil {
+			fmt.Printf("Error scanning row: %v\n", err)
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Error reading stock data"})
+		}
 
-        stock := map[string]interface{}{
-            "id":                 id,
-            "product_id":         productID,
-            "product_name":       productName,
-            "quantity":           quantity,
-            "buying_price":       buyingPrice,
-            "selling_price":      sellingPrice,
-            "expiry_date":        expiryDate,
-            "product_description": productDescription,
-        }
+		stock := map[string]interface{}{
+			"id":                  id,
+			"product_id":          productID,
+			"product_name":        productName,
+			"quantity":            quantity,
+			"buying_price":        buyingPrice,
+			"selling_price":       sellingPrice,
+			"expiry_date":         expiryDate,
+			"product_description": productDescription,
+		}
 
-        stocks = append(stocks, stock)
-    }
+		stocks = append(stocks, stock)
+	}
 
-    return c.JSON(http.StatusOK, stocks)
+	return c.JSON(http.StatusOK, stocks)
 }
 
 // func ViewAllStock(c echo.Context) error {
@@ -182,7 +183,6 @@ func ViewAllStock(c echo.Context) error {
 // 		log.Printf("AdminViewAllStock - Retrieve error: %v", err)
 // 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not retrieve stock items"})
 // 	}
-
 
 // 	log.Println("AdminViewAllStock - Stock items retrieved successfully")
 // 	log.Println("AdminViewAllStock - Exit")
