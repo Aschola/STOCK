@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"stock/db"
+	"strconv"
 
 	"github.com/labstack/echo/v4"
 
@@ -190,17 +191,37 @@ func ViewAllStock(c echo.Context) error {
 // }
 
 // AdminViewStockByID retrieves a stock item by its ID
+// func ViewStockByID(c echo.Context) error {
+// 	log.Println("AdminViewStockByID - Entry")
+
+// 	id := c.Param("id")
+// 	var stock models.Stock
+// 	if err := db.GetDB().First(&stock, id).Error; err != nil {
+// 		log.Printf("AdminViewStockByID - Stock item not found: %v", err)
+// 		return c.JSON(http.StatusNotFound, echo.Map{"error": "Stock item not found"})
+// 	}
+
+// 	log.Println("AdminViewStockByID - Stock item retrieved successfully")
+// 	log.Println("AdminViewStockByID - Exit")
+// 	return c.JSON(http.StatusOK, echo.Map{"stock": stock})
+// }
 func ViewStockByID(c echo.Context) error {
-	log.Println("AdminViewStockByID - Entry")
+    log.Println("GetStock - Entry")
 
-	id := c.Param("id")
-	var stock models.Stock
-	if err := db.GetDB().First(&stock, id).Error; err != nil {
-		log.Printf("AdminViewStockByID - Stock item not found: %v", err)
-		return c.JSON(http.StatusNotFound, echo.Map{"error": "Stock item not found"})
-	}
+    // Get supplier ID from path
+    id, err := strconv.Atoi(c.Param("id"))
+    if err != nil {
+        log.Printf("GetStock - Invalid ID: %v", err)
+        return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid stock ID"})
+    }
 
-	log.Println("AdminViewStockByID - Stock item retrieved successfully")
-	log.Println("AdminViewStockByID - Exit")
-	return c.JSON(http.StatusOK, echo.Map{"stock": stock})
+    var stock models.Stock
+    if err := db.GetDB().First(&stock, id).Error; err != nil {
+        log.Printf("GetStock - Stock not found: %v", err)
+        return c.JSON(http.StatusNotFound, echo.Map{"error": "Stock not found"})
+    }
+
+    log.Println("GetStock - Stock retrieved successfully")
+    log.Println("GetStock - Exit")
+    return c.JSON(http.StatusOK, stock)
 }

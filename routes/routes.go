@@ -112,7 +112,7 @@ func SetupRoutes(e *echo.Echo) {
 
 
 
-
+	//http://185.192.96.72:6502/admin/viewallsuppliers
 
 	//adminGroup.DELETE("/organization:id", controllers.AdminDeleteOrganization)
 
@@ -127,4 +127,5 @@ func SetupRoutes(e *echo.Echo) {
 	//orgAdminGroup.DELETE("/user/:id", controllers.Delete)
 	adminGroup.PUT("/organization/:id/deactivate", controllers.OrgAdminDeactivateOrganization)
 	orgAdminGroup.PATCH("/users/:id/activate-deactivate", controllers.OrganizationAdminActivateDeactivateUser)
+	
 }
