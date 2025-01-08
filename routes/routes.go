@@ -112,7 +112,6 @@ func SetupRoutes(e *echo.Echo) {
 
 
 
-	//http://185.192.96.72:6502/admin/viewallsuppliers
 
 	//adminGroup.DELETE("/organization:id", controllers.AdminDeleteOrganization)
 
