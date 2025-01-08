@@ -34,6 +34,25 @@ type Users struct {
     ResetTokenExpiry    time.Time 
 }
 
+type Suppliers struct {
+	ID             uint           `json:"id" gorm:"primaryKey"`
+	Name        string `json:"name"`
+	Phonenumber int64  `json:"phonenumber"`
+	CreatedAt      time.Time      `json:"created_at"`
+	UpdatedAt      time.Time      `json:"updated_at"`
+	DeletedAt      gorm.DeletedAt `json:"deleted_at" gorm:"index"`
+	CreatedBy      uint           `json:"created_by"`
+}
+func (Suppliers) TableName() string {
+    return "suppliers"
+}
+
+
+
+
+
+
+
 
 
 
