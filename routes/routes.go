@@ -21,7 +21,6 @@ func RegisterRoutes(e *echo.Echo) {
 	e.GET("/products/softdeleted", controllers.GetSoftDeletedProducts)
 	e.PATCH("/products/activate/:product_id", controllers.ActivateProduct)
 
-
 	// Define CRUD endpoints for categories without admin middleware
 	categoryGroup := e.Group("/categories")
 	categoryGroup.GET("", controllers.GetCategories)
@@ -40,12 +39,11 @@ func RegisterRoutes(e *echo.Echo) {
 	// Define CRUD endpoints for sales
 	// Define the new route in main.go or wherever you define your routes.
 	e.POST("/sell", controllers.SellProduct)
-	//e.GET("/cash/sales", controllers.GetAllSales)
+	e.GET("/cash/sales", controllers.GetAllSales)
 	e.GET("/cash/salesbyuser_id/:user_id", controllers.GetSalesByUser)
 	//e.GET("/salebycategory/:category_name", controllers.FetchSalesByCategory)
 	// Register the route to get sales by date
 	e.GET("/sales/date/:date", controllers.GetSalesByDate)
-
 	e.GET("/salebycategory/:user_id", controllers.FetchSalesByUserID)
 	// Endpoint for selling products
 	e.POST("/products/:product_id/sell/:quantity_sold", controllers.SellProduct)
@@ -109,9 +107,6 @@ func SetupRoutes(e *echo.Echo) {
 	adminGroup.GET("/viewallsuppliers", controllers.GetAllSuppliers)
 	adminGroup.GET("/viewsupplier/:id", controllers.GetSupplier)
 	adminGroup.DELETE("/user/:id", controllers.DeleteUser)
-
-
-
 
 	//adminGroup.DELETE("/organization:id", controllers.AdminDeleteOrganization)
 
