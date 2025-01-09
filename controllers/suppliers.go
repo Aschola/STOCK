@@ -26,6 +26,19 @@ func AddSupplier(c echo.Context) error {
         return c.JSON(http.StatusForbidden, echo.Map{"error": "Permission denied"})
     }
 
+    // Retrieve organizationID from the context (i.e. the organization that the admin is linked to)
+    organizationIDRaw := c.Get("organizationID")
+    if organizationIDRaw == nil {
+        log.Println("CreateSupplier - organizationID not found in context")
+        return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
+    }
+
+    organizationID, ok := organizationIDRaw.(uint)
+    if !ok {
+        log.Println("CreateSupplier - Invalid organizationID")
+        return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
+    }
+
     // Bind request body to supplier struct
     var supplier models.Suppliers
     if err := c.Bind(&supplier); err != nil {
@@ -33,7 +46,8 @@ func AddSupplier(c echo.Context) error {
         return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
     }
 
-    supplier.CreatedBy = c.Get("userID").(uint) 
+    supplier.CreatedBy = c.Get("userID").(uint)  // Set the user that created the supplier
+    supplier.OrganizationID = organizationID    // Set the supplier's organization to the logged-in admin's organization
 
     log.Printf("CreateSupplier - New supplier data: %+v", supplier)
 
@@ -133,20 +147,60 @@ func DeleteSupplier(c echo.Context) error {
 }
 
 // GetAllSuppliers retrieves all suppliers
+// func GetAllSuppliers(c echo.Context) error {
+//     log.Println("GetAllSuppliers - Entry")
+
+//     var suppliers []models.Suppliers
+
+//     // Get all suppliers, excluding soft-deleted ones
+//     if err := db.GetDB().Find(&suppliers).Error; err != nil {
+//         log.Printf("GetAllSuppliers - Query error: %v", err)
+//         return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
+//     }
+
+//     log.Printf("GetAllSuppliers - Retrieved %d suppliers", len(suppliers))
+//     log.Println("GetAllSuppliers - Exit")
+//     return c.JSON(http.StatusOK, suppliers)
+// }
+
 func GetAllSuppliers(c echo.Context) error {
     log.Println("GetAllSuppliers - Entry")
 
-    var suppliers []models.Suppliers
-
-    // Get all suppliers, excluding soft-deleted ones
-    if err := db.GetDB().Find(&suppliers).Error; err != nil {
-        log.Printf("GetAllSuppliers - Query error: %v", err)
-        return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
+    // Retrieve organizationID from the context (from token)
+    organizationIDRaw := c.Get("organizationID")
+    if organizationIDRaw == nil {
+        log.Println("GetAllSuppliers - organizationID is not set in the context")
+        return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
     }
 
-    log.Printf("GetAllSuppliers - Retrieved %d suppliers", len(suppliers))
+    organizationID, ok := organizationIDRaw.(uint)
+    if !ok {
+        log.Println("GetAllSuppliers - organizationID is not of type uint")
+        return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
+    }
+
+    // Log the organization ID
+    log.Printf("GetAllSuppliers - OrganizationID: %d", organizationID)
+
+    // Query suppliers linked to the organization, excluding deleted suppliers
+    var suppliers []models.Suppliers
+    if err := db.GetDB().
+        Where("organization_id = ? AND deleted_at IS NULL", organizationID).
+        Find(&suppliers).Error; err != nil {
+        log.Printf("GetAllSuppliers - Query error: %v", err)
+        return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not retrieve suppliers"})
+    }
+
+    // Return each supplier individually, not as an array
+    for _, supplier := range suppliers {
+        if err := c.JSON(http.StatusOK, supplier); err != nil {
+            log.Printf("GetAllSuppliers - Error returning supplier: %v", err)
+            return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Error returning suppliers"})
+        }
+    }
+
     log.Println("GetAllSuppliers - Exit")
-    return c.JSON(http.StatusOK, suppliers)
+    return nil
 }
 
 // GetSupplier retrieves a single supplier by ID
@@ -160,13 +214,32 @@ func GetSupplier(c echo.Context) error {
         return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid supplier ID"})
     }
 
+    // Retrieve organizationID from the context
+    organizationIDRaw := c.Get("organizationID")
+    if organizationIDRaw == nil {
+        log.Println("GetSupplier - organizationID not found in context")
+        return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
+    }
+
+    organizationID, ok := organizationIDRaw.(uint)
+    if !ok {
+        log.Println("GetSupplier - Invalid organizationID")
+        return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
+    }
+
     var supplier models.Suppliers
     if err := db.GetDB().First(&supplier, id).Error; err != nil {
         log.Printf("GetSupplier - Supplier not found: %v", err)
         return c.JSON(http.StatusNotFound, echo.Map{"error": "Supplier not found"})
     }
 
+    // Check if the supplier belongs to the correct organization
+    if supplier.OrganizationID != organizationID {
+        log.Println("GetSupplier - Supplier does not belong to this organization")
+        return c.JSON(http.StatusForbidden, echo.Map{"error": "Supplier not found in your organization"})
+    }
+
     log.Println("GetSupplier - Supplier retrieved successfully")
     log.Println("GetSupplier - Exit")
-    return c.JSON(http.StatusOK, supplier)
+    return c.JSON(http.StatusOK, supplier)  // Single JSON object response
 }

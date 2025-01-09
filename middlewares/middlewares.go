@@ -52,11 +52,13 @@ func AuthMiddleware(allowedRoles ...string) echo.MiddlewareFunc {
 
 			userID := claims.UserID
 			roleName := claims.RoleName 
-			log.Printf("Token parsed successfully. UserID: %d, RoleName: %s", userID, roleName)
+			organizationID := claims.OrganizationID
+			log.Printf("Token parsed successfully. UserID: %d, organization: %d, RoleName: %s", userID, roleName, organizationID)
 
 			// Set context values
 			c.Set("userID", userID)
 			c.Set("roleName", roleName)
+			c.Set("organizationID", organizationID)
 
 			if !contains(allowedRoles, roleName) {
 				log.Printf("Access denied for RoleName %s. Allowed roles: %v", roleName, allowedRoles)

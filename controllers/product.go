@@ -129,8 +129,8 @@ func GetProductByID(c echo.Context) error {
 		ProductName:        prod.ProductName,
 		ProductDescription: prod.ProductDescription,
 		ReorderLevel:       prod.ReorderLevel,
-		CreatedAt:          prod.CreatedAt.Format(time.RFC3339), // Format as RFC3339
-		UpdatedAt:          prod.UpdatedAt.Format(time.RFC3339), // Format as RFC3339
+		CreatedAt:          prod.CreatedAt.Format(time.RFC3339), 
+		UpdatedAt:          prod.UpdatedAt.Format(time.RFC3339), 
 		Quantity:           stock.Quantity,
 		BuyingPrice:        stock.BuyingPrice,
 		SellingPrice:       stock.SellingPrice,

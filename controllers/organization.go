@@ -6,7 +6,7 @@ import (
 	"stock/db"
 	"stock/models"
 	"stock/utils"
-	"fmt"
+	//"fmt"
 	//"time"
 	"strings"
 	"strconv"
@@ -64,6 +64,87 @@ import (
 // }
 
 // 
+// func AdminSignup(c echo.Context) error {
+// 	var input models.User
+// 	if err := c.Bind(&input); err != nil {
+// 		log.Printf("Bind error: %v", err)
+// 		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
+// 	}
+
+// 	SignupInput := validators.SignupInput{
+// 		Username: input.Username,
+// 		Password: input.Password,
+// 	}
+// 	if err := validators.ValidateLoginInput(validators.LoginInput(SignupInput)); err != nil {
+// 		log.Printf("Validation error: %v", err)
+// 		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
+// 	}
+
+// 	// Automatically set role to "Admin"
+
+// 	log.Printf("Received JSON: %+v", input)
+// 	var user models.User
+// 	if err := db.GetDB().Where("username = ?", input.Username).First(&user).Error; err == nil {
+// 		return c.JSON(http.StatusConflict, echo.Map{"error": "Username already exists"})
+// 	}
+
+// 	if err := db.GetDB().Where("email = ?", input.Email).First(&user).Error; err == nil {
+// 		return c.JSON(http.StatusConflict, echo.Map{"error": "Email already exists"})
+// 	}
+
+// 	// Hash the password
+// 	hashedPassword, err := utils.HashPassword(input.Password)
+// 	if err != nil {
+// 		log.Printf("HashPassword error: %v", err)
+// 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not hash password"})
+// 	}
+// 	input.Password = hashedPassword
+
+// 	// Create the organization and associate the admin
+// 	organization := models.Organization{
+// 		Name:  input.Organization,
+// 		Email: input.Email,
+// 	}
+// 	if err := db.GetDB().Create(&organization).Error; err != nil {
+// 		log.Printf("Organization creation error: %v", err)
+// 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not create organization"})
+// 	}
+
+// 	// Set organization ID for the user
+// 	input.OrganizationID = organization.ID
+// 	input.RoleName = "Admin"
+
+// 	// Create the user with the assigned organization ID and admin role
+// 	if err := db.GetDB().Create(&input).Error; err != nil {
+// 		log.Printf("User creation error: %v", err)
+// 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
+// 	}
+
+// 	// Generate JWT token
+// 	token, err := utils.GenerateJWT(input.ID, input.RoleName, )
+// 	if err != nil {
+// 		log.Printf("GenerateJWT error: %v", err)
+// 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not generate token"})
+// 	}
+
+// 	// Return the organization info and token
+// 	log.Println("Admin signed up successfully")
+// 	return c.JSON(http.StatusOK, echo.Map{
+// 		"message":         "Admin created successfully",
+// 		"token":           token,
+// 		"organization_id": organization.ID,
+// 		"organization_url": fmt.Sprintf("/organization/%d", organization.ID),
+// 	})
+// }
+
+
+func AdminLogout(c echo.Context) error {
+	log.Println("AdminLogout - Entry")
+	log.Println("AdminLogout - Admin logged out successfully")
+	log.Println("AdminLogout - Exit")
+	return c.JSON(http.StatusOK, echo.Map{"message": "Successfully logged out"})
+}
+
 func AdminSignup(c echo.Context) error {
 	var input models.User
 	if err := c.Bind(&input); err != nil {
@@ -75,19 +156,18 @@ func AdminSignup(c echo.Context) error {
 		Username: input.Username,
 		Password: input.Password,
 	}
-	if err := validators.ValidateLoginInput(validators.LoginInput(SignupInput)); err != nil {
-		log.Printf("Validation error: %v", err)
+	if err := validators.ValidateSignupInput(SignupInput); err != nil {
+		log.Printf("AdminAddUser - Validation error: %v", err)
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 	}
 
-	// Automatically set role to "Admin"
-
 	log.Printf("Received JSON: %+v", input)
+
+	// Check if username or email already exists
 	var user models.User
 	if err := db.GetDB().Where("username = ?", input.Username).First(&user).Error; err == nil {
 		return c.JSON(http.StatusConflict, echo.Map{"error": "Username already exists"})
 	}
-
 	if err := db.GetDB().Where("email = ?", input.Email).First(&user).Error; err == nil {
 		return c.JSON(http.StatusConflict, echo.Map{"error": "Email already exists"})
 	}
@@ -100,19 +180,24 @@ func AdminSignup(c echo.Context) error {
 	}
 	input.Password = hashedPassword
 
-	// Create the organization and associate the admin
-	organization := models.Organization{
-		Name:  input.Organization,
-		Email: input.Email,
-	}
-	if err := db.GetDB().Create(&organization).Error; err != nil {
-		log.Printf("Organization creation error: %v", err)
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not create organization"})
+	// Check if the organization already exists by name
+	var organization models.Organization
+	if err := db.GetDB().Where("name = ?", input.Organization).First(&organization).Error; err != nil {
+		// Create the organization if not found
+		organization = models.Organization{
+			Name:  input.Organization,
+			Email: input.Email,
+		}
+		if err := db.GetDB().Create(&organization).Error; err != nil {
+			log.Printf("Organization creation error: %v", err)
+			return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not create organization"})
+		}
 	}
 
 	// Set organization ID for the user
 	input.OrganizationID = organization.ID
 	input.RoleName = "Admin"
+	input.IsActive = true
 
 	// Create the user with the assigned organization ID and admin role
 	if err := db.GetDB().Create(&input).Error; err != nil {
@@ -120,86 +205,95 @@ func AdminSignup(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
 	}
 
-	// Generate JWT token
-	token, err := utils.GenerateJWT(input.ID, input.RoleName, )
+	// Generate JWT token with user ID, role, and organization ID
+	token, err := utils.GenerateJWT(input.ID, input.RoleName, input.OrganizationID)
 	if err != nil {
 		log.Printf("GenerateJWT error: %v", err)
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not generate token"})
 	}
 
-	// Return the organization info and token
 	log.Println("Admin signed up successfully")
 	return c.JSON(http.StatusOK, echo.Map{
-		"message":         "Admin created successfully",
+		"message":         "Admin signed up successfully",
 		"token":           token,
-		"organization_id": organization.ID,
-		"organization_url": fmt.Sprintf("/organization/%d", organization.ID),
+		"user_id":         input.ID,
+		"role_name":       input.RoleName,
+		"organization_id": input.OrganizationID,
 	})
 }
 
-
-func AdminLogout(c echo.Context) error {
-	log.Println("AdminLogout - Entry")
-	log.Println("AdminLogout - Admin logged out successfully")
-	log.Println("AdminLogout - Exit")
-	return c.JSON(http.StatusOK, echo.Map{"message": "Successfully logged out"})
-}
-
 func AdminAddUser(c echo.Context) error {
-	log.Println("AdminAddUser - Entry")
+    log.Println("AdminAddUser - Entry")
 
-	userID, ok := c.Get("userID").(uint)
-	if !ok {
-		log.Println("AdminAddUser - Unauthorized: userID not found in context")
-		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
-	}
+    userID, ok := c.Get("userID").(uint)
+    if !ok {
+        log.Println("AdminAddUser - Unauthorized: userID not found in context")
+        return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
+    }
 
-	roleName, ok := c.Get("roleName").(string)
-	if !ok {
-		log.Println("Admin - Unauthorized: roleName not found in context")
-		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
-	}
+    roleName, ok := c.Get("roleName").(string)
+    if !ok {
+        log.Println("Admin - Unauthorized: roleName not found in context")
+        return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
+    }
 
-	log.Printf("AdminAddUser - Received RoleName: %s, UserID: %d", roleName, userID)
+    log.Printf("AdminAddUser - Received RoleName: %s, UserID: %d", roleName, userID)
 
-	// Check if the roleName is "admin"
-	if roleName != "Admin" {
-		log.Println("AdminAddUser - Permission denied: non-admin trying to add user")
-		return c.JSON(http.StatusForbidden, echo.Map{"error": "Permission denied"})
-	}
+    // Check if the roleName is "admin"
+    if roleName != "Admin" {
+        log.Println("AdminAddUser - Permission denied: non-admin trying to add user")
+        return c.JSON(http.StatusForbidden, echo.Map{"error": "Permission denied"})
+    }
 
-	var input models.User
-	if err := c.Bind(&input); err != nil {
-		log.Printf("AdminAddUser - Bind error: %v", err)
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
-	}
+    // Retrieve the organization ID from context
+    organizationIDRaw := c.Get("organizationID")
+    if organizationIDRaw == nil {
+        log.Println("AdminAddUser - organizationID not found in context")
+        return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
+    }
 
-	log.Printf("AdminAddUser - New user data: %+v", input)
+    organizationID, ok := organizationIDRaw.(uint)
+    if !ok {
+        log.Println("AdminAddUser - Invalid organizationID")
+        return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
+    }
 
-	// Validate roleName for new user
-	if input.RoleName != "Shopkeeper" && input.RoleName != "Auditor" && input.RoleName != "Admin" {
-		log.Println("AdminAddUser - Invalid role name provided")
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid role name. Allowed roles: shopkeeper, auditor, admin"})
-	}
+    var input models.User
+    if err := c.Bind(&input); err != nil {
+        log.Printf("AdminAddUser - Bind error: %v", err)
+        return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
+    }
 
-	signupInput := validators.SignupInput{
-		Username: input.Username,
-		Password: input.Password,
-	}
-	if err := validators.ValidateSignupInput(signupInput); err != nil {
-		log.Printf("AdminAddUser - Validation error: %v", err)
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
-	}
-	input.CreatedBy = uint(userID)
+    log.Printf("AdminAddUser - New user data: %+v", input)
 
-	if err := db.GetDB().Create(&input).Error; err != nil {
-		log.Printf("AdminAddUser - Create error: %v", err)
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
-	}
+    // Validate roleName for new user
+    if input.RoleName != "Shopkeeper" && input.RoleName != "Auditor" && input.RoleName != "Admin" {
+        log.Println("AdminAddUser - Invalid role name provided")
+        return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid role name. Allowed roles: shopkeeper, auditor, admin"})
+    }
 
-	log.Println("AdminAddUser - User created successfully")
-	log.Println("AdminAddUser - Exit")
-	return c.JSON(http.StatusOK, echo.Map{"message": "User created successfully"})
+    signupInput := validators.SignupInput{
+        Username: input.Username,
+        Password: input.Password,
+    }
+    if err := validators.ValidateSignupInput(signupInput); err != nil {
+        log.Printf("AdminAddUser - Validation error: %v", err)
+        return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
+    }
+
+    // Assign the organizationID to the new user
+    input.OrganizationID = organizationID
+    input.CreatedBy = uint(userID)
+    input.IsActive = true
+
+    if err := db.GetDB().Create(&input).Error; err != nil {
+        log.Printf("AdminAddUser - Create error: %v", err)
+        return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
+    }
+
+    log.Println("AdminAddUser - User created successfully")
+    log.Println("AdminAddUser - Exit")
+    return c.JSON(http.StatusOK, echo.Map{"message": "User created successfully"})
 }
 
 func OrganizationAdminGetUsers(c echo.Context) error {
@@ -425,7 +519,7 @@ func AdminLogin(c echo.Context) error {
 		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Invalid email or password"})
 	}
 
-	token, err := utils.GenerateJWT(user.ID, user.RoleName)
+	token, err := utils.GenerateJWT(user.ID, user.RoleName, user.OrganizationID)
 	if err != nil {
 		log.Printf("AdminLogin - GenerateJWT error: %v", err)
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not generate token"})
@@ -437,19 +531,35 @@ func AdminLogin(c echo.Context) error {
 }
 
 func GetUserByID(c echo.Context) error {
-	id, _ := strconv.Atoi(c.Param("id"))
-	log.Printf("GetUserByID - Entry with ID: %d", id)
+    id, _ := strconv.Atoi(c.Param("id"))
+    log.Printf("GetUserByID - Entry with ID: %d", id)
 
-	var user models.User
-	if err := db.GetDB().First(&user, id).Error; err != nil {
-		log.Printf("GetUserByID - First error: %v", err)
-		return c.JSON(http.StatusNotFound, echo.Map{"error": "User not found"})
-	}
+    // Retrieve organizationID from context
+    organizationID, ok := c.Get("organizationID").(uint)
+    if !ok {
+        log.Println("GetUserByID - Failed to get organizationID from context")
+        return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
+    }
 
-	log.Printf("GetUserByID - User found: %+v", user)
-	log.Println("GetUserByID - Exit")
-	return c.JSON(http.StatusOK, user)
+    log.Printf("GetUserByID - OrganizationID: %d", organizationID)
+
+    var user models.User
+    if err := db.GetDB().First(&user, id).Error; err != nil {
+        log.Printf("GetUserByID - First error: %v", err)
+        return c.JSON(http.StatusNotFound, echo.Map{"error": "User not found"})
+    }
+
+    // Check if the user's organizationID matches the one in the context
+    if user.OrganizationID != organizationID {
+        log.Println("GetUserByID - User does not belong to the current organization")
+        return c.JSON(http.StatusForbidden, echo.Map{"error": "Forbidden: User does not belong to the current organization"})
+    }
+
+    log.Printf("GetUserByID - User found: %+v", user)
+    log.Println("GetUserByID - Exit")
+    return c.JSON(http.StatusOK, user)
 }
+
 
 func EditUser(c echo.Context) error {
 	id := c.Param("id")
@@ -478,32 +588,106 @@ func EditUser(c echo.Context) error {
 	return c.JSON(http.StatusOK, user)
 }
 
+// func AdminViewAllUsers(c echo.Context) error {
+// 	log.Println("AdminViewAllUsers - Entry")
+
+// 	// Retrieve roleName from context set by middleware
+// 	roleName, ok := c.Get("roleName").(string)
+// 	if !ok {
+// 		log.Println("AdminViewAllUsers - Failed to get roleName from context")
+// 		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
+// 	}
+
+// 	log.Printf("AdminViewAllUsers - Received RoleName: %s", roleName)
+
+// 	if roleName != "Admin" {
+// 		log.Println("AdminViewAllUsers - Permission denied: non-admin trying to view users")
+// 		return c.JSON(http.StatusForbidden, echo.Map{"error": "Permission denied"})
+// 	}
+
+// 	var users []models.User
+// 	if err := db.GetDB().Find(&users).Error; err != nil {
+// 		log.Printf("AdminViewAllUsers - Find error: %v", err)
+// 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not retrieve users"})
+// 	}
+
+// 	log.Printf("AdminViewAllUsers - Retrieved users: %+v", users)
+// 	log.Println("AdminViewAllUsers - Exit")
+// 	return c.JSON(http.StatusOK, users)
+// }
+// func AdminViewAllUsers(c echo.Context) error {
+// 	log.Println("AdminViewAllUsers - Entry")
+
+// 	// Retrieve roleName from context set by middleware
+// 	roleName, ok := c.Get("roleName").(string)
+// 	if !ok {
+// 		log.Println("AdminViewAllUsers - Failed to get roleName from context")
+// 		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
+// 	}
+
+// 	log.Printf("AdminViewAllUsers - Received RoleName: %s", roleName)
+
+// 	// Restrict access to only Admins
+// 	if roleName != "Admin" {
+// 		log.Println("AdminViewAllUsers - Permission denied: non-admin trying to view users")
+// 		return c.JSON(http.StatusForbidden, echo.Map{"error": "Permission denied"})
+// 	}
+
+// 	// Fetch all users except SuperAdmin
+// 	var users []models.User
+// 	if err := db.GetDB().Where("role_name != ?", "SuperAdmin").Find(&users).Error; err != nil {
+// 		log.Printf("AdminViewAllUsers - Query error: %v", err)
+// 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not retrieve users"})
+// 	}
+
+// 	log.Printf("AdminViewAllUsers - Retrieved users count: %d", len(users))
+// 	log.Println("AdminViewAllUsers - Exit")
+
+// 	return c.JSON(http.StatusOK, users)
+// }
 func AdminViewAllUsers(c echo.Context) error {
-	log.Println("AdminViewAllUsers - Entry")
+    log.Println("AdminViewAllUsers - Entry")
 
-	// Retrieve roleName from context set by middleware
-	roleName, ok := c.Get("roleName").(string)
-	if !ok {
-		log.Println("AdminViewAllUsers - Failed to get roleName from context")
-		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
-	}
+    // Retrieve roleName and organizationID from the JWT claims
+    roleName, ok := c.Get("roleName").(string)
+    if !ok {
+        log.Println("AdminViewAllUsers - Failed to get roleName from context")
+        return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
+    }
 
-	log.Printf("AdminViewAllUsers - Received RoleName: %s", roleName)
+    organizationID, ok := c.Get("organizationID").(uint)
+    if !ok {
+        log.Println("AdminViewAllUsers - Failed to get organizationID from context")
+        return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
+    }
 
-	if roleName != "Admin" {
-		log.Println("AdminViewAllUsers - Permission denied: non-admin trying to view users")
-		return c.JSON(http.StatusForbidden, echo.Map{"error": "Permission denied"})
-	}
+    log.Printf("AdminViewAllUsers - RoleName: %s, OrganizationID: %d", roleName, organizationID)
 
-	var users []models.User
-	if err := db.GetDB().Find(&users).Error; err != nil {
-		log.Printf("AdminViewAllUsers - Find error: %v", err)
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not retrieve users"})
-	}
+    // Check if the roleName is "Admin"
+    if roleName != "Admin" {
+        log.Println("AdminViewAllUsers - Permission denied: non-admin trying to view users")
+        return c.JSON(http.StatusForbidden, echo.Map{"error": "Permission denied"})
+    }
 
-	log.Printf("AdminViewAllUsers - Retrieved users: %+v", users)
-	log.Println("AdminViewAllUsers - Exit")
-	return c.JSON(http.StatusOK, users)
+    // Query users belonging to the same organization, excluding superadmins
+    var users []models.User
+    if err := db.GetDB().
+        Where("organization_id = ? AND role_name != ?", organizationID, "SuperAdmin").
+        Find(&users).Error; err != nil {
+        log.Printf("AdminViewAllUsers - Query error: %v", err)
+        return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not retrieve users"})
+    }
+
+    // Return each user individually, not as an array
+    for _, user := range users {
+        if err := c.JSON(http.StatusOK, user); err != nil {
+            log.Printf("AdminViewAllUsers - Error returning user: %v", err)
+            return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Error returning users"})
+        }
+    }
+
+    log.Println("AdminViewAllUsers - Exit")
+    return nil
 }
 
 func SoftDeleteUser(c echo.Context) error {
@@ -546,6 +730,13 @@ func DeleteUser(c echo.Context) error {
 		log.Println("Failed to get roleName from context or insufficient permissions")
 		return c.JSON(http.StatusForbidden, echo.Map{"error": "Only admins or super admins can delete users"})
 	}
+	organizationID, ok := c.Get("organizationID").(uint)
+    if !ok {
+        log.Println("AdminViewAllUsers - Failed to get organizationID from context")
+        return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
+    }
+
+    log.Printf("AdminViewAllUsers - RoleName: %s, OrganizationID: %d", roleName, organizationID)
 
 	var user models.User
 	// Use Unscoped to include both soft-deleted and active users
@@ -651,18 +842,55 @@ func DeactivateUser(c echo.Context) error {
 
 
 func GetActiveUsers(c echo.Context) error {
-	var users []models.User
-	if err := db.GetDB().Where("is_active = ?", true).Find(&users).Error; err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Error retrieving users"})
-	}
-	return c.JSON(http.StatusOK, users)
+    log.Println("GetActiveUsers - Entry")
+
+    // Retrieve organizationID from the context
+    organizationID, ok := c.Get("organizationID").(uint)
+    if !ok {
+        log.Println("GetActiveUsers - Failed to get organizationID from context")
+        return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
+    }
+
+    log.Printf("GetActiveUsers - OrganizationID: %d", organizationID)
+
+    // Query active users belonging to the same organization
+    var users []models.User
+    if err := db.GetDB().
+        Where("is_active = ? AND organization_id = ?", true, organizationID).
+        Find(&users).Error; err != nil {
+        log.Printf("GetActiveUsers - Query error: %v", err)
+        return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Error retrieving active users"})
+    }
+
+    log.Printf("GetActiveUsers - Retrieved %d active users for organization ID %d", len(users), organizationID)
+    log.Println("GetActiveUsers - Exit")
+    return c.JSON(http.StatusOK, users)
 }
 
+
 func GetInactiveUsers(c echo.Context) error {
-	var users []models.User
-	if err := db.GetDB().Where("is_active = ?", false).Find(&users).Error; err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Error retrieving users"})
-	}
-	return c.JSON(http.StatusOK, users)
+    log.Println("GetInactiveUsers - Entry")
+
+    // Retrieve organizationID from the context
+    organizationID, ok := c.Get("organizationID").(uint)
+    if !ok {
+        log.Println("GetInactiveUsers - Failed to get organizationID from context")
+        return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
+    }
+
+    log.Printf("GetInactiveUsers - OrganizationID: %d", organizationID)
+
+    // Query inactive users belonging to the same organization
+    var users []models.User
+    if err := db.GetDB().
+        Where("is_active = ? AND organization_id = ?", false, organizationID).
+        Find(&users).Error; err != nil {
+        log.Printf("GetInactiveUsers - Query error: %v", err)
+        return c.JSON(http.StatusInternalServerError, map[string]string{"message": "Error retrieving inactive users"})
+    }
+
+    log.Printf("GetInactiveUsers - Retrieved %d inactive users for organization ID %d", len(users), organizationID)
+    log.Println("GetInactiveUsers - Exit")
+    return c.JSON(http.StatusOK, users)
 }
 

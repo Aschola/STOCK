@@ -23,6 +23,7 @@ var ErrInvalidToken = errors.New("invalid token")
 type Claims struct {
 	UserID   uint   `json:"user_id"`
 	RoleName string `json:"role_name"` 
+	OrganizationID uint `json:"organization_id"`
 	jwt.StandardClaims
 }
 
@@ -47,13 +48,34 @@ func ParseToken(tokenString string) (*jwt.Token, error) {
 }
 
 // GenerateJWT generates a JWT token with userID and roleName
-func GenerateJWT(userID uint, roleName string) (string, error) { 
-	log.Printf("Generating JWT for userID: %d, roleName: %s", userID, roleName) 
+// func GenerateJWT(userID uint, roleName string) (string, error) { 
+// 	log.Printf("Generating JWT for userID: %d, roleName: %s", userID, roleName, ) 
+// 	expirationTime := time.Now().Add(24 * time.Hour)
+// 	claims := &Claims{
+// 		UserID:   userID,
+// 		RoleName: roleName, 
+// 		//OrganizationID: organizationID,
+// 		StandardClaims: jwt.StandardClaims{
+// 			ExpiresAt: expirationTime.Unix(),
+// 		},
+// 	}
+
+// 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+// 	signedToken, err := token.SignedString(JwtSecret)
+// 	if err != nil {
+// 		log.Printf("Error signing token: %v", err)
+// 		return "", err
+// 	}
+// 	return signedToken, nil
+// }
+func GenerateJWT(userID uint, roleName string, organizationID uint) (string, error) {
+	log.Printf("Generating JWT for userID: %d, roleName: %s, organizationID: %d", userID, roleName, organizationID)
+
 	expirationTime := time.Now().Add(24 * time.Hour)
 	claims := &Claims{
-		UserID:   userID,
-		RoleName: roleName, 
-		//OrganizationID: organizationID,
+		UserID:         userID,
+		RoleName:       roleName,
+		OrganizationID: organizationID, 
 		StandardClaims: jwt.StandardClaims{
 			ExpiresAt: expirationTime.Unix(),
 		},
@@ -67,6 +89,7 @@ func GenerateJWT(userID uint, roleName string) (string, error) {
 	}
 	return signedToken, nil
 }
+
 
 // VerifyJWT verifies the JWT token and returns the claims
 func VerifyJWT(tokenString string) (*Claims, error) {
@@ -89,7 +112,8 @@ func VerifyJWT(tokenString string) (*Claims, error) {
 		return nil, ErrInvalidToken
 	}
 
-	log.Printf("Verified JWT with userID: %d, roleName: %s", claims.UserID, claims.RoleName) 
+	//log.Printf("Verified JWT with userID: %d, roleName: %s", claims.UserID, claims.RoleName) 
+	log.Printf("Generating JWT for userID: %d, organizationID: %d, roleName: %s", claims.UserID, claims.RoleName, claims.OrganizationID ) 
 	return claims, nil
 }
 
