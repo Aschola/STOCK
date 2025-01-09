@@ -6,6 +6,7 @@ import (
 	"stock/db"
 	"stock/models"
 	"stock/utils"
+	"errors"
 	//"fmt"
 	//"time"
 	"strings"
@@ -147,17 +148,20 @@ func AdminLogout(c echo.Context) error {
 
 func AdminSignup(c echo.Context) error {
 	var input models.User
+
+	// Bind the input JSON to the User struct
 	if err := c.Bind(&input); err != nil {
 		log.Printf("Bind error: %v", err)
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 	}
 
+	// Validate the input
 	SignupInput := validators.SignupInput{
 		Username: input.Username,
 		Password: input.Password,
 	}
 	if err := validators.ValidateSignupInput(SignupInput); err != nil {
-		log.Printf("AdminAddUser - Validation error: %v", err)
+		log.Printf("AdminSignup - Validation error: %v", err)
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 	}
 
@@ -183,14 +187,19 @@ func AdminSignup(c echo.Context) error {
 	// Check if the organization already exists by name
 	var organization models.Organization
 	if err := db.GetDB().Where("name = ?", input.Organization).First(&organization).Error; err != nil {
-		// Create the organization if not found
-		organization = models.Organization{
-			Name:  input.Organization,
-			Email: input.Email,
-		}
-		if err := db.GetDB().Create(&organization).Error; err != nil {
-			log.Printf("Organization creation error: %v", err)
-			return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not create organization"})
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			// Create the organization if not found
+			organization = models.Organization{
+				Name:  input.Organization,
+				Email: input.Email,
+			}
+			if err := db.GetDB().Create(&organization).Error; err != nil {
+				log.Printf("Organization creation error: %v", err)
+				return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not create organization"})
+			}
+		} else {
+			log.Printf("Organization query error: %v", err)
+			return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Error checking organization"})
 		}
 	}
 
@@ -199,13 +208,13 @@ func AdminSignup(c echo.Context) error {
 	input.RoleName = "Admin"
 	input.IsActive = true
 
-	// Create the user with the assigned organization ID and admin role
+	// Create the user
 	if err := db.GetDB().Create(&input).Error; err != nil {
 		log.Printf("User creation error: %v", err)
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
 	}
 
-	// Generate JWT token with user ID, role, and organization ID
+	// Generate JWT token
 	token, err := utils.GenerateJWT(input.ID, input.RoleName, input.OrganizationID)
 	if err != nil {
 		log.Printf("GenerateJWT error: %v", err)
