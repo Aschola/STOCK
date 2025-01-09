@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"stock/db"
+	"strconv"
 
 	"github.com/labstack/echo/v4"
 
@@ -189,18 +190,86 @@ func ViewAllStock(c echo.Context) error {
 // 	return c.JSON(http.StatusOK, echo.Map{"stocks": stocks})
 // }
 
-// AdminViewStockByID retrieves a stock item by its ID
+
+// func ViewStockByID(c echo.Context) error {
+//     log.Println("GetStock - Entry")
+
+//     // Get supplier ID from path
+//     id, err := strconv.Atoi(c.Param("id"))
+//     if err != nil {
+//         log.Printf("GetStock - Invalid ID: %v", err)
+//         return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid stock ID"})
+//     }
+
+//     var stock models.Stock
+//     if err := db.GetDB().First(&stock, id).Error; err != nil {
+//         log.Printf("GetStock - Stock not found: %v", err)
+//         return c.JSON(http.StatusNotFound, echo.Map{"error": "Stock not found"})
+//     }
+
+//     log.Println("GetStock - Stock retrieved successfully")
+//     log.Println("GetStock - Exit")
+//     return c.JSON(http.StatusOK, stock)
+// }
 func ViewStockByID(c echo.Context) error {
-	log.Println("AdminViewStockByID - Entry")
+    log.Println("ViewStockByID - Entry")
 
-	id := c.Param("id")
-	var stock models.Stock
-	if err := db.GetDB().First(&stock, id).Error; err != nil {
-		log.Printf("AdminViewStockByID - Stock item not found: %v", err)
-		return c.JSON(http.StatusNotFound, echo.Map{"error": "Stock item not found"})
-	}
+    // Get stock ID from path
+    id, err := strconv.Atoi(c.Param("id"))
+    if err != nil {
+        log.Printf("ViewStockByID - Invalid ID: %v", err)
+        return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid stock ID"})
+    }
 
-	log.Println("AdminViewStockByID - Stock item retrieved successfully")
-	log.Println("AdminViewStockByID - Exit")
-	return c.JSON(http.StatusOK, echo.Map{"stock": stock})
+    gormDB := db.GetDB()
+
+    // SQL Query to fetch stock details with associated product details
+    query := `
+        SELECT 
+            s.id,
+            s.product_id,
+            p.product_name AS product_name,
+            s.quantity,
+            s.buying_price,
+            s.selling_price,
+            s.expiry_date,
+            p.product_description AS product_description  
+        FROM stock s
+        INNER JOIN products p ON s.product_id = p.product_id
+        WHERE s.id = ?
+    `
+
+    var (
+        idVal                uint64
+        productID            uint64
+        productName          string
+        quantity             int
+        buyingPrice          float64
+        sellingPrice         float64
+        expiryDate           *string
+        productDescription   string
+    )
+
+    // Execute the query
+    row := gormDB.Raw(query, id).Row()
+    if err := row.Scan(&idVal, &productID, &productName, &quantity, &buyingPrice, &sellingPrice, &expiryDate, &productDescription); err != nil {
+        log.Printf("ViewStockByID - Stock not found: %v", err)
+        return c.JSON(http.StatusNotFound, echo.Map{"error": "Stock not found"})
+    }
+
+    // Construct response
+    stock := map[string]interface{}{
+        "id":                  idVal,
+        "product_id":          productID,
+        "product_name":        productName,
+        "quantity":            quantity,
+        "buying_price":        buyingPrice,
+        "selling_price":       sellingPrice,
+        "expiry_date":         expiryDate,
+        "product_description": productDescription,
+    }
+
+    log.Println("ViewStockByID - Stock retrieved successfully")
+    log.Println("ViewStockByID - Exit")
+    return c.JSON(http.StatusOK, stock)
 }

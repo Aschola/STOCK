@@ -106,6 +106,7 @@ func SetupRoutes(e *echo.Echo) {
 	adminGroup.DELETE("/deletesupplier", controllers.DeleteSupplier)
 	adminGroup.GET("/viewallsuppliers", controllers.GetAllSuppliers)
 	adminGroup.GET("/viewsupplier/:id", controllers.GetSupplier)
+	adminGroup.DELETE("/user/:id", controllers.DeleteUser)
 
 	//adminGroup.DELETE("/organization:id", controllers.AdminDeleteOrganization)
 
@@ -120,4 +121,5 @@ func SetupRoutes(e *echo.Echo) {
 	//orgAdminGroup.DELETE("/user/:id", controllers.Delete)
 	adminGroup.PUT("/organization/:id/deactivate", controllers.OrgAdminDeactivateOrganization)
 	orgAdminGroup.PATCH("/users/:id/activate-deactivate", controllers.OrganizationAdminActivateDeactivateUser)
+	
 }
