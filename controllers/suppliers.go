@@ -191,16 +191,10 @@ func GetAllSuppliers(c echo.Context) error {
         return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not retrieve suppliers"})
     }
 
-    // Return each supplier individually, not as an array
-    for _, supplier := range suppliers {
-        if err := c.JSON(http.StatusOK, supplier); err != nil {
-            log.Printf("GetAllSuppliers - Error returning supplier: %v", err)
-            return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Error returning suppliers"})
-        }
-    }
-
+    // Return supplier as an array
+    log.Printf("GetAllSuppliers - Retrieved %d suppliers", len(suppliers))
     log.Println("GetAllSuppliers - Exit")
-    return nil
+    return c.JSON(http.StatusOK, suppliers)
 }
 
 // GetSupplier retrieves a single supplier by ID
@@ -241,5 +235,6 @@ func GetSupplier(c echo.Context) error {
 
     log.Println("GetSupplier - Supplier retrieved successfully")
     log.Println("GetSupplier - Exit")
-    return c.JSON(http.StatusOK, supplier)  // Single JSON object response
+    return c.JSON(http.StatusOK, []models.Suppliers{supplier})
+    //return c.JSON(http.StatusOK, supplier)  // Single JSON object response
 }
