@@ -18,6 +18,47 @@ func AdminMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		return next(c)
 	}
 }
+func OrganizationIDMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
+    return func(c echo.Context) error {
+        // Skip authorization for public paths (e.g., login/logout)
+        if c.Path() == "/login" || c.Path() == "/logout" {
+            return next(c)
+        }
+
+        authHeader := c.Request().Header.Get("Authorization")
+        if authHeader == "" {
+            return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Authorization header is required"})
+        }
+
+        tokenParts := strings.Split(authHeader, " ")
+        if len(tokenParts) != 2 || tokenParts[0] != "Bearer" {
+            return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Invalid token format"})
+        }
+
+        tokenString := tokenParts[1]
+        token, err := utils.ParseToken(tokenString)
+        if err != nil {
+            log.Printf("Error parsing JWT: %v", err)
+            return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Invalid token"})
+        }
+
+        // Extract the claims from the token
+        claims, ok := token.Claims.(*utils.Claims)
+        if !ok || !token.Valid {
+            log.Printf("Invalid token claims: %v", token)
+            return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Invalid token claims"})
+        }
+
+        // Extract organizationID from claims
+        organizationID := claims.OrganizationID
+        log.Printf("Token parsed successfully. OrganizationID: %d", organizationID)
+
+        // Set organizationID in the context
+        c.Set("organizationID", organizationID)
+
+        return next(c)
+    }
+}
 
 // AuthMiddleware validates the JWT token and checks if the user's role is allowed.
 func AuthMiddleware(allowedRoles ...string) echo.MiddlewareFunc {

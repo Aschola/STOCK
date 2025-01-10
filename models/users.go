@@ -44,6 +44,7 @@ type Suppliers struct {
 	UpdatedAt      time.Time      `json:"updated_at"`
 	DeletedAt      gorm.DeletedAt `json:"deleted_at" gorm:"index"`
 	CreatedBy      uint           `json:"created_by"`
+	Stock          []Stock        `json:"stock" gorm:"foreignKey:SupplierID"`
 }
 func (Suppliers) TableName() string {
     return "suppliers"

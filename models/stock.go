@@ -12,6 +12,7 @@ type Stock struct {
 	Quantity           int        `gorm:"not null" json:"quantity"`
 	BuyingPrice        float64    `gorm:"not null" json:"buying_price"`
 	SellingPrice       float64    `gorm:"not null" json:"selling_price"`
+	SupplierID uint      `json:"supplier_id"`
 	ExpiryDate         *time.Time `gorm:"type:date" json:"expiry_date,omitempty"`
 	ProductDescription string     `gorm:"type:text" json:"product_description,omitempty"`
 	CreatedBy          uint64     `gorm:"not null" json:"created_by"`
