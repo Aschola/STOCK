@@ -55,6 +55,7 @@ func OrganizationIDMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 
         // Set organizationID in the context
         c.Set("organizationID", organizationID)
+		//c.Set("roleName", roleName)
 
         return next(c)
     }

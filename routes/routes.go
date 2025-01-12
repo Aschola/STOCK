@@ -133,7 +133,8 @@ func SetupRoutes(e *echo.Echo) {
 	orgAdminGroup.PATCH("/users/:id/activate-deactivate", controllers.OrganizationAdminActivateDeactivateUser)
 
 	organization := e.Group("/organization")
-    organization.Use(middlewares.OrganizationIDMiddleware)
+	e.Use(middlewares.AuthMiddleware("Admin", "Shopkeeper", "Auditor")) 
+	//organization.Use(middlewares.OrganizationIDMiddleware)
 	organization.POST("/addsupplier", controllers.AddSupplier)
 	organization.PUT("/editsupplier/:id", controllers.EditSupplier)
 	organization.DELETE("/deletesupplier", controllers.DeleteSupplier)
@@ -144,5 +145,5 @@ func SetupRoutes(e *echo.Echo) {
 	organization.PUT("/editstock", controllers.EditStock)
 	organization.GET("/viewallstock", controllers.ViewAllStock)
 	organization.GET("/viewstock/:id", controllers.ViewStockByID)
-	
+
 }

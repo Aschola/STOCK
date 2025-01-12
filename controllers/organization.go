@@ -287,7 +287,7 @@ func AdminAddUser(c echo.Context) error {
     var existingUser models.User
     if err := db.GetDB().Where("organization_id = ? AND (email = ? OR username = ?)", organizationID, input.Email, input.Username).First(&existingUser).Error; err == nil {
         log.Println("AdminAddUser - User with same email or username already exists in the organization")
-        return c.JSON(http.StatusConflict, echo.Map{"error": "User with the same email or username already exists in the organization"})
+        return c.JSON(http.StatusConflict, echo.Map{"error": "User with the same email or username already exists"})
     }
 
     // Validate the input fields (e.g., check username and email format, etc.)
@@ -301,12 +301,12 @@ func AdminAddUser(c echo.Context) error {
     }
 
     // Hash the password
-    hashedPassword, err := utils.HashPassword(input.Password)
-    if err != nil {
-        log.Printf("AdminAddUser - Password hashing error: %v", err)
-        return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not hash password"})
-    }
-    input.Password = hashedPassword
+    // hashedPassword, err := utils.HashPassword(input.Password)
+    // if err != nil {
+    //     log.Printf("AdminAddUser - Password hashing error: %v", err)
+    //     return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not hash password"})
+    // }
+    // input.Password = hashedPassword
 
     // Assign the organizationID and createdBy fields
     input.OrganizationID = organizationID

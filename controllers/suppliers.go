@@ -15,18 +15,7 @@ import (
 func AddSupplier(c echo.Context) error {
     log.Println("CreateSupplier - Entry")
 
-    roleName, ok := c.Get("roleName").(string)
-    if !ok {
-        log.Println("CreateSupplier - Unauthorized: roleName not found in context")
-        return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
-    }
-
-    if roleName != "Admin" {
-        log.Println("CreateSupplier - Permission denied: non-admin trying to create supplier")
-        return c.JSON(http.StatusForbidden, echo.Map{"error": "Permission denied"})
-    }
-
-    // Retrieve organizationID from the context (i.e. the organization that the admin is linked to)
+    // Retrieve the organization ID from the context
     organizationIDRaw := c.Get("organizationID")
     if organizationIDRaw == nil {
         log.Println("CreateSupplier - organizationID not found in context")
@@ -39,19 +28,40 @@ func AddSupplier(c echo.Context) error {
         return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
     }
 
-    // Bind request body to supplier struct
+    // Bind the incoming request body to the supplier struct
     var supplier models.Suppliers
     if err := c.Bind(&supplier); err != nil {
         log.Printf("CreateSupplier - Bind error: %v", err)
         return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
     }
 
-    supplier.CreatedBy = c.Get("userID").(uint)  // Set the user that created the supplier
-    supplier.OrganizationID = organizationID    // Set the supplier's organization to the logged-in admin's organization
+    // Check if the supplier already exists (based on a unique field like 'name' or 'contact')
+    var existingSupplier models.Suppliers
+    if err := db.GetDB().Where("name = ? AND organization_id = ?", supplier.Name, organizationID).First(&existingSupplier).Error; err == nil {
+        log.Printf("CreateSupplier - Supplier with name %s already exists in organization %d", supplier.Name, organizationID)
+        return c.JSON(http.StatusConflict, echo.Map{"error": "Supplier already exists"})
+    }
+
+    // Retrieve userID from the context
+    userIDRaw := c.Get("userID")
+    if userIDRaw == nil {
+        log.Println("CreateSupplier - userID not found in context")
+        return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
+    }
+
+    userID, ok := userIDRaw.(uint)
+    if !ok {
+        log.Println("CreateSupplier - Invalid userID")
+        return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
+    }
+
+    // Automatically link the supplier with the current user's organization
+    supplier.OrganizationID = organizationID
+    supplier.CreatedBy = userID // Set the user who created the supplier
 
     log.Printf("CreateSupplier - New supplier data: %+v", supplier)
 
-    // Save to database
+    // Save the new supplier to the database
     if err := db.GetDB().Create(&supplier).Error; err != nil {
         log.Printf("CreateSupplier - Create error: %v", err)
         return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
@@ -182,16 +192,48 @@ func GetAllSuppliers(c echo.Context) error {
     // Log the organization ID
     log.Printf("GetAllSuppliers - OrganizationID: %d", organizationID)
 
-    // Query suppliers linked to the organization, excluding deleted suppliers
-    var suppliers []models.Suppliers
-    if err := db.GetDB().
-        Where("organization_id = ? AND deleted_at IS NULL", organizationID).
-        Find(&suppliers).Error; err != nil {
+    // Query suppliers, stock, and product details (product_name) linked to the organization
+    query := `
+        SELECT s.id, s.name, s.organization_id, s.created_at, s.updated_at, p.product_name 
+        FROM suppliers s
+        LEFT JOIN stock st ON st.supplier_id = s.id
+        LEFT JOIN products p ON p.product_id = st.product_id
+        WHERE s.organization_id = ? AND s.deleted_at IS NULL
+    `
+    var suppliers []map[string]interface{}
+
+    rows, err := db.GetDB().Raw(query, organizationID).Rows()
+    if err != nil {
         log.Printf("GetAllSuppliers - Query error: %v", err)
         return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not retrieve suppliers"})
     }
+    defer rows.Close()
 
-    // Return supplier as an array
+    for rows.Next() {
+        var supplierID uint
+        var supplierName string
+        var organizationID uint
+        var createdAt, updatedAt *string
+        var productName string
+
+        if err := rows.Scan(&supplierID, &supplierName, &organizationID, &createdAt, &updatedAt, &productName); err != nil {
+            log.Printf("GetAllSuppliers - Row scan error: %v", err)
+            return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Error scanning suppliers data"})
+        }
+
+        supplier := map[string]interface{}{
+            "id":             supplierID,
+            "name":           supplierName,
+            "organization_id": organizationID,
+            "created_at":     createdAt,
+            "updated_at":     updatedAt,
+            "product_name":   productName,
+        }
+
+        suppliers = append(suppliers, supplier)
+    }
+
+    // Return suppliers as an array
     log.Printf("GetAllSuppliers - Retrieved %d suppliers", len(suppliers))
     log.Println("GetAllSuppliers - Exit")
     return c.JSON(http.StatusOK, suppliers)
@@ -221,20 +263,40 @@ func GetSupplier(c echo.Context) error {
         return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
     }
 
-    var supplier models.Suppliers
-    if err := db.GetDB().First(&supplier, id).Error; err != nil {
+    // Query supplier, stock, and product details (product_name) linked to the supplier
+    query := `
+        SELECT s.id, s.name, s.organization_id, s.created_at, s.updated_at, p.product_name 
+        FROM suppliers s
+        LEFT JOIN stock st ON st.supplier_id = s.id
+        LEFT JOIN products p ON p.product_id = st.product_id
+        WHERE s.id = ? AND s.organization_id = ? AND s.deleted_at IS NULL
+    `
+    var supplierDetails map[string]interface{}
+    row := db.GetDB().Raw(query, id, organizationID).Row()
+
+    // Scan the result into the map
+    var supplierID uint
+    var supplierName string
+    var createdAt, updatedAt *string
+    var productName string
+
+    if err := row.Scan(&supplierID, &supplierName, &organizationID, &createdAt, &updatedAt, &productName); err != nil {
         log.Printf("GetSupplier - Supplier not found: %v", err)
         return c.JSON(http.StatusNotFound, echo.Map{"error": "Supplier not found"})
     }
 
-    // Check if the supplier belongs to the correct organization
-    if supplier.OrganizationID != organizationID {
-        log.Println("GetSupplier - Supplier does not belong to this organization")
-        return c.JSON(http.StatusForbidden, echo.Map{"error": "Supplier not found in your organization"})
+    // Prepare the response with supplier and product details
+    supplierDetails = map[string]interface{}{
+        "id":             supplierID,
+        "name":           supplierName,
+        "organization_id": organizationID,
+        "created_at":     createdAt,
+        "updated_at":     updatedAt,
+        "product_name":   productName,
     }
 
     log.Println("GetSupplier - Supplier retrieved successfully")
     log.Println("GetSupplier - Exit")
-    return c.JSON(http.StatusOK, []models.Suppliers{supplier})
-    //return c.JSON(http.StatusOK, supplier)  // Single JSON object response
+    return c.JSON(http.StatusOK, supplierDetails)
 }
+

@@ -48,17 +48,17 @@ func SuperAdminLogin(c echo.Context) error {
 	// 	return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Invalid username or password"})
 	// }
 
-	// token, err := utils.GenerateJWT(user.ID, user.RoleName)
-	// if err != nil {
-	// 	log.Printf("GenerateJWT error: %v", err)
-	// 	return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not generate token"})
-	// }
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"userID":   user.ID,
-		"roleName": user.RoleName,
-		//"organization": user.OrganizationID,
-		"exp":      time.Now().Add(time.Hour * 72).Unix(),
-	})
+	token, err := utils.GenerateJWT(user.ID, user.RoleName, user.OrganizationID)
+	if err != nil {
+		log.Printf("GenerateJWT error: %v", err)
+		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not generate token"})
+	}
+	// token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+	// 	"userID":   user.ID,
+	// 	"roleName": user.RoleName,
+	// 	//"organization": user.OrganizationID,
+	// 	"exp":      time.Now().Add(time.Hour * 72).Unix(),
+	// })
 
 
 	log.Println("Super admin logged in successfully")
