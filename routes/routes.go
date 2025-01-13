@@ -16,13 +16,12 @@ func RegisterRoutes(e *echo.Echo) {
 	productGroup.POST("", controllers.AddProduct)                  // Add a new product
 	productGroup.PUT("/:product_id", controllers.UpdateProduct)    // Update product details
 	productGroup.DELETE("/:product_id", controllers.DeleteProduct) // Delete a product
-
 	e.PATCH("/products/softdelete/:product_id", controllers.SoftDeleteProduct)
 	e.GET("/products/softdeleted", controllers.GetSoftDeletedProducts)
 	e.PATCH("/products/activate/:product_id", controllers.ActivateProduct)
 
 	// Define CRUD endpoints for categories without admin middleware
-	categoryGroup := e.Group("/categories")
+	categoryGroup := e.Group("/organization/categories")	
 	categoryGroup.GET("", controllers.GetCategories)
 	categoryGroup.GET("/:category_id", controllers.GetCategoryByID)
 	categoryGroup.POST("", controllers.CreateCategories)
@@ -47,6 +46,8 @@ func RegisterRoutes(e *echo.Echo) {
 	e.GET("/salebycategory/:user_id", controllers.FetchSalesByUserID)
 	// Endpoint for selling products
 	e.POST("/products/:product_id/sell/:quantity_sold", controllers.SellProduct)
+	e.GET("/sales/:sale_id", controllers.GetSalesBySaleID)
+
 }
 
 func SetupRoutes(e *echo.Echo) {
@@ -121,5 +122,5 @@ func SetupRoutes(e *echo.Echo) {
 	//orgAdminGroup.DELETE("/user/:id", controllers.Delete)
 	adminGroup.PUT("/organization/:id/deactivate", controllers.OrgAdminDeactivateOrganization)
 	orgAdminGroup.PATCH("/users/:id/activate-deactivate", controllers.OrganizationAdminActivateDeactivateUser)
-	
+
 }

@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"stock/models"
 
+	"strconv"
+
 	"github.com/labstack/echo/v4"
 )
 
@@ -55,7 +57,7 @@ func GetAllSales(c echo.Context) error {
 			"total_selling_price": sale.TotalSellingPrice,
 			"profit":              sale.Profit,
 			"quantity":            sale.Quantity,
-			"cash_receive":        sale.CashReceive,
+			"cash_receive":        sale.CashReceived,
 			"balance":             sale.Balance,
 			"user_id":             sale.UserID,
 			"date":                sale.Date.Format("2006-01-02T15:04:05Z"), // ISO 8601 format
@@ -69,4 +71,32 @@ func GetAllSales(c echo.Context) error {
 
 	// Return the formatted response
 	return c.JSON(http.StatusOK, response)
+}
+
+func GetSalesBySaleID(c echo.Context) error {
+	// Extract sale_id from the URL parameter using :sale_id format
+	saleID := c.Param("sale_id")
+	// Parse the sale_id from the URL into an integer
+	parsedSaleID, err := strconv.ParseInt(saleID, 10, 64) // Parse the sale_id as an int64
+	if err != nil {
+		log.Printf("Failed to parse sale_id: %v", err)
+		return errorResponse(c, http.StatusBadRequest, "Invalid sale_id")
+	}
+
+	// Fetch all sales with the matching sale_id
+	var sales []models.Sale
+	db := getDB()
+	if db == nil {
+		log.Println("Failed to get database instance while fetching sales")
+		return errorResponse(c, http.StatusInternalServerError, "Failed to connect to the database")
+	}
+
+	if err := db.Table("sales_by_cash").Where("sale_id = ?", parsedSaleID).Find(&sales).Error; err != nil {
+		log.Printf("Failed to fetch sales for sale_id: %d, error: %v", parsedSaleID, err)
+		return errorResponse(c, http.StatusInternalServerError, "Failed to fetch sales")
+	}
+
+	// Return the list of sales
+	log.Printf("Fetched %d sales for sale_id: %d", len(sales), parsedSaleID)
+	return c.JSON(http.StatusOK, sales)
 }

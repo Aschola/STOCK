@@ -141,7 +141,6 @@ func GetProductByID(c echo.Context) error {
 	return c.JSON(http.StatusOK, productWithStockDetails)
 }
 
-// AddProduct adds a new product to the database
 func AddProduct(c echo.Context) error {
 	db := getDB()
 	if db == nil {
@@ -150,6 +149,7 @@ func AddProduct(c echo.Context) error {
 	}
 
 	var product models.Product
+	// Decode the request body into the product struct
 	if err := json.NewDecoder(c.Request().Body).Decode(&product); err != nil {
 		log.Printf("Error decoding JSON for new product: %v", err)
 		return errorResponse(c, http.StatusBadRequest, "Error decoding JSON")
@@ -168,7 +168,13 @@ func AddProduct(c echo.Context) error {
 		return errorResponse(c, http.StatusBadRequest, "Category does not exist")
 	}
 
-	// Step 3: Handle and parse CreatedAt and UpdatedAt
+	// Step 3: Ensure organizations_id is provided and valid
+	if product.OrganizationsID == 0 {
+		log.Println("organizations_id is required")
+		return errorResponse(c, http.StatusBadRequest, "organizations_id is required")
+	}
+
+	// Step 4: Handle and parse CreatedAt and UpdatedAt
 	if product.CreatedAt.IsZero() {
 		// If CreatedAt is provided in the request, we can handle the custom format
 		if createdAtStr := c.FormValue("created_at"); createdAtStr != "" {
@@ -189,13 +195,13 @@ func AddProduct(c echo.Context) error {
 		product.UpdatedAt = time.Now()
 	}
 
-	// Step 4: Insert the product into the database
+	// Step 5: Insert the product into the database
 	if err := db.Table("products").Create(&product).Error; err != nil {
 		log.Printf("Error inserting product: %v", err)
 		return errorResponse(c, http.StatusInternalServerError, "Error inserting product")
 	}
 
-	// Step 5: Return the created product (including the auto-generated product_id)
+	// Step 6: Return the created product (including the auto-generated product_id)
 	log.Printf("Product added successfully: %v", product)
 	return c.JSON(http.StatusCreated, product)
 }
