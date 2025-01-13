@@ -47,6 +47,7 @@ func RegisterRoutes(e *echo.Echo) {
 	e.GET("/salebycategory/:user_id", controllers.FetchSalesByUserID)
 	// Endpoint for selling products
 	e.POST("/products/:product_id/sell/:quantity_sold", controllers.SellProduct)
+	e.GET("/sales/:sale_id", controllers.GetSalesBySaleID)
 }
 
 func SetupRoutes(e *echo.Echo) {
@@ -144,7 +145,7 @@ func SetupRoutes(e *echo.Echo) {
 	organization.PUT("/editstock", controllers.EditStock)
 	organization.GET("/viewallstock", controllers.ViewAllStock)
 	organization.GET("/viewstock/:id", controllers.ViewStockByID)
-	organization.GET("/:product_id", controllers.GetProductByID)
+	organization.GET("/products/:product_id", controllers.GetProductByID)
 	organization.GET("/products", controllers.GetProducts)
 	organization.DELETE("/:product_id", controllers.DeleteProduct)
 	organization.GET("", controllers.GetCategories)
@@ -153,5 +154,6 @@ func SetupRoutes(e *echo.Echo) {
 	organization.PUT("/:category_id", controllers.UpdateCategory)
 	organization.DELETE("/:id", controllers.DeleteCategoryByID)
 	organization.GET("/only", controllers.GetCategoriesOnly)
+	organization.GET("/sales/:sale_id", controllers.GetSalesBySaleID)
 
 }
