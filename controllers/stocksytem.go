@@ -10,40 +10,68 @@ import (
 
 	"github.com/labstack/echo/v4"
 
-	//"gorm.io/gorm"
+	"gorm.io/gorm"
 	"stock/models"
 )
 
 // AdminCreateStock handles the creation of a stock item
 func CreateStock(c echo.Context) error {
-	log.Println("AdminCreateStock - Entry")
+	log.Println("CreateStock - Entry")
 
+	// Retrieve the user's role and organization ID from the context
 	roleName, ok := c.Get("roleName").(string)
 	if !ok {
-		log.Println("AdminCreateStock - Unauthorized: roleName not found in context")
+		log.Println("CreateStock - Unauthorized: roleName not found in context")
 		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
 	}
 
-	if roleName != "Admin" {
-		log.Println("AdminCreateStock - Permission denied: non-admin trying to create stock")
-		return c.JSON(http.StatusForbidden, echo.Map{"error": "Permission denied"})
+	organizationIDRaw := c.Get("organizationID")
+	if organizationIDRaw == nil {
+		log.Println("CreateStock - Unauthorized: organizationID not found in context")
+		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
 	}
 
+	organizationID, ok := organizationIDRaw.(uint)
+	if !ok {
+		log.Println("CreateStock - Unauthorized: organizationID is not of type uint")
+		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
+	}
+
+	// Log the role and organization ID (optional)
+	log.Printf("CreateStock - User Role: %s, OrganizationID: %d", roleName, organizationID)
+
+	// Create the stock item by binding the request body to the Stock model
 	var stock models.Stock
 	if err := c.Bind(&stock); err != nil {
-		log.Printf("AdminCreateStock - Bind error: %v", err)
+		log.Printf("CreateStock - Bind error: %v", err)
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 	}
 
-	log.Printf("AdminCreateStock - New stock data: %+v", stock)
+	// Check if the stock already exists in the organization
+	var existingStock models.Stock
+	if err := db.GetDB().
+		Where("product_id = ? AND organization_id = ? AND deleted_at IS NULL", stock.ProductID, organizationID).
+		First(&existingStock).Error; err == nil {
+		log.Printf("CreateStock - Stock already exists: ProductID %d in OrganizationID %d", stock.ProductID, organizationID)
+		return c.JSON(http.StatusConflict, echo.Map{"error": "Stock already exists for this product in the organization"})
+	} else if err != gorm.ErrRecordNotFound {
+		log.Printf("CreateStock - Error checking existing stock: %v", err)
+		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not check for existing stock"})
+	}
 
+	// Set the organization ID of the stock to the user's organization
+	stock.OrganizationID = organizationID
+
+	log.Printf("CreateStock - New stock data: %+v", stock)
+
+	// Insert the new stock into the database
 	if err := db.GetDB().Create(&stock).Error; err != nil {
-		log.Printf("AdminCreateStock - Create error: %v", err)
+		log.Printf("CreateStock - Create error: %v", err)
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
 	}
 
-	log.Println("AdminCreateStock - Stock item created successfully")
-	log.Println("AdminCreateStock - Exit")
+	log.Println("CreateStock - Stock item created successfully")
+	log.Println("CreateStock - Exit")
 	return c.JSON(http.StatusOK, echo.Map{"message": "Stock item created successfully"})
 }
 
@@ -71,11 +99,27 @@ func EditStock(c echo.Context) error {
 
 	log.Printf("AdminEditStock - Current stock details: %+v", stock)
 
-	if err := c.Bind(&stock); err != nil {
+	// Create a new stock struct to hold only the editable fields
+	var updatedStock struct {
+		Quantity    int       `json:"quantity"`
+		BuyingPrice float64   `json:"buying_price"`
+		SellingPrice float64  `json:"selling_price"`
+		ExpiryDate  *string   `json:"expiry_date"`
+	}
+
+	// Bind the input data to the new struct
+	if err := c.Bind(&updatedStock); err != nil {
 		log.Printf("AdminEditStock - Bind error: %v", err)
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 	}
 
+	// Update only the editable fields in the stock item
+	stock.Quantity = updatedStock.Quantity
+	stock.BuyingPrice = updatedStock.BuyingPrice
+	stock.SellingPrice = updatedStock.SellingPrice
+	//stock.ExpiryDate = updatedStock.ExpiryDate
+
+	// Save the updated stock item
 	if err := db.GetDB().Save(&stock).Error; err != nil {
 		log.Printf("AdminEditStock - Save error: %v", err)
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
@@ -85,6 +129,7 @@ func EditStock(c echo.Context) error {
 	log.Println("AdminEditStock - Exit")
 	return c.JSON(http.StatusOK, stock)
 }
+
 
 // AdminDeleteStock handles permanent deletion of a stock item
 func DeleteStock(c echo.Context) error {
@@ -116,7 +161,7 @@ func DeleteStock(c echo.Context) error {
 func ViewAllStock(c echo.Context) error {
 	gormDB := db.GetDB()
 
-	// SQL Query with INNER JOIN to ensure only valid products are matched
+	// SQL Query with INNER JOIN to include supplier's name
 	query := `
         SELECT 
             s.id,
@@ -126,9 +171,11 @@ func ViewAllStock(c echo.Context) error {
             s.buying_price,
             s.selling_price,
             s.expiry_date,
-            p.product_description AS product_description  
+            p.product_description AS product_description,
+            su.name AS supplier_name  -- Added supplier name
         FROM stock s
         INNER JOIN products p ON s.product_id = p.product_id
+        INNER JOIN suppliers su ON su.id = s.supplier_id  -- Joining with suppliers table
         WHERE p.product_id IS NOT NULL -- Ensures that we only get products that exist in the products table
     `
 
@@ -151,9 +198,10 @@ func ViewAllStock(c echo.Context) error {
 			sellingPrice       float64
 			expiryDate         *string
 			productDescription string
+			supplierName       string  // Added variable for supplier name
 		)
 
-		err = rows.Scan(&id, &productID, &productName, &quantity, &buyingPrice, &sellingPrice, &expiryDate, &productDescription)
+		err = rows.Scan(&id, &productID, &productName, &quantity, &buyingPrice, &sellingPrice, &expiryDate, &productDescription, &supplierName)
 		if err != nil {
 			fmt.Printf("Error scanning row: %v\n", err)
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Error reading stock data"})
@@ -168,6 +216,7 @@ func ViewAllStock(c echo.Context) error {
 			"selling_price":       sellingPrice,
 			"expiry_date":         expiryDate,
 			"product_description": productDescription,
+			"supplier_name":       supplierName,  // Added supplier name to the response
 		}
 
 		stocks = append(stocks, stock)
@@ -175,6 +224,7 @@ func ViewAllStock(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, stocks)
 }
+
 
 // func ViewAllStock(c echo.Context) error {
 // 	log.Println("AdminViewAllStock - Entry")
@@ -223,7 +273,7 @@ func ViewStockByID(c echo.Context) error {
 
     gormDB := db.GetDB()
 
-    // SQL Query to fetch stock details with associated product details
+    // SQL Query to fetch stock details with associated product and supplier details
     query := `
         SELECT 
             s.id,
@@ -233,9 +283,11 @@ func ViewStockByID(c echo.Context) error {
             s.buying_price,
             s.selling_price,
             s.expiry_date,
-            p.product_description AS product_description  
+            p.product_description AS product_description,
+            su.name AS supplier_name  -- Added supplier name
         FROM stock s
         INNER JOIN products p ON s.product_id = p.product_id
+        INNER JOIN suppliers su ON su.id = s.supplier_id  -- Joining with suppliers table
         WHERE s.id = ?
     `
 
@@ -248,11 +300,12 @@ func ViewStockByID(c echo.Context) error {
         sellingPrice         float64
         expiryDate           *string
         productDescription   string
+        supplierName         string  // Added variable for supplier name
     )
 
     // Execute the query
     row := gormDB.Raw(query, id).Row()
-    if err := row.Scan(&idVal, &productID, &productName, &quantity, &buyingPrice, &sellingPrice, &expiryDate, &productDescription); err != nil {
+    if err := row.Scan(&idVal, &productID, &productName, &quantity, &buyingPrice, &sellingPrice, &expiryDate, &productDescription, &supplierName); err != nil {
         log.Printf("ViewStockByID - Stock not found: %v", err)
         return c.JSON(http.StatusNotFound, echo.Map{"error": "Stock not found"})
     }
@@ -267,6 +320,7 @@ func ViewStockByID(c echo.Context) error {
         "selling_price":       sellingPrice,
         "expiry_date":         expiryDate,
         "product_description": productDescription,
+        "supplier_name":       supplierName,  // Added supplier name to the response
     }
 
     log.Println("ViewStockByID - Stock retrieved successfully")
