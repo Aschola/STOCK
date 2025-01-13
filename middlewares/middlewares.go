@@ -207,8 +207,8 @@ func OrganizationIDMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		log.Printf("[OrganizationIDMiddleware] Processing route: %s", c.Path())
 
-		// Skip auth checks for login and logout routes
-		if c.Path() == "/admin/login" || c.Path() == "/admin/logout" {
+		// Skip auth checks for any login or logout route
+		if isLoginOrLogoutRoute(c.Path()) {
 			log.Println("[OrganizationIDMiddleware] Skipping authorization for login/logout")
 			return next(c)
 		}
@@ -255,8 +255,8 @@ func AuthMiddleware(allowedRoles ...string) echo.MiddlewareFunc {
 		return func(c echo.Context) error {
 			log.Printf("[AuthMiddleware] Processing route: %s", c.Path())
 
-			// Skip auth checks for login and logout routes
-			if c.Path() == "/admin/login" || c.Path() == "/admin/logout" {
+			// Skip auth checks for any login or logout route
+			if isLoginOrLogoutRoute(c.Path()) {
 				log.Println("[AuthMiddleware] Skipping authorization for login/logout")
 				return next(c)
 			}
@@ -318,57 +318,66 @@ func contains(slice []string, value string) bool {
 	}
 	return false
 }
+
+// Utility function to check if the route is a login or logout route.
+func isLoginOrLogoutRoute(path string) bool {
+	// Skip authentication for routes that contain "/login" or "/logout"
+	return strings.Contains(path, "/login") || strings.Contains(path, "/logout")
+}
+
+// Role-specific middlewares using roleName
+
 func SuperAdminOnly(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c echo.Context) error {
-			roleName := c.Get("roleName").(string)
-			if roleName != "Superadmin" {
-				log.Printf("Access denied for RoleName %s", roleName)
-				return c.JSON(http.StatusForbidden, map[string]string{"error": "Access forbidden"})
-			}
-			return next(c)
+	return func(c echo.Context) error {
+		roleName := c.Get("roleName").(string)
+		if roleName != "Superadmin" {
+			log.Printf("Access denied for RoleName %s", roleName)
+			return c.JSON(http.StatusForbidden, map[string]string{"error": "Access forbidden"})
 		}
+		return next(c)
 	}
-	
-	func AdminOnly(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c echo.Context) error {
-			roleName := c.Get("roleName").(string)
-			if roleName != "Admin" {
-				log.Printf("Access denied for RoleName %s", roleName)
-				return c.JSON(http.StatusForbidden, map[string]string{"error": "Access forbidden"})
-			}
-			return next(c)
+}
+
+func AdminOnly(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		roleName := c.Get("roleName").(string)
+		if roleName != "Admin" {
+			log.Printf("Access denied for RoleName %s", roleName)
+			return c.JSON(http.StatusForbidden, map[string]string{"error": "Access forbidden"})
 		}
+		return next(c)
 	}
-	
-	func ShopAttendantOnly(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c echo.Context) error {
-			roleName := c.Get("roleName").(string)
-			if roleName != "Shopkeeper" {
-				log.Printf("Access denied for RoleName %s", roleName)
-				return c.JSON(http.StatusForbidden, map[string]string{"error": "Access forbidden"})
-			}
-			return next(c)
+}
+
+func ShopAttendantOnly(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		roleName := c.Get("roleName").(string)
+		if roleName != "Shopkeeper" {
+			log.Printf("Access denied for RoleName %s", roleName)
+			return c.JSON(http.StatusForbidden, map[string]string{"error": "Access forbidden"})
 		}
+		return next(c)
 	}
-	
-	func OrganizationAdminOnly(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c echo.Context) error {
-			roleName := c.Get("roleName").(string)
-			if roleName != "organization_admin" {
-				log.Printf("Access denied for RoleName %s", roleName)
-				return c.JSON(http.StatusForbidden, map[string]string{"error": "Access forbidden"})
-			}
-			return next(c)
+}
+
+func OrganizationAdminOnly(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		roleName := c.Get("roleName").(string)
+		if roleName != "organization_admin" {
+			log.Printf("Access denied for RoleName %s", roleName)
+			return c.JSON(http.StatusForbidden, map[string]string{"error": "Access forbidden"})
 		}
+		return next(c)
 	}
-	
-	func AuditorOnly(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c echo.Context) error {
-			roleName := c.Get("roleName").(string)
-			if roleName != "Auditor" {
-				log.Printf("Access denied for RoleName %s", roleName)
-				return c.JSON(http.StatusForbidden, map[string]string{"error": "Access forbidden"})
-			}
-			return next(c)
+}
+
+func AuditorOnly(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		roleName := c.Get("roleName").(string)
+		if roleName != "Auditor" {
+			log.Printf("Access denied for RoleName %s", roleName)
+			return c.JSON(http.StatusForbidden, map[string]string{"error": "Access forbidden"})
 		}
+		return next(c)
 	}
+}
