@@ -13,8 +13,8 @@ func RegisterRoutes(e *echo.Echo) {
 	productGroup := e.Group("/products")
 	// productGroup.GET("", controllers.GetProducts)                  // Fetch all products
 	// productGroup.GET("/:product_id", controllers.GetProductByID)   // Fetch a single product by ID
-	productGroup.POST("", controllers.AddProduct)                  // Add a new product
-	productGroup.PUT("/:product_id", controllers.UpdateProduct)    // Update product details
+	productGroup.POST("", controllers.AddProduct)               // Add a new product
+	productGroup.PUT("/:product_id", controllers.UpdateProduct) // Update product details
 	//productGroup.DELETE("/:product_id", controllers.DeleteProduct) // Delete a product
 
 	e.PATCH("/products/softdelete/:product_id", controllers.SoftDeleteProduct)
@@ -47,6 +47,7 @@ func RegisterRoutes(e *echo.Echo) {
 	e.GET("/salebycategory/:user_id", controllers.FetchSalesByUserID)
 	// Endpoint for selling products
 	e.POST("/products/:product_id/sell/:quantity_sold", controllers.SellProduct)
+	e.GET("/sales/:sale_id", controllers.GetSalesBySaleID)
 }
 
 func SetupRoutes(e *echo.Echo) {
@@ -133,7 +134,7 @@ func SetupRoutes(e *echo.Echo) {
 	orgAdminGroup.PATCH("/users/:id/activate-deactivate", controllers.OrganizationAdminActivateDeactivateUser)
 
 	organization := e.Group("/organization")
-	e.Use(middlewares.AuthMiddleware("Admin", "Shopkeeper", "Auditor")) 
+	e.Use(middlewares.AuthMiddleware("Admin", "Shopkeeper", "Auditor"))
 	organization.POST("/addsupplier", controllers.AddSupplier)
 	organization.PUT("/editsupplier/:id", controllers.EditSupplier)
 	organization.DELETE("/deletesupplier", controllers.DeleteSupplier)
@@ -144,8 +145,8 @@ func SetupRoutes(e *echo.Echo) {
 	organization.PUT("/editstock", controllers.EditStock)
 	organization.GET("/viewallstock", controllers.ViewAllStock)
 	organization.GET("/viewstock/:id", controllers.ViewStockByID)
-	organization.GET("/:product_id", controllers.GetProductByID) 
-	organization.GET("/products", controllers.GetProducts)  
+	organization.GET("/products/:product_id", controllers.GetProductByID)
+	organization.GET("/products", controllers.GetProducts)
 	organization.DELETE("/:product_id", controllers.DeleteProduct)
 	organization.GET("", controllers.GetCategories)
 	organization.GET("/:category_id", controllers.GetCategoryByID)
@@ -153,7 +154,6 @@ func SetupRoutes(e *echo.Echo) {
 	organization.PUT("/:category_id", controllers.UpdateCategory)
 	organization.DELETE("/:id", controllers.DeleteCategoryByID)
 	organization.GET("/only", controllers.GetCategoriesOnly)
-
+	organization.GET("/sales/:sale_id", controllers.GetSalesBySaleID)
 
 }
-

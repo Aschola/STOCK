@@ -28,6 +28,7 @@ type Product struct {
 	CreatedAt          time.Time  `gorm:"autoCreateTime" json:"created_at"`  // Timestamp when created
 	UpdatedAt          time.Time  `gorm:"autoUpdateTime" json:"updated_at"`  // Timestamp when last updated
 	DeletedAt          *time.Time `gorm:"index" json:"deleted_at,omitempty"` // Soft delete timestamp, nullable
+	OrganizationsID    int64      `json:"organizations_id"`
 }
 
 type SaleByCategory struct {
@@ -42,7 +43,7 @@ type SaleByCategory struct {
 
 // Sale represents the structure of the sales_by_cash table
 type Sale struct {
-	SaleID            int       `gorm:"primaryKey;autoIncrement" json:"sale_id"`
+	SaleID            int64     `gorm:"primaryKey;autoIncrement" json:"sale_id"`
 	Name              string    `gorm:"type:varchar(255)" json:"name"`
 	UnitBuyingPrice   float64   `gorm:"type:decimal(10,2)" json:"unit_buying_price"`
 	TotalBuyingPrice  float64   `gorm:"type:decimal(10,2)" json:"total_buying_price"`
@@ -50,9 +51,9 @@ type Sale struct {
 	TotalSellingPrice float64   `gorm:"type:float" json:"total_selling_price"`
 	Profit            float64   `gorm:"type:float" json:"profit"`
 	Quantity          int       `gorm:"type:int" json:"quantity"`
-	CashReceive       float64   `gorm:"type:decimal(10,2)" json:"cash_receive"`
+	CashReceived      float64   `gorm:"type:decimal(10,2)" json:"cash_receive"`
 	Balance           float64   `gorm:"type:decimal(10,2)" json:"balance"`
-	UserID            string    `gorm:"type:varchar(255)" json:"user_id"`
+	UserID            int       `json:"user_id"`
 	Date              time.Time `gorm:"type:timestamp" json:"date"`
 	CategoryName      string    `gorm:"type:varchar(255)" json:"category_name"`
 }
@@ -62,9 +63,15 @@ func (Sale) TableName() string {
 	return "sales_by_cash"
 }
 
+// SalePayload represents the data structure for sale request
 type SalePayload struct {
-	ProductID    int     `json:"product_id"`
-	QuantitySold int     `json:"quantity_sold"`
-	UserID       string  `json:"user_id"`
-	CashReceived float64 `json:"cash_received"`
+	UserID       int        `json:"user_id"`
+	CashReceived float64    `json:"cash_received"`
+	Items        []SaleItem `json:"items"`
+}
+
+// SaleItem represents an individual item in the sale
+type SaleItem struct {
+	ProductID    int `json:"product_id"`
+	QuantitySold int `json:"quantity_sold"`
 }
