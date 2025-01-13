@@ -147,3 +147,4 @@ func SetupRoutes(e *echo.Echo) {
 	organization.GET("/viewstock/:id", controllers.ViewStockByID)
 
 }
+

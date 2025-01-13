@@ -556,7 +556,7 @@ func AdminLogin(c echo.Context) error {
 	log.Println("AdminLogin - Exit")
 	//return c.JSON(http.StatusOK, echo.Map{"token": token})
 	return c.JSON(http.StatusOK, echo.Map{
-		//"user_id": input.ID,
+		"user_id": user.ID,
 		"token": token,
 	})
 }
