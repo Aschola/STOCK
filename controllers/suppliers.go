@@ -194,7 +194,7 @@ func GetAllSuppliers(c echo.Context) error {
 
     // Query suppliers, stock, and product details (product_name) linked to the organization
     query := `
-        SELECT s.id, s.name, s.organization_id, s.created_at, s.updated_at, p.product_name 
+        SELECT s.id, s.name, s.organization_id, s.created_at, s.updated_at, p.product_name, s.phone_number, 
         FROM suppliers s
         LEFT JOIN stock st ON st.supplier_id = s.id
         LEFT JOIN products p ON p.product_id = st.product_id
@@ -215,6 +215,7 @@ func GetAllSuppliers(c echo.Context) error {
         var organizationID uint
         var createdAt, updatedAt *string
         var productName string
+        var phoneNumber int64
 
         if err := rows.Scan(&supplierID, &supplierName, &organizationID, &createdAt, &updatedAt, &productName); err != nil {
             log.Printf("GetAllSuppliers - Row scan error: %v", err)
@@ -228,6 +229,7 @@ func GetAllSuppliers(c echo.Context) error {
             "created_at":     createdAt,
             "updated_at":     updatedAt,
             "product_name":   productName,
+            "phone_number": phoneNumber,
         }
 
         suppliers = append(suppliers, supplier)

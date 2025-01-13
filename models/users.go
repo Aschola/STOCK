@@ -42,7 +42,7 @@ func (Users) TableName() string {
 type Suppliers struct {
 	ID             uint           `json:"id" gorm:"primaryKey"`
 	Name           string         `json:"name"`
-	Phonenumber    int64          `json:"phonenumber"`
+	Phonenumber    int64          `json:"phone_number"`
 	OrganizationID uint           `json:"organization_id"`
 	CreatedAt      time.Time      `json:"created_at"`
 	UpdatedAt      time.Time      `json:"updated_at"`
