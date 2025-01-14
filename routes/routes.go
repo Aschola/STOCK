@@ -38,12 +38,12 @@ func RegisterRoutes(e *echo.Echo) {
 
 	// Define CRUD endpoints for sales
 	// Define the new route in main.go or wherever you define your routes.
-	e.POST("/sell", controllers.SellProduct)
+
 	e.GET("/cash/sales", controllers.GetAllSales)
-	e.GET("/cash/salesbyuser_id/:user_id", controllers.GetSalesByUser)
+
 	//e.GET("/salebycategory/:category_name", controllers.FetchSalesByCategory)
 	// Register the route to get sales by date
-	e.GET("/sales/date/:date", controllers.GetSalesByDate)
+
 	e.GET("/salebycategory/:user_id", controllers.FetchSalesByUserID)
 	// Endpoint for selling products
 	e.POST("/products/:product_id/sell/:quantity_sold", controllers.SellProduct)
@@ -154,7 +154,10 @@ func SetupRoutes(e *echo.Echo) {
 	organization.PUT("/:category_id", controllers.UpdateCategory)
 	organization.DELETE("/:id", controllers.DeleteCategoryByID)
 	organization.GET("/only", controllers.GetCategoriesOnly)
+	//sale endpoints
 	organization.GET("/sales/:sale_id", controllers.GetSalesBySaleID)
-
+	organization.POST("/sell", controllers.SellProduct)
+	organization.GET("/cash/salesbyuser_id/:user_id", controllers.GetSalesByUser)
+	organization.GET("/sales/date/:date", controllers.GetSalesByDate)
 }
 

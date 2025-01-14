@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 	"stock/models"
+	"time"
 
 	"strconv"
 
@@ -99,4 +100,119 @@ func GetSalesBySaleID(c echo.Context) error {
 	// Return the list of sales
 	log.Printf("Fetched %d sales for sale_id: %d", len(sales), parsedSaleID)
 	return c.JSON(http.StatusOK, sales)
+}
+
+// GetSalesByDate retrieves all sales for a specific date from the sales_by_cash table
+func GetSalesByDate(c echo.Context) error {
+	log.Println("[INFO] Received request to fetch sales for a specific date.")
+
+	// Get the date parameter from the URL
+	dateParam := c.Param("date")
+
+	// Try to parse the date
+	saleDate, err := time.Parse("2006-01-02", dateParam) // Format: "YYYY-MM-DD"
+	if err != nil {
+		logError("Error parsing date", err)
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid date format. Use YYYY-MM-DD")
+	}
+
+	// Database connection
+	db := getDB()
+	if db == nil {
+		logError("Database connection failed", nil)
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to connect to the database")
+	}
+
+	// Retrieve sales for the specific date
+	var sales []models.Sale
+	if err := db.Where("DATE(date) = ?", saleDate.Format("2006-01-02")).Find(&sales).Error; err != nil {
+		logError("Error fetching sales for date", err)
+		return echo.NewHTTPError(http.StatusInternalServerError, "Error fetching sales for the date")
+	}
+
+	// Check if no sales were found
+	if len(sales) == 0 {
+		log.Printf("[INFO] No sales found for date: %v", saleDate)
+		return echo.NewHTTPError(http.StatusNotFound, "No sales found for this date")
+	}
+
+	log.Printf("[INFO] Fetched %d sales records for date: %v", len(sales), saleDate)
+
+	// Prepare the response
+	var response []map[string]interface{}
+	for _, sale := range sales {
+		saleData := map[string]interface{}{
+			"sale_id":             sale.SaleID,
+			"product_name":        sale.Name,
+			"quantity":            sale.Quantity,
+			"unit_buying_price":   sale.UnitBuyingPrice,
+			"total_buying_price":  sale.TotalBuyingPrice,
+			"unit_selling_price":  sale.UnitSellingPrice,
+			"user_id":             sale.UserID,
+			"date":                sale.Date.Format("2006-01-02T15:04:05Z"), // ISO 8601 format
+			"category_name":       sale.CategoryName,
+			"total_selling_price": sale.TotalSellingPrice,
+			"profit":              sale.Profit,
+			"cash_receive":        sale.CashReceived,
+			"balance":             sale.Balance,
+		}
+		response = append(response, saleData)
+	}
+
+	// Return the formatted response
+	return c.JSON(http.StatusOK, response)
+}
+
+// GetSalesByUser retrieves all sales for a specific user_id from the sales_by_cash table
+func GetSalesByUser(c echo.Context) error {
+	log.Println("[INFO] Received request to fetch sales for a specific user_id.")
+
+	// Get the user_id from the URL parameter
+	userID := c.Param("user_id")
+
+	// Database connection
+	db := getDB()
+	if db == nil {
+		logError("Database connection failed", nil)
+		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to connect to the database")
+	}
+
+	// Retrieve sales for the specific user_id
+	var sales []models.Sale
+	if err := db.Where("user_id = ?", userID).Find(&sales).Error; err != nil {
+		logError("Error fetching sales for user_id", err)
+		return echo.NewHTTPError(http.StatusInternalServerError, "Error fetching sales for the user")
+	}
+
+	// Check if no sales found
+	if len(sales) == 0 {
+		log.Printf("[INFO] No sales found for user_id: %s", userID)
+		return echo.NewHTTPError(http.StatusNotFound, "No sales found for this user")
+	}
+
+	log.Printf("[INFO] Fetched %d sales records for user_id: %s", len(sales), userID)
+
+	// Prepare the response
+	var response []map[string]interface{}
+	for _, sale := range sales {
+		saleData := map[string]interface{}{
+			"sale_id":             sale.SaleID,
+			"product_name":        sale.Name,
+			"quantity":            sale.Quantity,
+			"unit_buying_price":   sale.UnitBuyingPrice,
+			"total_buying_price":  sale.TotalBuyingPrice,
+			"unit_selling_price":  sale.UnitSellingPrice,
+			"user_id":             sale.UserID,
+			"date":                sale.Date.Format("2006-01-02T15:04:05Z"), // ISO 8601 format
+			"category_name":       sale.CategoryName,
+			"total_selling_price": sale.TotalSellingPrice,
+			"profit":              sale.Profit,
+			"cash_receive":        sale.CashReceived,
+			"balance":             sale.Balance,
+		}
+		response = append(response, saleData)
+	}
+
+	// Return the formatted response
+	return c.JSON(http.StatusOK, response)
 }
