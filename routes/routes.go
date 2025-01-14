@@ -157,3 +157,4 @@ func SetupRoutes(e *echo.Echo) {
 	organization.GET("/sales/:sale_id", controllers.GetSalesBySaleID)
 
 }
+
