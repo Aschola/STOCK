@@ -2,13 +2,6 @@ package models
 
 import "time"
 
-// Category struct with product_description added
-type Category struct {
-	CategoryID         int    `json:"category_id"`
-	CategoryName       string `json:"category_name"`
-	ProductName        string `json:"product_name"`
-	ProductDescription string `json:"product_description"`
-}
 
 type Categories_Only struct {
 	CategoryID   int    `json:"category_id"`
@@ -16,7 +9,7 @@ type Categories_Only struct {
 }
 
 func (Categories_Only) TableName() string {
-	return "categories_onlies" // Ensure the table name matches
+	return "categories_onlies" 
 }
 
 type Product struct {

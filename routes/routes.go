@@ -29,12 +29,13 @@ func RegisterRoutes(e *echo.Echo) {
 	// categoryGroup.PUT("/:category_id", controllers.UpdateCategory)
 	// categoryGroup.DELETE("/:id", controllers.DeleteCategoryByID)
 	// categoryGroup.GET("/only", controllers.GetCategoriesOnly)
+	//e.GET("/products/category/:id", controllers.GetProductsByCategoryID)
 
-	e.POST("/categories_only", controllers.CreateCategoryInCategoriesOnly)
-	e.GET("/categories_only/:id", controllers.GetCategoryNameByID)
+	//e.POST("/categories_only", controllers.CreateCategoryInCategoriesOnly)
+	//e.GET("/categories_only/:id", controllers.GetCategoryNameByID)
 	//e.POST("/categories_only", controllers.Categories_Only)
-	//e.PUT("/categories_only/:id", controllers.EditCategoryNames)
-	e.DELETE("/categories_onlies/:id", controllers.DeleteCategoryFromCategoriesOnly)
+
+	//e.DELETE("/categories_onlies/:id", controllers.DeleteCategoryFromCategoriesOnly)
 
 	// Define CRUD endpoints for sales
 	// Define the new route in main.go or wherever you define your routes.
@@ -149,15 +150,19 @@ func SetupRoutes(e *echo.Echo) {
 	organization.GET("/products", controllers.GetProducts)
 	organization.DELETE("/:product_id", controllers.DeleteProduct)
 	organization.GET("", controllers.GetCategories)
-	organization.GET("/:category_id", controllers.GetCategoryByID)
-	organization.POST("", controllers.CreateCategories)
-	organization.PUT("/:category_id", controllers.UpdateCategory)
-	organization.DELETE("/:id", controllers.DeleteCategoryByID)
-	organization.GET("/only", controllers.GetCategoriesOnly)
+	//organization.GET("/:category_id", controllers.GetCategoryByID)
+
+	//organization.GET("/only", controllers.GetCategoriesOnly)
+	organization.GET("/categories_only", controllers.GetCategories)
+	organization.PUT("/categories_only/:id", controllers.UpdateCategory)
+	organization.GET("/categories_only/:id", controllers.GetCategoryNameByID)
+	organization.POST("/categories_only", controllers.CreateCategory)
+	organization.DELETE("/categories_only/:id", controllers.DeleteCategoryByID)
+	organization.GET("/categories_only/products/:id", controllers.GetProductsByCategoryID)
 	//sale endpoints
 	organization.GET("/sales/:sale_id", controllers.GetSalesBySaleID)
 	organization.POST("/sell", controllers.SellProduct)
 	organization.GET("/cash/salesbyuser_id/:user_id", controllers.GetSalesByUser)
 	organization.GET("/sales/date/:date", controllers.GetSalesByDate)
-}
 
+}
