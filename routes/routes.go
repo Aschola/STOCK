@@ -33,7 +33,7 @@ func RegisterRoutes(e *echo.Echo) {
 	e.POST("/categories_only", controllers.CreateCategoryInCategoriesOnly)
 	e.GET("/categories_only/:id", controllers.GetCategoryNameByID)
 	//e.POST("/categories_only", controllers.Categories_Only)
-	e.PUT("/categories_only/:id", controllers.EditCategoryNames)
+	//e.PUT("/categories_only/:id", controllers.EditCategoryNames)
 	e.DELETE("/categories_onlies/:id", controllers.DeleteCategoryFromCategoriesOnly)
 
 	// Define CRUD endpoints for sales
