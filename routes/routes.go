@@ -160,3 +160,4 @@ func SetupRoutes(e *echo.Echo) {
 	organization.GET("/cash/salesbyuser_id/:user_id", controllers.GetSalesByUser)
 	organization.GET("/sales/date/:date", controllers.GetSalesByDate)
 }
+
