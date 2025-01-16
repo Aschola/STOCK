@@ -10,16 +10,12 @@ import (
 
 // RegisterRoutes initializes all the routes for the Echo server
 func RegisterRoutes(e *echo.Echo) {
-	productGroup := e.Group("/products")
+	//productGroup := e.Group("/products")
 	// productGroup.GET("", controllers.GetProducts)                  // Fetch all products
 	// productGroup.GET("/:product_id", controllers.GetProductByID)   // Fetch a single product by ID
-	productGroup.POST("", controllers.AddProduct)               // Add a new product
-	productGroup.PUT("/:product_id", controllers.UpdateProduct) // Update product details
+	//productGroup.POST("", controllers.AddProduct)               // Add a new product
+	//productGroup.PUT("/:product_id", controllers.UpdateProduct) // Update product details
 	//productGroup.DELETE("/:product_id", controllers.DeleteProduct) // Delete a product
-
-	e.PATCH("/products/softdelete/:product_id", controllers.SoftDeleteProduct)
-	e.GET("/products/softdeleted", controllers.GetSoftDeletedProducts)
-	e.PATCH("/products/activate/:product_id", controllers.ActivateProduct)
 
 	// Define CRUD endpoints for categories without admin middleware
 	//categoryGroup := e.Group("/categories")
@@ -146,9 +142,13 @@ func SetupRoutes(e *echo.Echo) {
 	organization.PUT("/editstock", controllers.EditStock)
 	organization.GET("/viewallstock", controllers.ViewAllStock)
 	organization.GET("/viewstock/:id", controllers.ViewStockByID)
+
 	organization.GET("/products/:product_id", controllers.GetProductByID)
 	organization.GET("/products", controllers.GetProducts)
-	organization.DELETE("/:product_id", controllers.DeleteProduct)
+	organization.DELETE("/products/:product_id", controllers.DeleteProduct)
+	organization.POST("/products", controllers.AddProduct) // Add a new product
+	organization.PUT("/products/:product_id", controllers.UpdateProduct)
+
 	organization.GET("", controllers.GetCategories)
 	//organization.GET("/:category_id", controllers.GetCategoryByID)
 
