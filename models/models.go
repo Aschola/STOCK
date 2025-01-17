@@ -2,14 +2,13 @@ package models
 
 import "time"
 
-
 type Categories_Only struct {
 	CategoryID   int    `json:"category_id"`
 	CategoryName string `json:"category_name"`
 }
 
 func (Categories_Only) TableName() string {
-	return "categories_onlies" 
+	return "categories_onlies"
 }
 
 type Product struct {
@@ -37,7 +36,7 @@ type SaleByCategory struct {
 // Sale represents the structure of the sales_by_cash table
 type Sale struct {
 	SaleID            int64     `gorm:"primaryKey;autoIncrement" json:"sale_id"`
-	Name              string    `gorm:"type:varchar(255)" json:"name"`
+	Name              string    `gorm:"type:varchar(255)" json:"product_name"` // Removed the extra space
 	UnitBuyingPrice   float64   `gorm:"type:decimal(10,2)" json:"unit_buying_price"`
 	TotalBuyingPrice  float64   `gorm:"type:decimal(10,2)" json:"total_buying_price"`
 	UnitSellingPrice  float64   `gorm:"type:decimal(10,2)" json:"unit_selling_price"`
