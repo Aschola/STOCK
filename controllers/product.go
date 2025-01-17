@@ -7,6 +7,7 @@ import (
 	"stock/db"
 	models "stock/models"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -129,8 +130,8 @@ func GetProductByID(c echo.Context) error {
 		ProductName:        prod.ProductName,
 		ProductDescription: prod.ProductDescription,
 		ReorderLevel:       prod.ReorderLevel,
-		CreatedAt:          prod.CreatedAt.Format(time.RFC3339), 
-		UpdatedAt:          prod.UpdatedAt.Format(time.RFC3339), 
+		CreatedAt:          prod.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:          prod.UpdatedAt.Format(time.RFC3339),
 		Quantity:           stock.Quantity,
 		BuyingPrice:        stock.BuyingPrice,
 		SellingPrice:       stock.SellingPrice,
@@ -234,118 +235,40 @@ func UpdateProduct(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]string{"message": "Product updated successfully"})
 }
 
-// DeleteProduct soft deletes a product by setting DeletedAt timestamp
+// DeleteProduct handles the deletion of a product based on product_id from URL
+
+// DeleteProduct handles the deletion of a product based on product_id from URL
 func DeleteProduct(c echo.Context) error {
-	productID, err := strconv.Atoi(c.Param("product_id"))
+	// Get the full product_id from the URL
+	fullProductID := c.Param("product_id")
+
+	// Log the incoming product_id to check the value for debugging
+	log.Printf("Received product_id: %s", fullProductID)
+
+	// Remove the "products/" prefix
+	productIDStr := strings.TrimPrefix(fullProductID, "products/")
+
+	// Convert the remaining part of the string to an integer
+	productID, err := strconv.Atoi(productIDStr)
 	if err != nil {
-		log.Printf("Invalid product ID for deletion: %s", c.Param("product_id"))
+		log.Printf("Invalid product ID: %s", fullProductID)
 		return errorResponse(c, http.StatusBadRequest, "Invalid product ID")
 	}
 
+	// Get the database instance
 	db := getDB()
 	if db == nil {
 		log.Println("Failed to get database instance while deleting product")
 		return errorResponse(c, http.StatusInternalServerError, "Failed to connect to the database")
 	}
 
-	// Set the DeletedAt timestamp for soft delete
-	currentTime := time.Now()
-	if err := db.Table("products").Where("product_id = ?", productID).Update("deleted_at", currentTime).Error; err != nil {
-		log.Printf("Failed to soft delete product with ID %d: %v", productID, err)
+	// Perform the deletion
+	if err := db.Delete(&models.Product{}, productID).Error; err != nil {
+		log.Printf("Error deleting product with ID %d: %v", productID, err)
 		return errorResponse(c, http.StatusInternalServerError, "Failed to delete product")
 	}
 
-	log.Printf("Product soft deleted successfully: %d", productID)
-	return c.JSON(http.StatusOK, map[string]string{"message": "Product soft deleted successfully"})
-}
-
-// SoftDeleting soft deletes a product by setting the deleted_at timestamp
-func SoftDeleting(c echo.Context) error {
-	productID, err := strconv.Atoi(c.Param("product_id"))
-	if err != nil {
-		log.Printf("Invalid product ID for deletion: %s", c.Param("product_id"))
-		return errorResponse(c, http.StatusBadRequest, "Invalid product ID")
-	}
-
-	db := getDB()
-	if db == nil {
-		log.Println("Failed to get database instance while soft deleting product")
-		return errorResponse(c, http.StatusInternalServerError, "Failed to connect to the database")
-	}
-
-	// Set the DeletedAt timestamp for soft delete
-	currentTime := time.Now()
-	if err := db.Table("products").Where("product_id = ?", productID).Update("deleted_at", currentTime).Error; err != nil {
-		log.Printf("Failed to soft delete product with ID %d: %v", productID, err)
-		return errorResponse(c, http.StatusInternalServerError, "Failed to soft delete product")
-	}
-
-	log.Printf("Product soft deleted successfully: %d", productID)
-	return c.JSON(http.StatusOK, map[string]string{"message": "Product soft deleted successfully"})
-}
-
-// SoftDeleteProduct handles the soft deletion of a product by updating the DeletedAt field
-func SoftDeleteProduct(c echo.Context) error {
-	db := getDB()
-	if db == nil {
-		log.Println("Failed to get database instance while soft deleting product")
-		return errorResponse(c, http.StatusInternalServerError, "Failed to connect to the database")
-	}
-
-	// Get the product ID from the URL parameter
-	productID := c.Param("product_id")
-
-	// Set the DeletedAt timestamp for soft delete
-	currentTime := time.Now()
-
-	// Soft delete the product by setting the DeletedAt timestamp
-	if err := db.Table("products").Where("product_id = ?", productID).Update("deleted_at", currentTime).Error; err != nil {
-		log.Printf("Failed to soft delete product with ID %s: %v", productID, err)
-		return errorResponse(c, http.StatusInternalServerError, "Failed to soft delete product")
-	}
-
-	log.Printf("Product soft deleted successfullyfffffffffff: %s", productID)
-	return c.JSON(http.StatusOK, map[string]string{"message": "Product soft deleted successfully"})
-}
-
-func GetSoftDeletedProducts(c echo.Context) error {
-	db := getDB()
-	if db == nil {
-		log.Println("Failed to get database instance while fetching soft-deleted products")
-		return errorResponse(c, http.StatusInternalServerError, "Failed to connect to the database")
-	}
-
-	var products []models.Product
-	// Fetch products with non-NULL DeletedAt (soft-deleted products)
-	if err := db.Table("products").Where("deleted_at IS NOT NULL").Find(&products).Error; err != nil {
-		log.Printf("Failed to fetch soft-deleted products: %v", err)
-		return errorResponse(c, http.StatusInternalServerError, "Failed to fetch soft-deleted products")
-	}
-
-	return c.JSON(http.StatusOK, products)
-}
-
-func ActivateProduct(c echo.Context) error {
-	db := getDB()
-	if db == nil {
-		log.Println("Failed to get database instance while activating product")
-		return errorResponse(c, http.StatusInternalServerError, "Failed to connect to the database")
-	}
-
-	// Get the product ID from the URL
-	productID := c.Param("product_id")
-	if productID == "" {
-		log.Println("Product ID is required")
-		return errorResponse(c, http.StatusBadRequest, "Product ID is required")
-	}
-
-	// Update the deleted_at field to NULL to activate the product
-	if err := db.Table("products").Where("product_id = ? AND deleted_at IS NOT NULL", productID).Update("deleted_at", nil).Error; err != nil {
-		log.Printf("Failed to activate product with ID %s: %v", productID, err)
-		return errorResponse(c, http.StatusInternalServerError, "Failed to activate product")
-	}
-
 	// Return a success message
-	log.Printf("Product with ID %s activated successfully", productID)
-	return c.JSON(http.StatusOK, map[string]string{"message": "Product activated successfully"})
+	log.Printf("Product deleted successfully: %d", productID)
+	return c.JSON(http.StatusOK, map[string]string{"message": "Product deleted successfully"})
 }
