@@ -539,6 +539,16 @@ func AdminLogin(c echo.Context) error {
 		log.Printf("AdminLogin - Where error: %v", err)
 		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Invalid username or password"})
 	}
+	var organization models.Organization
+	if err := db.GetDB().Where("id = ?", user.OrganizationID).First(&organization).Error; err != nil {
+		log.Printf("Login - Organization lookup error: %v", err)
+		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not verify organization status"})
+	}
+
+	if !organization.IsActive {
+		log.Printf("Login - Organization is inactive: %v", organization.ID)
+		return c.JSON(http.StatusForbidden, echo.Map{"error": "Organization is inactive"})
+	}
 
 	if err := utils.CheckPasswordHash(input.Password, user.Password); err != nil {
 		log.Printf("AdminLogin - CheckPasswordHash error: %v", err)
@@ -557,7 +567,8 @@ func AdminLogin(c echo.Context) error {
 	//return c.JSON(http.StatusOK, echo.Map{"token": token})
 	return c.JSON(http.StatusOK, echo.Map{
 		"user_id": user.ID,
-		"token":   token,
+		"organization": user.OrganizationID,
+		"token": token,
 	})
 }
 
