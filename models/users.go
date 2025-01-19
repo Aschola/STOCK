@@ -44,7 +44,7 @@ type Suppliers struct {
 	Name           string         `json:"name"`
 	Phonenumber    int64          `json:"phone_number" gorm:"column:phone_number"` 
 	// Phonenumber    int64          `json:"phone_number"`
-	ProductID          uint64     `gorm:"not null" json:"product_id"`
+	//ProductID          uint64     `gorm:"not null" json:"product_id"`
 	OrganizationID uint           `json:"organization_id" gorm:"not null"`
 	//OrganizationID uint           `json:"organization_id"`
 	CreatedAt      time.Time      `json:"created_at"`
