@@ -3,8 +3,9 @@ package models
 import "time"
 
 type Categories_Only struct {
-	CategoryID   int    `json:"category_id"`
-	CategoryName string `json:"category_name"`
+	CategoryID      int    `json:"category_id"`
+	CategoryName    string `json:"category_name"`
+	OrganizationsID uint   `json:"organizations_id"`
 }
 
 func (Categories_Only) TableName() string {
