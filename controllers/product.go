@@ -30,7 +30,7 @@ func errorResponse(c echo.Context, statusCode int, message string) error {
 }
 
 // GetProducts fetches all products along with their stock details
-func GetProducts(c echo.Context) error {
+func GetProducts1(c echo.Context) error {
 	db := getDB()
 	if db == nil {
 		log.Println("Failed to get database instance while fetching products")
@@ -61,6 +61,56 @@ func GetProducts(c echo.Context) error {
 
 	// Log the number of products retrieved
 	log.Printf("Retrieved %d products from the database", len(products))
+
+	// Log the products with their stock details for debugging
+	for _, product := range products {
+		log.Printf("Product ID: %d, Name: %s, Category: %s, Quantity: %d, Buying Price: %.2f, Selling Price: %.2f",
+			product.ProductID, product.ProductName, product.CategoryName, product.Quantity, product.BuyingPrice, product.SellingPrice)
+	}
+
+	// Return the products with stock details in the response
+	return c.JSON(http.StatusOK, products)
+}
+
+// GetProducts fetches all products along with their stock details, filtered by organizations_id from context
+func GetProducts(c echo.Context) error {
+	db := getDB()
+	if db == nil {
+		log.Println("Failed to get database instance while fetching products")
+		return errorResponse(c, http.StatusInternalServerError, "Failed to connect to the database")
+	}
+
+	// Declare a struct to hold the product and stock details together
+	type ProductWithStock struct {
+		models.Product
+		Quantity     int     `json:"quantity"`
+		BuyingPrice  float64 `json:"buying_price"`
+		SellingPrice float64 `json:"selling_price"`
+	}
+
+	// Retrieve organizationID from context (middleware should have set this)
+	organizationID, ok := c.Get("organizationID").(uint)
+	if !ok {
+		log.Println("GetProducts - Failed to get organizationID from context")
+		return errorResponse(c, http.StatusUnauthorized, "Unauthorized")
+	}
+
+	var products []ProductWithStock
+	// Log the query details for debugging
+	log.Println("Fetching products along with stock details...")
+
+	// Perform the join and filter by organizations_id
+	if err := db.Table("products").
+		Select("products.*, stock.quantity, stock.buying_price, stock.selling_price").
+		Joins("LEFT JOIN stock ON products.product_id = stock.product_id").
+		Where("products.deleted_at IS NULL AND products.organizations_id = ?", organizationID). // Filter by organizations_id from context
+		Find(&products).Error; err != nil {
+		log.Printf("Error fetching products: %v", err)
+		return errorResponse(c, http.StatusInternalServerError, "Failed to fetch products")
+	}
+
+	// Log the number of products retrieved
+	log.Printf("Retrieved %d products from the database for organizations_id: %d", len(products), organizationID)
 
 	// Log the products with their stock details for debugging
 	for _, product := range products {
