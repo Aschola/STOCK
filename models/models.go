@@ -21,6 +21,7 @@ type Product struct {
 	UpdatedAt          time.Time  `gorm:"autoUpdateTime" json:"updated_at"`  // Timestamp when last updated
 	DeletedAt          *time.Time `gorm:"index" json:"deleted_at,omitempty"` // Soft delete timestamp, nullable
 	OrganizationsID    int64      `json:"organizations_id"`
+	//Organization   string         `json:"organization"`
 }
 
 type SaleByCategory struct {
