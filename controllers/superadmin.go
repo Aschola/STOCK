@@ -447,9 +447,19 @@ func Login(c echo.Context) error {
 	log.Printf("Login - Received data: %+v", loginData)
 
 	var user models.User
-	if err := db.GetDB().Where("useraname = ?", loginData.Username).First(&user).Error; err != nil {
+	if err := db.GetDB().Where("username = ?", loginData.Username).First(&user).Error; err != nil {
 		log.Printf("Login - Where error: %v", err)
 		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Invalid username or password"})
+	}
+	var organization models.Organization
+	if err := db.GetDB().Where("id = ?", user.OrganizationID).First(&organization).Error; err != nil {
+		log.Printf("Login - Organization lookup error: %v", err)
+		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not verify organization status"})
+	}
+
+	if !organization.IsActive {
+		log.Printf("Login - Organization is inactive: %v", organization.ID)
+		return c.JSON(http.StatusForbidden, echo.Map{"error": "Organization is inactive"})
 	}
 
 	if err := utils.CheckPasswordHash(loginData.Password, user.Password); err != nil {
@@ -457,18 +467,11 @@ func Login(c echo.Context) error {
 		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Invalid username or password"})
 	}
 
-	// var organization models.Organization
-	// if !user.Organization.IsActive {
-    //     return c.JSON(http.StatusForbidden, echo.Map{
-    //         "error": "Organization is inactive. Please contact administrator.",
-    //     })
-    // }
-
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"userID":   user.ID,
-		"roleName": user.RoleName,
+		"userID":       user.ID,
+		"roleName":     user.RoleName,
 		"organization": user.OrganizationID,
-		"exp":      time.Now().Add(time.Hour * 72).Unix(),
+		"exp":          time.Now().Add(time.Hour * 72).Unix(),
 	})
 
 	tokenString, err := token.SignedString(utils.JwtSecret)
@@ -479,7 +482,11 @@ func Login(c echo.Context) error {
 
 	log.Println("Login - User logged in successfully")
 	log.Println("Login - Exit")
-	return c.JSON(http.StatusOK, echo.Map{"token": tokenString})
+	return c.JSON(http.StatusOK, echo.Map{
+		"token":         tokenString,
+		"userID":        user.ID,
+		"organizationID": user.OrganizationID,
+	})
 }
 
 func Logout(c echo.Context) error {

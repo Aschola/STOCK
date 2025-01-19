@@ -54,8 +54,8 @@ func SetupRoutes(e *echo.Echo) {
 	e.POST("/superadmin/logout", controllers.SuperAdminLogout)
 	e.POST("admin/login", controllers.AdminLogin)
 	e.POST("admin/logout", controllers.AdminLogout)
-	e.POST("/login", controllers.Login)
-	e.POST("/logout", controllers.Logout)
+	e.POST("shopkeeper/login", controllers.Login)
+	e.POST("shopkeeper/logout", controllers.Logout)
 	e.POST("auditor/login", controllers.AuditorLogin)
 	e.POST("auditor/logout", controllers.AuditorLogout)
 	e.POST("/addsupplier", controllers.AddSupplier)
@@ -75,7 +75,7 @@ func SetupRoutes(e *echo.Echo) {
 
 	// Super Admin routes
 	superadmin := e.Group("/superadmin")
-	superadmin.POST("/signup", controllers.AdminSignup)
+	superadmin.POST("/addadmin", controllers.AdminSignup)
 	superadmin.Use(middlewares.AuthMiddleware(models.SuperAdminRoleName))
 	superadmin.POST("/addadmin", controllers.AddAdmin)
 	//superadmin.POST("/addorganization", controllers.SuperAdminAddOrganization)
