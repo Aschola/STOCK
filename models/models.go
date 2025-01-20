@@ -2,14 +2,14 @@ package models
 
 import "time"
 
-type Categories_Only struct {
+type CategoriesOnly struct {
 	CategoryID      int    `json:"category_id"`
 	CategoryName    string `json:"category_name"`
 	OrganizationsID uint   `json:"organizations_id"`
 }
 
-func (Categories_Only) TableName() string {
-	return "categories"
+func (CategoriesOnly) TableName() string {
+	return "categories" // Updated table name
 }
 
 type Product struct {

@@ -287,6 +287,7 @@ func GetSalesByDate(c echo.Context) error {
 	// Return the formatted response
 	return c.JSON(http.StatusOK, response)
 }
+
 // Define the Product struct outside the function to reuse it later
 
 func GetAllSalesReports(c echo.Context) error {
