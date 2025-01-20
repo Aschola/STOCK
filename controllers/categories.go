@@ -14,17 +14,19 @@ import (
 func getOrganizationID(c echo.Context) (uint, error) {
 	organizationID, ok := c.Get("organizationID").(uint)
 	if !ok {
-		log.Println("Failed to get organizationID from context")
+		log.Printf("Error: Failed to get organizationID from context.")
 		return 0, echo.NewHTTPError(http.StatusUnauthorized, "Unauthorized")
 	}
+	log.Printf("Successfully retrieved organizationID: %d", organizationID)
 	return organizationID, nil
 }
 
-// UpdateCategory updates an existing category in categories_onlies
+// UpdateCategory updates an existing category in categories table
 func UpdateCategory(c echo.Context) error {
 	// Retrieve organizationID from context
 	organizationID, err := getOrganizationID(c)
 	if err != nil {
+		log.Printf("Error retrieving organizationID: %s", err.Error())
 		return err
 	}
 
@@ -46,7 +48,7 @@ func UpdateCategory(c echo.Context) error {
 
 	// Check if the category name is provided
 	if category.CategoryName == "" {
-		log.Printf("Category name is required")
+		log.Printf("Category name is required. No category name provided.")
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Category name is required"})
 	}
 
@@ -54,7 +56,7 @@ func UpdateCategory(c echo.Context) error {
 	var existingCategory models.Categories_Only
 	if err := db.Where("category_id = ? AND organizations_id = ?", categoryID, organizationID).First(&existingCategory).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			log.Printf("Category with ID %s not found", categoryID)
+			log.Printf("Category with ID %s not found for organizationID %d", categoryID, organizationID)
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "Category not found"})
 		}
 		log.Printf("Error querying category: %s", err.Error())
@@ -65,24 +67,23 @@ func UpdateCategory(c echo.Context) error {
 	oldCategoryName := existingCategory.CategoryName
 	log.Printf("Old category name: %s", oldCategoryName)
 
-	// Update the category in categories_onlies
+	// Update the category in categories table
 	if err := db.Model(&existingCategory).Where("category_id = ? AND organizations_id = ?", categoryID, organizationID).Updates(models.Categories_Only{
 		CategoryName: category.CategoryName,
 	}).Error; err != nil {
-		log.Printf("Error updating category in categories_onlies: %s", err.Error())
+		log.Printf("Error updating category in categories table: %s", err.Error())
 		return c.JSON(http.StatusInternalServerError, map[string]string{
-			"error": "Error updating category in categories_onlies",
+			"error": "Error updating category in categories",
 		})
 	}
 
-	// Debugging: Check if we are updating the products with the correct query
-	log.Printf("Attempting to update products with old category name: %s", oldCategoryName)
-
 	// Now, update the category_name in products where it matches the old category_name
+	log.Printf("Updating related products with new category name: %s", category.CategoryName)
 	result := db.Model(&models.Product{}).Where("category_name = ? AND organizations_id = ?", oldCategoryName, organizationID).Updates(map[string]interface{}{
 		"category_name": category.CategoryName,
 	})
 
+	// Handle error when updating products
 	if result.Error != nil {
 		log.Printf("Error updating products with new category_name: %s", result.Error.Error())
 		return c.JSON(http.StatusInternalServerError, map[string]string{
@@ -90,48 +91,50 @@ func UpdateCategory(c echo.Context) error {
 		})
 	}
 
-	// Check how many rows were updated
+	// Log the number of rows updated in products
 	if result.RowsAffected > 0 {
-		log.Printf("Successfully updated %d products", result.RowsAffected)
+		log.Printf("Successfully updated %d products with new category name: %s", result.RowsAffected, category.CategoryName)
 	} else {
-		log.Printf("No products updated. This might be due to a mismatch in category_name.")
+		log.Printf("No products were updated. Possible mismatch in category name.")
 	}
 
-	// Log success and return the updated category
-	log.Printf("Category and related products updated successfully with ID: %s", categoryID)
+	// Return the updated category
+	log.Printf("Successfully updated category with ID: %s", categoryID)
 	return c.JSON(http.StatusOK, category)
 }
 
-// GetCategories fetches all categories from categories_onlies for a specific organization
+// GetCategories fetches all categories from categories table for a specific organization
 func GetCategories(c echo.Context) error {
 	// Retrieve organizationID from context
 	organizationID, err := getOrganizationID(c)
 	if err != nil {
+		log.Printf("Error retrieving organizationID: %s", err.Error())
 		return err
 	}
 
 	// Get the database connection
 	db := db.GetDB()
 
-	// Query all categories from the Categories_Only table for the organization
-	var categoriesOnlies []models.Categories_Only
-	if err := db.Where("organizations_id = ?", organizationID).Find(&categoriesOnlies).Error; err != nil {
-		log.Printf("Error querying categories from categories_onlies: %s", err.Error())
+	// Query all categories for the given organization
+	var categories []models.Categories_Only
+	if err := db.Where("organizations_id = ?", organizationID).Find(&categories).Error; err != nil {
+		log.Printf("Error querying categories from categories table for organizationID %d: %s", organizationID, err.Error())
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Internal Server Error"})
 	}
 
 	// Log the number of categories fetched
-	log.Printf("Fetched %d categories from categories_onlies", len(categoriesOnlies))
+	log.Printf("Successfully fetched %d categories for organizationID %d", len(categories), organizationID)
 
-	// Return the fetched categories as JSON
-	return c.JSON(http.StatusOK, categoriesOnlies)
+	// Return the fetched categories
+	return c.JSON(http.StatusOK, categories)
 }
 
-// CreateCategoryInCategoriesOnly adds a new category to the categories_onlies table
+// CreateCategoryInCategories adds a new category to the categories table
 func CreateCategory(c echo.Context) error {
 	// Retrieve organizationID from context
 	organizationID, err := getOrganizationID(c)
 	if err != nil {
+		log.Printf("Error retrieving organizationID: %s", err.Error())
 		return err
 	}
 
@@ -149,47 +152,45 @@ func CreateCategory(c echo.Context) error {
 
 	// Validate if the category name is provided
 	if category.CategoryName == "" {
-		log.Printf("Category name is required")
+		log.Printf("Category name is required but was not provided.")
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Category name is required"})
 	}
 
-	// Check if the category name already exists in the categories_onlies table for the given organizationID
+	// Check if the category name already exists in the categories table for the given organizationID
 	var existingCategory models.Categories_Only
 	if err := db.Where("category_name = ? AND organizations_id = ?", category.CategoryName, organizationID).First(&existingCategory).Error; err == nil {
-		// Category already exists, return a message
-		log.Printf("Category with name '%s' already exists", category.CategoryName)
+		log.Printf("Category with name '%s' already exists for organizationID %d", category.CategoryName, organizationID)
 		return c.JSON(http.StatusConflict, map[string]string{
 			"error": "Category name already exists. Please choose a different name.",
 		})
 	}
 
-	// Insert the new category into the categories_onlies table
+	// Insert the new category into the categories table
 	category.OrganizationsID = organizationID
 	if err := db.Create(&category).Error; err != nil {
-		log.Printf("Error inserting category into categories_onlies table: %s", err.Error())
+		log.Printf("Error inserting category into categories table: %s", err.Error())
 		return c.JSON(http.StatusInternalServerError, map[string]string{
-			"error": "Error inserting category into categories_onlies table",
+			"error": "Error inserting category into categories table",
 		})
 	}
 
-	// Log success and return the newly created category as JSON
-	log.Printf("Category created successfully. category_id: %d, category_name: %s", category.CategoryID, category.CategoryName)
+	// Log success and return the newly created category
+	log.Printf("Successfully created category with ID %d and name %s for organizationID %d", category.CategoryID, category.CategoryName, organizationID)
 	return c.JSON(http.StatusCreated, category)
 }
 
-// GetCategoryByID retrieves a single category from categories_onlies based on the provided category_id
+// GetCategoryByID retrieves a single category from categories table based on the provided category_id
 func GetCategoryNameByID(c echo.Context) error {
 	// Retrieve organizationID from context
 	organizationID, err := getOrganizationID(c)
 	if err != nil {
+		log.Printf("Error retrieving organizationID: %s", err.Error())
 		return err
 	}
 
 	// Get the category_id from the URL parameter
 	categoryID := c.Param("id")
-
-	// Log the received category ID
-	log.Printf("Received request to fetch category with ID: %s", categoryID)
+	log.Printf("Received request to fetch category with ID: %s for organizationID: %d", categoryID, organizationID)
 
 	// Retrieve the database connection
 	db := db.GetDB()
@@ -199,55 +200,56 @@ func GetCategoryNameByID(c echo.Context) error {
 	if err := db.Where("category_id = ? AND organizations_id = ?", categoryID, organizationID).First(&category).Error; err != nil {
 		// If no category found, return a 404 error
 		if err.Error() == "record not found" {
-			log.Printf("Category with ID %s not found", categoryID)
+			log.Printf("Category with ID %s not found for organizationID %d", categoryID, organizationID)
 			return c.JSON(http.StatusNotFound, map[string]string{
 				"error": "Category not found",
 			})
 		}
 		// If there is any other error, return a 500 error
-		log.Printf("Error querying category: %s", err.Error())
+		log.Printf("Error querying category with ID %s: %s", categoryID, err.Error())
 		return c.JSON(http.StatusInternalServerError, map[string]string{
 			"error": "Internal Server Error",
 		})
 	}
 
 	// Log success and return the found category
-	log.Printf("Fetched category with ID %s: %+v", categoryID, category)
+	log.Printf("Successfully fetched category with ID %s for organizationID %d", categoryID, organizationID)
 	return c.JSON(http.StatusOK, category)
 }
 
-// DeleteCategoryByID deletes a category from the categories_onlies table by category_id
+// DeleteCategoryByID deletes a category from categories table by category_id
 func DeleteCategoryByID(c echo.Context) error {
 	// Retrieve organizationID from context
 	organizationID, err := getOrganizationID(c)
 	if err != nil {
+		log.Printf("Error retrieving organizationID: %s", err.Error())
 		return err
 	}
 
 	// Retrieve category_id from URL parameters
 	categoryID := c.Param("id")
-	log.Printf("Received request to delete category with ID: %s", categoryID)
+	log.Printf("Received request to delete category with ID: %s for organizationID: %d", categoryID, organizationID)
 
 	// Get the database connection
 	db := db.GetDB()
 
-	// Delete the category from categories_onlies table by category_id and organization_id
+	// Delete the category from categories table by category_id and organization_id
 	result := db.Delete(&models.Categories_Only{}, "category_id = ? AND organizations_id = ?", categoryID, organizationID)
 
 	// Handle possible errors
 	if result.Error != nil {
-		log.Printf("Error deleting category from categories_onlies: %s", result.Error.Error())
+		log.Printf("Error deleting category from categories table: %s", result.Error.Error())
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Internal Server Error"})
 	}
 
 	// If no rows were affected, return a not found error
 	if result.RowsAffected == 0 {
-		log.Printf("Category with ID %s not found in categories_onlies", categoryID)
+		log.Printf("Category with ID %s not found in categories table for organizationID %d", categoryID, organizationID)
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "Category not found"})
 	}
 
 	// Log success and return a success message
-	log.Printf("Successfully deleted category with ID %s from categories_onlies", categoryID)
+	log.Printf("Successfully deleted category with ID %s for organizationID %d", categoryID, organizationID)
 	return c.JSON(http.StatusOK, map[string]string{"message": "Category deleted successfully"})
 }
 
@@ -256,6 +258,7 @@ func GetProductsByCategoryID(c echo.Context) error {
 	// Retrieve organizationID from context
 	organizationID, err := getOrganizationID(c)
 	if err != nil {
+		log.Printf("Error retrieving organizationID: %s", err.Error())
 		return err
 	}
 

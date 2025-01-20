@@ -9,7 +9,7 @@ type Categories_Only struct {
 }
 
 func (Categories_Only) TableName() string {
-	return "categories_onlies"
+	return "categories"
 }
 
 type Product struct {
