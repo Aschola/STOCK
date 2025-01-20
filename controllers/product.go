@@ -18,151 +18,106 @@ import (
 func getDB() *gorm.DB {
 	db := db.GetDB()
 	if db == nil {
-		log.Println("Failed to get database instance")
+		log.Println("Error: Failed to get database instance")
 	}
 	return db
 }
 
-// Utility function for error responses
+// Utility function for error responses with logging
 func errorResponse(c echo.Context, statusCode int, message string) error {
-	log.Printf("Error: %s", message)
+	log.Printf("Error: %s", message) // Log the detailed error message
 	return echo.NewHTTPError(statusCode, message)
 }
 
-// GetProducts fetches all products along with their stock details
-func GetProducts1(c echo.Context) error {
-	db := getDB()
-	if db == nil {
-		log.Println("Failed to get database instance while fetching products")
-		return errorResponse(c, http.StatusInternalServerError, "Failed to connect to the database")
-	}
-
-	// Declare a struct to hold the product and stock details together
-	type ProductWithStock struct {
-		models.Product
-		Quantity     int     `json:"quantity"`
-		BuyingPrice  float64 `json:"buying_price"`
-		SellingPrice float64 `json:"selling_price"`
-	}
-
-	var products []ProductWithStock
-	// Log the query details for debugging
-	log.Println("Fetching products along with stock details...")
-
-	// Perform the join between the products and stock tables based on product_id
-	if err := db.Table("products").
-		Select("products.*, stock.quantity, stock.buying_price, stock.selling_price").
-		Joins("LEFT JOIN stock ON products.product_id = stock.product_id").
-		Where("products.deleted_at IS NULL"). // Ensure no soft-deleted products are fetched
-		Find(&products).Error; err != nil {
-		log.Printf("Error fetching products: %v", err)
-		return errorResponse(c, http.StatusInternalServerError, "Failed to fetch products")
-	}
-
-	// Log the number of products retrieved
-	log.Printf("Retrieved %d products from the database", len(products))
-
-	// Log the products with their stock details for debugging
-	for _, product := range products {
-		log.Printf("Product ID: %d, Name: %s, Category: %s, Quantity: %d, Buying Price: %.2f, Selling Price: %.2f",
-			product.ProductID, product.ProductName, product.CategoryName, product.Quantity, product.BuyingPrice, product.SellingPrice)
-	}
-
-	// Return the products with stock details in the response
-	return c.JSON(http.StatusOK, products)
-}
-
-// GetProducts fetches all products along with their stock details, filtered by organizations_id from context
+// GetProducts fetches all products along with their stock details filtered by organization ID
 func GetProducts(c echo.Context) error {
 	db := getDB()
 	if db == nil {
-		log.Println("Failed to get database instance while fetching products")
+		log.Println("Error: Failed to get database instance while fetching products")
 		return errorResponse(c, http.StatusInternalServerError, "Failed to connect to the database")
-	}
-
-	// Declare a struct to hold the product and stock details together
-	type ProductWithStock struct {
-		models.Product
-		Quantity     int     `json:"quantity"`
-		BuyingPrice  float64 `json:"buying_price"`
-		SellingPrice float64 `json:"selling_price"`
 	}
 
 	// Retrieve organizationID from context (middleware should have set this)
 	organizationID, ok := c.Get("organizationID").(uint)
 	if !ok {
-		log.Println("GetProducts - Failed to get organizationID from context")
+		log.Println("Error: Failed to get organizationID from context")
 		return errorResponse(c, http.StatusUnauthorized, "Unauthorized")
 	}
 
+	// Convert organizationID from uint to int64 for DB compatibility
+	orgID := int64(organizationID)
+
+	type ProductWithStock struct {
+		models.Product
+		Quantity     int     `json:"quantity"`
+		BuyingPrice  float64 `json:"buying_price"`
+		SellingPrice float64 `json:"selling_price"`
+	}
+
 	var products []ProductWithStock
-	// Log the query details for debugging
-	log.Println("Fetching products along with stock details...")
+	log.Printf("Fetching products for organization ID: %d...", organizationID)
 
 	// Perform the join and filter by organizations_id
 	if err := db.Table("products").
 		Select("products.*, stock.quantity, stock.buying_price, stock.selling_price").
 		Joins("LEFT JOIN stock ON products.product_id = stock.product_id").
-		Where("products.deleted_at IS NULL AND products.organizations_id = ?", organizationID). // Filter by organizations_id from context
+		Where("products.deleted_at IS NULL AND products.organizations_id = ?", orgID).
 		Find(&products).Error; err != nil {
-		log.Printf("Error fetching products: %v", err)
+		log.Printf("Error fetching products for organization ID %d: %v", organizationID, err)
 		return errorResponse(c, http.StatusInternalServerError, "Failed to fetch products")
 	}
 
-	// Log the number of products retrieved
-	log.Printf("Retrieved %d products from the database for organizations_id: %d", len(products), organizationID)
+	log.Printf("Successfully retrieved %d products for organization ID: %d", len(products), organizationID)
 
-	// Log the products with their stock details for debugging
-	for _, product := range products {
-		log.Printf("Product ID: %d, Name: %s, Category: %s, Quantity: %d, Buying Price: %.2f, Selling Price: %.2f",
-			product.ProductID, product.ProductName, product.CategoryName, product.Quantity, product.BuyingPrice, product.SellingPrice)
-	}
-
-	// Return the products with stock details in the response
 	return c.JSON(http.StatusOK, products)
 }
 
 // GetProductByID fetches a product by its ID and includes stock details
 func GetProductByID(c echo.Context) error {
-	// Get product_id from the URL parameter
 	productID, err := strconv.Atoi(c.Param("product_id"))
 	if err != nil {
-		log.Printf("Invalid product ID: %s", c.Param("product_id"))
+		log.Printf("Error: Invalid product ID in URL: %v", err)
 		return errorResponse(c, http.StatusBadRequest, "Invalid product ID")
 	}
 
-	// Get database connection
 	db := getDB()
 	if db == nil {
-		log.Println("Failed to get database instance while fetching product by ID")
+		log.Println("Error: Failed to get database instance while fetching product by ID")
 		return errorResponse(c, http.StatusInternalServerError, "Failed to connect to the database")
 	}
 
-	// Declare variables for product and stock details
+	// Retrieve organizationID from context (middleware should have set this)
+	organizationID, ok := c.Get("organizationID").(uint)
+	if !ok {
+		log.Println("Error: Failed to get organizationID from context")
+		return errorResponse(c, http.StatusUnauthorized, "Unauthorized")
+	}
+
+	// Convert organizationID from uint to int64 for DB compatibility
+	orgID := int64(organizationID)
+
 	var prod models.Product
 	var stock models.Stock
 
-	// Fetch the product details from the 'products' table
-	if err := db.Table("products").Where("product_id = ? AND deleted_at IS NULL", productID).First(&prod).Error; err != nil {
+	// Fetch product details
+	if err := db.Table("products").Where("product_id = ? AND deleted_at IS NULL AND organizations_id = ?", productID, orgID).First(&prod).Error; err != nil {
+		log.Printf("Error: Product not found for ID %d in organization %d: %v", productID, organizationID, err)
 		if err == gorm.ErrRecordNotFound {
-			log.Printf("Product not found with ID: %d", productID)
 			return errorResponse(c, http.StatusNotFound, "Product not found")
 		}
-		log.Printf("Failed to fetch product by ID: %v", err)
-		return errorResponse(c, http.StatusInternalServerError, "Failed to fetch product")
+		return errorResponse(c, http.StatusInternalServerError, "Failed to fetch product details")
 	}
 
-	// Fetch the stock details from the 'stock' table
+	// Fetch stock details
 	if err := db.Table("stock").Where("product_id = ?", productID).First(&stock).Error; err != nil {
+		log.Printf("Error: Stock details not found for product ID %d in organization %d: %v", productID, organizationID, err)
 		if err == gorm.ErrRecordNotFound {
-			log.Printf("Stock details not found for Product ID: %d", productID)
 			return errorResponse(c, http.StatusNotFound, "Stock details not found")
 		}
-		log.Printf("Failed to fetch stock details for product ID: %v", err)
 		return errorResponse(c, http.StatusInternalServerError, "Failed to fetch stock details")
 	}
 
-	// Combine the product and stock details into the desired response struct
+	// Return combined product and stock details
 	productWithStockDetails := struct {
 		ProductID          int     `json:"product_id"`
 		CategoryName       string  `json:"category_name"`
@@ -187,57 +142,59 @@ func GetProductByID(c echo.Context) error {
 		SellingPrice:       stock.SellingPrice,
 	}
 
-	// Return the combined product and stock details as JSON
-	log.Printf("Fetched product and stock details successfully for Product ID: %d", productID)
+	log.Printf("Successfully fetched product and stock details for product ID: %d in organization ID: %d", productID, organizationID)
 	return c.JSON(http.StatusOK, productWithStockDetails)
 }
 
+// AddProduct adds a new product and performs category validation
 func AddProduct(c echo.Context) error {
 	db := getDB()
 	if db == nil {
-		log.Println("Failed to get database instance while adding product")
+		log.Println("Error: Failed to get database instance while adding product")
 		return errorResponse(c, http.StatusInternalServerError, "Failed to connect to the database")
 	}
 
-	var product models.Product
-	// Decode the request body into the product struct
-	if err := json.NewDecoder(c.Request().Body).Decode(&product); err != nil {
-		log.Printf("Error decoding JSON for new product: %v", err)
-		return errorResponse(c, http.StatusBadRequest, "Error decoding JSON")
+	// Retrieve organizationID from context (middleware should have set this)
+	organizationID, ok := c.Get("organizationID").(uint)
+	if !ok {
+		log.Println("Error: Failed to get organizationID from context")
+		return errorResponse(c, http.StatusUnauthorized, "Unauthorized")
 	}
 
-	// Step 1: Check if the category exists in the 'categories_onlies' table
+	// Convert organizationID from uint to int64 for DB compatibility
+	orgID := int64(organizationID)
+
+	var product models.Product
+	if err := json.NewDecoder(c.Request().Body).Decode(&product); err != nil {
+		log.Printf("Error: Failed to decode product JSON: %v", err)
+		return errorResponse(c, http.StatusBadRequest, "Invalid JSON format")
+	}
+
+	// Check if the category exists in the 'categories' table
 	var count int64
-	if err := db.Table("categories_onlies").Where("category_name = ?", product.CategoryName).Count(&count).Error; err != nil {
-		log.Printf("Error checking category existence: %v", err)
+	if err := db.Table("categories").Where("category_name = ?", product.CategoryName).Count(&count).Error; err != nil {
+		log.Printf("Error: Failed to check category existence for '%s': %v", product.CategoryName, err)
 		return errorResponse(c, http.StatusInternalServerError, "Error checking category existence")
 	}
 
-	// Step 2: If no category is found, return an error response
 	if count == 0 {
-		log.Printf("Category does not exist: %s", product.CategoryName)
+		log.Printf("Error: Category '%s' does not exist", product.CategoryName)
 		return errorResponse(c, http.StatusBadRequest, "Category does not exist")
 	}
 
-	// Step 3: Ensure organizations_id is provided and valid
-	if product.OrganizationsID == 0 {
-		log.Println("organizations_id is required")
-		return errorResponse(c, http.StatusBadRequest, "organizations_id is required")
-	}
+	// Set the organizationID on the product
+	product.OrganizationsID = orgID
 
-	// Step 4: Handle and parse CreatedAt and UpdatedAt
+	// Handle CreatedAt and UpdatedAt fields
 	if product.CreatedAt.IsZero() {
-		// If CreatedAt is provided in the request, we can handle the custom format
 		if createdAtStr := c.FormValue("created_at"); createdAtStr != "" {
-			// Try parsing it in the custom format
 			parsedTime, err := time.Parse("2006-01-02 15:04:05", createdAtStr)
 			if err != nil {
-				log.Printf("Error parsing created_at: %v", err)
+				log.Printf("Error: Failed to parse created_at: %v", err)
 				return errorResponse(c, http.StatusBadRequest, "Invalid created_at format")
 			}
 			product.CreatedAt = parsedTime
 		} else {
-			// Default to current time if not provided
 			product.CreatedAt = time.Now()
 		}
 	}
@@ -246,14 +203,13 @@ func AddProduct(c echo.Context) error {
 		product.UpdatedAt = time.Now()
 	}
 
-	// Step 5: Insert the product into the database
+	// Insert the product into the database
 	if err := db.Table("products").Create(&product).Error; err != nil {
-		log.Printf("Error inserting product: %v", err)
-		return errorResponse(c, http.StatusInternalServerError, "Error inserting product")
+		log.Printf("Error: Failed to insert product: %v", err)
+		return errorResponse(c, http.StatusInternalServerError, "Failed to add product")
 	}
 
-	// Step 6: Return the created product (including the auto-generated product_id)
-	log.Printf("Product added successfully: %v", product)
+	log.Printf("Successfully added product with ID %d for organization ID %d", product.ProductID, organizationID)
 	return c.JSON(http.StatusCreated, product)
 }
 
@@ -261,64 +217,73 @@ func AddProduct(c echo.Context) error {
 func UpdateProduct(c echo.Context) error {
 	db := getDB()
 	if db == nil {
-		log.Println("Failed to get database instance while updating product")
+		log.Println("Error: Failed to get database instance while updating product")
 		return errorResponse(c, http.StatusInternalServerError, "Failed to connect to the database")
 	}
+
+	// Retrieve organizationID from context (middleware should have set this)
+	organizationID, ok := c.Get("organizationID").(uint)
+	if !ok {
+		log.Println("Error: Failed to get organizationID from context")
+		return errorResponse(c, http.StatusUnauthorized, "Unauthorized")
+	}
+
+	// Convert organizationID from uint to int64 for DB compatibility
+	orgID := int64(organizationID)
 
 	productID := c.Param("product_id")
 	var updatedProduct models.Product
 	if err := c.Bind(&updatedProduct); err != nil {
-		log.Printf("Failed to parse request body for product update: %v", err)
+		log.Printf("Error: Failed to bind updated product data: %v", err)
 		return errorResponse(c, http.StatusBadRequest, "Failed to parse request body")
 	}
 
-	// Set the UpdatedAt timestamp when updating the product
 	updatedProduct.UpdatedAt = time.Now()
 
-	// Update the product in the database
-	if err := db.Table("products").Where("product_id = ? AND deleted_at IS NULL", productID).Updates(updatedProduct).Error; err != nil {
-		log.Printf("Failed to update product with ID %s: %v", productID, err)
+	if err := db.Table("products").
+		Where("product_id = ? AND organizations_id = ?", productID, orgID).
+		Updates(updatedProduct).Error; err != nil {
+		log.Printf("Error: Failed to update product with ID %s for organization ID %d: %v", productID, organizationID, err)
 		return errorResponse(c, http.StatusInternalServerError, "Failed to update product")
 	}
 
-	log.Printf("Product updated successfully: %s", productID)
+	log.Printf("Successfully updated product with ID %s for organization ID %d", productID, organizationID)
 	return c.JSON(http.StatusOK, map[string]string{"message": "Product updated successfully"})
 }
 
-// DeleteProduct handles the deletion of a product based on product_id from URL
-
-// DeleteProduct handles the deletion of a product based on product_id from URL
+// DeleteProduct deletes a product by ID
 func DeleteProduct(c echo.Context) error {
-	// Get the full product_id from the URL
 	fullProductID := c.Param("product_id")
+	log.Printf("Received product_id to delete: %s", fullProductID)
 
-	// Log the incoming product_id to check the value for debugging
-	log.Printf("Received product_id: %s", fullProductID)
-
-	// Remove the "products/" prefix
 	productIDStr := strings.TrimPrefix(fullProductID, "products/")
-
-	// Convert the remaining part of the string to an integer
 	productID, err := strconv.Atoi(productIDStr)
 	if err != nil {
-		log.Printf("Invalid product ID: %s", fullProductID)
+		log.Printf("Error: Invalid product ID: %s", fullProductID)
 		return errorResponse(c, http.StatusBadRequest, "Invalid product ID")
 	}
 
-	// Get the database instance
 	db := getDB()
 	if db == nil {
-		log.Println("Failed to get database instance while deleting product")
+		log.Println("Error: Failed to get database instance while deleting product")
 		return errorResponse(c, http.StatusInternalServerError, "Failed to connect to the database")
 	}
 
-	// Perform the deletion
-	if err := db.Delete(&models.Product{}, productID).Error; err != nil {
-		log.Printf("Error deleting product with ID %d: %v", productID, err)
+	// Retrieve organizationID from context (middleware should have set this)
+	organizationID, ok := c.Get("organizationID").(uint)
+	if !ok {
+		log.Println("Error: Failed to get organizationID from context")
+		return errorResponse(c, http.StatusUnauthorized, "Unauthorized")
+	}
+
+	// Convert organizationID from uint to int64 for DB compatibility
+	orgID := int64(organizationID)
+
+	if err := db.Delete(&models.Product{}, "product_id = ? AND organizations_id = ?", productID, orgID).Error; err != nil {
+		log.Printf("Error: Failed to delete product with ID %d for organization ID %d: %v", productID, organizationID, err)
 		return errorResponse(c, http.StatusInternalServerError, "Failed to delete product")
 	}
 
-	// Return a success message
-	log.Printf("Product deleted successfully: %d", productID)
+	log.Printf("Successfully deleted product with ID %d for organization ID %d", productID, organizationID)
 	return c.JSON(http.StatusOK, map[string]string{"message": "Product deleted successfully"})
 }
