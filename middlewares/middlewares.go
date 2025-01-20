@@ -209,7 +209,7 @@ func AuthMiddleware(allowedRoles ...string) echo.MiddlewareFunc {
 			log.Printf("[AuthMiddleware] Processing route: %s", c.Path())
 
 			// Skip auth checks for any login or logout route
-			if isLoginOrLogoutRoute(c.Path()) {
+			if isLoginOrLogoutOrSignupRoute(c.Path()) {
 				log.Println("[AuthMiddleware] Skipping authorization for login/logout")
 				return next(c)
 			}
@@ -340,9 +340,9 @@ func contains(slice []string, value string) bool {
 }
 
 // Utility function to check if the route is a login or logout route.
-func isLoginOrLogoutRoute(path string) bool {
+func isLoginOrLogoutOrSignupRoute(path string) bool {
 	// Skip authentication for routes that contain "/login" or "/logout"
-	return strings.Contains(path, "/login") || strings.Contains(path, "/logout")
+	return strings.Contains(path, "/login") || strings.Contains(path, "/logout") || strings.Contains(path, "/signup")
 }
 
 // OrganizationIDMiddleware is unchanged as per the request.
@@ -350,7 +350,7 @@ func OrganizationIDMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		log.Printf("[OrganizationIDMiddleware] Processing route: %s", c.Path())
 
-		if isLoginOrLogoutRoute(c.Path()) {
+		if isLoginOrLogoutOrSignupRoute(c.Path()) {
 			log.Println("[OrganizationIDMiddleware] Skipping authorization for login/logout")
 			return next(c)
 		}
