@@ -31,15 +31,21 @@ func handleDBError(c echo.Context, err error, message string) error {
 func GetAllSales(c echo.Context) error {
 	log.Println("[INFO] Received request to fetch all sales records.")
 
+	// Retrieve organizationID from context
+	organizationID, err := getOrganizationID(c)
+	if err != nil {
+		return err
+	}
+
 	// Database connection
 	db := getDB()
 	if db == nil {
 		return handleDBError(c, nil, "Failed to connect to the database")
 	}
 
-	// Retrieve all sales records
+	// Retrieve all sales records for the given organizationID
 	var sales []models.Sale
-	if err := db.Find(&sales).Error; err != nil {
+	if err := db.Where("organizations_id = ?", organizationID).Find(&sales).Error; err != nil {
 		return handleDBError(c, err, "Error fetching sales records")
 	}
 
@@ -49,23 +55,49 @@ func GetAllSales(c echo.Context) error {
 	}
 
 	// Prepare the response
-	var response []map[string]interface{}
+	// Group the sales by sale_id
+	saleMap := make(map[int64]map[string]interface{})
 	for _, sale := range sales {
-		saleData := map[string]interface{}{
-			"sale_id":             sale.SaleID,
-			"product_name":        sale.Name,
-			"unit_buying_price":   sale.UnitBuyingPrice,
-			"total_buying_price":  sale.TotalBuyingPrice,
-			"unit_selling_price":  sale.UnitSellingPrice,
-			"total_selling_price": sale.TotalSellingPrice,
-			"profit":              sale.Profit,
-			"quantity":            sale.Quantity,
-			"cash_receive":        sale.CashReceived,
-			"balance":             sale.Balance,
-			"user_id":             sale.UserID,
-			"date":                sale.Date.Format("2006-01-02T15:04:05Z"),
-			"category_name":       sale.CategoryName,
+		// If the sale_id already exists in the map, append the product to the "products" list
+		if _, exists := saleMap[sale.SaleID]; exists {
+			// Append the product to the "products" list
+			saleMap[sale.SaleID]["products"] = append(saleMap[sale.SaleID]["products"].([]map[string]interface{}), map[string]interface{}{
+				"category_name":       sale.CategoryName,
+				"name":                sale.Name,
+				"profit":              sale.Profit,
+				"quantity":            sale.Quantity,
+				"total_buying_price":  sale.TotalBuyingPrice,
+				"total_selling_price": sale.TotalSellingPrice,
+				"unit_buying_price":   sale.UnitBuyingPrice,
+				"unit_selling_price":  sale.UnitSellingPrice,
+			})
+		} else {
+			// If the sale_id doesn't exist in the map, create a new entry with this sale
+			saleMap[sale.SaleID] = map[string]interface{}{
+				"sale_id":          sale.SaleID,
+				"user_id":          sale.UserID,
+				"cash_received":    sale.CashReceived,
+				"date":             sale.Date.Format("2006-01-02T15:04:05Z"),
+				"organizations_id": sale.OrganizationsID, // Adding organizations_id
+				"products": []map[string]interface{}{
+					{
+						"category_name":       sale.CategoryName,
+						"name":                sale.Name,
+						"profit":              sale.Profit,
+						"quantity":            sale.Quantity,
+						"total_buying_price":  sale.TotalBuyingPrice,
+						"total_selling_price": sale.TotalSellingPrice,
+						"unit_buying_price":   sale.UnitBuyingPrice,
+						"unit_selling_price":  sale.UnitSellingPrice,
+					},
+				},
+			}
 		}
+	}
+
+	// Convert the map to a slice of sale entries
+	var response []map[string]interface{}
+	for _, saleData := range saleMap {
 		response = append(response, saleData)
 	}
 
@@ -181,98 +213,5 @@ func GetSalesByDate(c echo.Context) error {
 	}
 
 	// Return the response as JSON
-	return c.JSON(http.StatusOK, response)
-}
-
-// GetSalesReports retrieves sales records with products for all dates for a specific organization
-func GetAllSalesReports(c echo.Context) error {
-	// Retrieve organizationID from context
-	organizationID, err := getOrganizationID(c)
-	if err != nil {
-		return err
-	}
-
-	// Database connection
-	db := getDB()
-	if db == nil {
-		log.Printf("%s [AuthMiddleware] Error: Failed to connect to the database", time.Now().Format("2006/01/02 15:04:05"))
-		return handleDBError(c, nil, "Failed to connect to the database")
-	}
-
-	// Log the successful DB connection
-	log.Printf("%s Successfully connected to the database", time.Now().Format("2006/01/02 15:04:05"))
-
-	// Retrieve all sales records for the organization
-	var sales []models.Sale
-	if err := db.Where("organizations_id = ?", organizationID).Find(&sales).Error; err != nil {
-		log.Printf("%s Error fetching sales records: %v", time.Now().Format("2006/01/02 15:04:05"), err)
-		return handleDBError(c, err, "Error fetching sales records")
-	}
-
-	// Log the number of sales records fetched
-	log.Printf("%s Fetched %d sales records", time.Now().Format("2006/01/02 15:04:05"), len(sales))
-
-	// Check if no sales were found
-	if len(sales) == 0 {
-		log.Printf("%s No sales records found", time.Now().Format("2006/01/02 15:04:05"))
-		return echo.NewHTTPError(http.StatusNotFound, "No sales records found")
-	}
-
-	// Create a map to consolidate sales by sale_id
-	saleMap := make(map[int64]map[string]interface{})
-
-	// Loop through the sales and group them by sale_id
-	for _, sale := range sales {
-		log.Printf("%s Processing sale_id: %d, product_name: %s", time.Now().Format("2006/01/02 15:04:05"), sale.SaleID, sale.Name)
-
-		// If the sale_id already exists in the map, append the product to the existing sale
-		if _, exists := saleMap[sale.SaleID]; exists {
-			// Append the product to the "products" list
-			saleMap[sale.SaleID]["products"] = append(saleMap[sale.SaleID]["products"].([]map[string]interface{}), map[string]interface{}{
-				"name":                sale.Name,
-				"unit_buying_price":   sale.UnitBuyingPrice,
-				"total_buying_price":  sale.TotalBuyingPrice,
-				"unit_selling_price":  sale.UnitSellingPrice,
-				"total_selling_price": sale.TotalSellingPrice,
-				"profit":              sale.Profit,
-				"quantity":            sale.Quantity,
-				"category_name":       sale.CategoryName,
-			})
-			log.Printf("%s Added product to existing sale_id: %d", time.Now().Format("2006/01/02 15:04:05"), sale.SaleID)
-		} else {
-			// If the sale_id doesn't exist in the map, create a new entry with this sale
-			saleMap[sale.SaleID] = map[string]interface{}{
-				"sale_id":          sale.SaleID,
-				"user_id":          sale.UserID,
-				"cash_received":    sale.CashReceived,
-				"date":             sale.Date.Format("2006-01-02T15:04:05Z"),
-				"organizations_id": organizationID, // Add organizations_id here
-				"products": []map[string]interface{}{
-					{
-						"name":                sale.Name,
-						"unit_buying_price":   sale.UnitBuyingPrice,
-						"total_buying_price":  sale.TotalBuyingPrice,
-						"unit_selling_price":  sale.UnitSellingPrice,
-						"total_selling_price": sale.TotalSellingPrice,
-						"profit":              sale.Profit,
-						"quantity":            sale.Quantity,
-						"category_name":       sale.CategoryName,
-					},
-				},
-			}
-			log.Printf("%s Created new entry for sale_id: %d", time.Now().Format("2006/01/02 15:04:05"), sale.SaleID)
-		}
-	}
-
-	// Convert the map to a slice of sale entries
-	var response []map[string]interface{}
-	for _, saleData := range saleMap {
-		response = append(response, saleData)
-	}
-
-	// Log the number of sale entries to be returned
-	log.Printf("%s Returning %d sale entries", time.Now().Format("2006/01/02 15:04:05"), len(response))
-
-	// Return the formatted response
 	return c.JSON(http.StatusOK, response)
 }
