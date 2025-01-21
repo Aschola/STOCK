@@ -50,6 +50,7 @@ type Sale struct {
 	UserID            int       `json:"user_id"`
 	Date              time.Time `gorm:"type:timestamp" json:"date"`
 	CategoryName      string    `gorm:"type:varchar(255)" json:"category_name"`
+	OrganizationsID   uint      `json:"organization_id"` // Add this line
 }
 
 // TableName overrides the default table name (sales -> sales_by_cash)

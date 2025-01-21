@@ -1,3 +1,4 @@
+// controllers/sales.go
 package controllers
 
 import (
@@ -17,9 +18,16 @@ func logError(message string, err error) {
 		log.Printf("[ERROR] %s: %v", message, err)
 	}
 }
+
 func SellProduct(c echo.Context) error {
 	// Log the incoming request
 	log.Println("[INFO] Received request to sell products.")
+
+	// Retrieve organizationID from context
+	organizationID, err := getOrganizationID(c)
+	if err != nil {
+		return err
+	}
 
 	// Parse the incoming request body
 	var payload models.SalePayload
@@ -49,7 +57,6 @@ func SellProduct(c echo.Context) error {
 	defer tx.Rollback() // Rollback in case of failure
 
 	// Generate a common sale_id for this transaction
-	// You can use the current timestamp or any unique method to generate sale_id
 	saleID := time.Now().UnixNano() // Unique ID based on timestamp (in nanoseconds)
 
 	// Calculate total selling price
@@ -90,7 +97,7 @@ func SellProduct(c echo.Context) error {
 		}
 	}
 
-	// Now check if the cash received is enough for the total selling price
+	// Check if the cash received is enough for the total selling price
 	if payload.CashReceived < totalSellingPrice {
 		log.Printf("[ERROR] Insufficient cash received. Received: %f, Required: %f", payload.CashReceived, totalSellingPrice)
 		return echo.NewHTTPError(http.StatusBadRequest, "Insufficient cash received")
@@ -120,7 +127,8 @@ func SellProduct(c echo.Context) error {
 
 		// Create the sale record for the item
 		sale := models.Sale{
-			SaleID:            saleID, // Use the common sale_id for all items in this transaction
+			SaleID:            saleID,         // Use the common sale_id for all items in this transaction
+			OrganizationsID:   organizationID, // Use OrganizationsID to associate with the correct organization
 			Name:              product.ProductName,
 			CategoryName:      product.CategoryName,
 			UnitBuyingPrice:   stock.BuyingPrice,
