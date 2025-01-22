@@ -85,7 +85,7 @@ func SetupRoutes(e *echo.Echo) {
 	superadmin.PATCH("/organization/:id", controllers.SoftDeleteOrganization)
 	superadmin.GET("/organization/:id", controllers.GetOrganizationByID)
 	superadmin.GET("/organizations", controllers.GetAllOrganizations)
-	superadmin.PUT("/organization/edit", controllers.EditOrganization)
+	superadmin.PUT("/organization/edit/:id", controllers.EditOrganization)
 	superadmin.DELETE("/organization/:id", controllers.DeleteOrganization)
 	superadmin.PUT("/organization/:id/activate", controllers.ActivateOrganization)
 	superadmin.GET("/organizations/active", controllers.GetActiveOrganizations)
@@ -142,6 +142,11 @@ func SetupRoutes(e *echo.Echo) {
 	organization.PUT("/editstock/:id", controllers.EditStock)
 	organization.GET("/viewallstock", controllers.ViewAllStock)
 	organization.GET("/viewstock/:id", controllers.ViewStockByID)
+	organization.POST("/mpesa/stkpush", controllers.HandleSTKPush)
+	organization.POST("/mpesa/callback", controllers.HandleMpesaCallback)
+	//"CallBackURL": "http://abcd1234.ngrok.io/mpesa/callback"
+
+
 
 	organization.GET("/products/:product_id", controllers.GetProductByID)
 	organization.GET("/products", controllers.GetProducts)
