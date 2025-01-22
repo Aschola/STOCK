@@ -37,19 +37,21 @@ type SaleByCategory struct {
 
 // Sale represents the structure of the sales_by_cash table
 type Sale struct {
-	SaleID            int64     `gorm:"primaryKey;autoIncrement" json:"sale_id"`
-	Name              string    `gorm:"type:varchar(255)" json:"product_name"` // Removed the extra space
-	UnitBuyingPrice   float64   `gorm:"type:decimal(10,2)" json:"unit_buying_price"`
-	TotalBuyingPrice  float64   `gorm:"type:decimal(10,2)" json:"total_buying_price"`
-	UnitSellingPrice  float64   `gorm:"type:decimal(10,2)" json:"unit_selling_price"`
-	TotalSellingPrice float64   `gorm:"type:float" json:"total_selling_price"`
-	Profit            float64   `gorm:"type:float" json:"profit"`
-	Quantity          int       `gorm:"type:int" json:"quantity"`
-	CashReceived      float64   `gorm:"type:decimal(10,2)" json:"cash_receive"`
-	Balance           float64   `gorm:"type:decimal(10,2)" json:"balance"`
-	UserID            int       `json:"user_id"`
-	Date              time.Time `gorm:"type:timestamp" json:"date"`
-	CategoryName      string    `gorm:"type:varchar(255)" json:"category_name"`
+	SaleID            int64   `gorm:"primaryKey;autoIncrement" json:"sale_id"`
+	Name              string  `gorm:"type:varchar(255)" json:"product_name"` // Removed the extra space
+	UnitBuyingPrice   float64 `gorm:"type:decimal(10,2)" json:"unit_buying_price"`
+	TotalBuyingPrice  float64 `gorm:"type:decimal(10,2)" json:"total_buying_price"`
+	UnitSellingPrice  float64 `gorm:"type:decimal(10,2)" json:"unit_selling_price"`
+	TotalSellingPrice float64 `gorm:"type:float" json:"total_selling_price"`
+	Profit            float64 `gorm:"type:float" json:"profit"`
+	Quantity          int     `gorm:"type:int" json:"quantity"`
+	CashReceived      float64 `gorm:"type:decimal(10,2)" json:"cash_receive"`
+	Balance           float64 `gorm:"type:decimal(10,2)" json:"balance"`
+	UserID            int64    `json:"user_id"`
+
+	Date            time.Time `gorm:"type:timestamp" json:"date"`
+	CategoryName    string    `gorm:"type:varchar(255)" json:"category_name"`
+	OrganizationsID uint      `json:"organization_id"` // Add this line
 }
 
 // TableName overrides the default table name (sales -> sales_by_cash)
