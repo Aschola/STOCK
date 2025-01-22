@@ -125,7 +125,6 @@ func SellProduct(c echo.Context) error {
 		profit := (float64(item.QuantitySold) * stock.SellingPrice) - totalCost
 		balance := payload.CashReceived - totalSellingPrice
 
-		// Create the sale record for the item
 		sale := models.Sale{
 			SaleID:            saleID,         // Use the common sale_id for all items in this transaction
 			OrganizationsID:   organizationID, // Use OrganizationsID to associate with the correct organization
@@ -139,7 +138,7 @@ func SellProduct(c echo.Context) error {
 			Quantity:          item.QuantitySold,
 			CashReceived:      payload.CashReceived,
 			Balance:           balance,
-			UserID:            payload.UserID, // Directly using the integer value from the payload
+			UserID:            int64(payload.UserID), // Convert int to int64 here
 			Date:              time.Now(),
 		}
 
