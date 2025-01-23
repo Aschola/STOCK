@@ -88,7 +88,7 @@ func SetupRoutes(e *echo.Echo) {
 	superadmin.PATCH("/organization/:id", controllers.SoftDeleteOrganization)
 	superadmin.GET("/organization/:id", controllers.GetOrganizationByID)
 	superadmin.GET("/organizations", controllers.GetAllOrganizations)
-	superadmin.PUT("/organization/edit", controllers.EditOrganization)
+	superadmin.PUT("/organization/edit/:id", controllers.EditOrganization)
 	superadmin.DELETE("/organization/:id", controllers.DeleteOrganization)
 	superadmin.PUT("/organization/:id/activate", controllers.ActivateOrganization)
 	superadmin.GET("/organizations/active", controllers.GetActiveOrganizations)
@@ -112,6 +112,10 @@ func SetupRoutes(e *echo.Echo) {
 	adminGroup.PUT("/user/:id/reactivate", controllers.ReactivateUser)
 	adminGroup.PUT("/user/:id/deactivate", controllers.DeactivateUser)
 	adminGroup.GET("/users/inactive", controllers.GetInactiveUsers)
+	adminGroup.POST("/addmpesa details", controllers.AddMPesaSettings)
+	adminGroup.PUT("/mpesaedit/:id", controllers.EditMPesaSettings)
+	adminGroup.GET("/mpesadetails/:id", controllers.GetMPesaSettingsByOrganization)
+
 	// adminGroup.POST("/addsupplier", controllers.AddSupplier)
 	// adminGroup.PUT("/editsupplier/:id", controllers.EditSupplier)
 	// adminGroup.DELETE("/deletesupplier", controllers.DeleteSupplier)
@@ -145,6 +149,8 @@ func SetupRoutes(e *echo.Echo) {
 	organization.PUT("/editstock/:id", controllers.EditStock)
 	organization.GET("/viewallstock", controllers.ViewAllStock)
 	organization.GET("/viewstock/:id", controllers.ViewStockByID)
+	organization.POST("/mpesa/stkpush", controllers.HandleSTKPush)
+	organization.POST("/mpesa/callback", controllers.HandleMpesaCallback)
 
 	organization.GET("/products/:product_id", controllers.GetProductByID)
 	organization.GET("/products", controllers.GetProducts)

@@ -313,7 +313,6 @@ func AdminAddUser(c echo.Context) error {
 	input.CreatedBy = userID
 	input.IsActive = true
 
-	// Save the user to the database
 	if err := db.GetDB().Create(&input).Error; err != nil {
 		log.Printf("AdminAddUser - Create error: %v", err)
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
@@ -569,6 +568,7 @@ func AdminLogin(c echo.Context) error {
 		"user_id": user.ID,
 		"organization": user.OrganizationID,
 		"token": token,
+		"role_name": user.RoleName,
 	})
 }
 
@@ -624,7 +624,7 @@ func EditUser(c echo.Context) error {
 		log.Printf("EditUser - Save error: %v", err)
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
 	}
-
+	
 	log.Println("EditUser - User updated successfully")
 	log.Println("EditUser - Exit")
 	return c.JSON(http.StatusOK, user)
