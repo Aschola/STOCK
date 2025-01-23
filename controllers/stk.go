@@ -291,7 +291,7 @@ type MPesaSettings struct {
 	PassKey           string `json:"pass_key"`
 	Password          string `json:"password"`
 	CallbackURL       string `json:"callback_url"`
-	Environment       string `json:"environment"` // sandbox or production
+	Environment       string `json:"environment"` 
 }
 
 func (MPesaSettings) TableName() string {
@@ -349,10 +349,8 @@ func HandleSTKPush(c echo.Context) error {
 		})
 	}
 
-	// Log the incoming request
 	log.Printf("Received STK Push request: %+v", req)
 
-	// Retrieve organization ID from context
 	organizationID, ok := c.Get("organizationID").(uint)
 	if !ok {
 		log.Printf("Failed to get organizationID from context")

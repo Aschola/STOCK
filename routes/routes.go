@@ -144,9 +144,6 @@ func SetupRoutes(e *echo.Echo) {
 	organization.GET("/viewstock/:id", controllers.ViewStockByID)
 	organization.POST("/mpesa/stkpush", controllers.HandleSTKPush)
 	organization.POST("/mpesa/callback", controllers.HandleMpesaCallback)
-	//"CallBackURL": "http://abcd1234.ngrok.io/mpesa/callback"
-
-
 
 	organization.GET("/products/:product_id", controllers.GetProductByID)
 	organization.GET("/products", controllers.GetProducts)

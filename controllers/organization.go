@@ -313,7 +313,6 @@ func AdminAddUser(c echo.Context) error {
 	input.CreatedBy = userID
 	input.IsActive = true
 
-	// Save the user to the database
 	if err := db.GetDB().Create(&input).Error; err != nil {
 		log.Printf("AdminAddUser - Create error: %v", err)
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
