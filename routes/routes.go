@@ -10,6 +10,9 @@ import (
 
 // RegisterRoutes initializes all the routes for the Echo server
 func RegisterRoutes(e *echo.Echo) {
+
+	//e.POST("/send-sms", controllers.SendSmsHandler)
+	//e.POST("/send-sms", controllers.TestSendSmsHandler)
 	//productGroup := e.Group("/products")
 	// productGroup.GET("", controllers.GetProducts)                  // Fetch all products
 	// productGroup.GET("/:product_id", controllers.GetProductByID)   // Fetch a single product by ID
