@@ -275,6 +275,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+	"strconv"
+
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
@@ -654,4 +656,102 @@ func HandleMpesaCallback(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]string{
 		"message": "Callback processed successfully",
 	})
+}
+
+func AddMPesaSettings(c echo.Context) error {
+	organizationID, ok := c.Get("organizationID").(uint)
+	if !ok {
+		log.Println("AddMPesaSettings - Failed to get organizationID from context")
+		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
+	}
+	log.Printf("AddMPesaSettings - OrganizationID: %d", organizationID)
+
+	var settings MPesaSettings
+	if err := c.Bind(&settings); err != nil {
+		log.Printf("AddMPesaSettings - Bind error: %v", err)
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid request payload"})
+	}
+
+	// Set the organization ID from the context
+	settings.OrganizationID = int64(organizationID)
+
+	// Save to the database
+	if err := db.GetDB().Create(&settings).Error; err != nil {
+		log.Printf("AddMPesaSettings - Error saving settings: %v", err)
+		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Failed to save MPesa settings"})
+	}
+
+	log.Printf("AddMPesaSettings - MPesaSettings saved: %+v", settings)
+	return c.JSON(http.StatusCreated, settings)
+}
+
+// EditMPesaSettings handles the update of existing MPesa settings.
+func EditMPesaSettings(c echo.Context) error {
+	organizationID, ok := c.Get("organizationID").(uint)
+	if !ok {
+		log.Println("EditMPesaSettings - Failed to get organizationID from context")
+		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
+	}
+	log.Printf("EditMPesaSettings - OrganizationID: %d", organizationID)
+
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		log.Printf("EditMPesaSettings - Invalid ID: %v", err)
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid ID"})
+	}
+	log.Printf("EditMPesaSettings - Entry with ID: %d", id)
+
+	var settings MPesaSettings
+	if err := c.Bind(&settings); err != nil {
+		log.Printf("EditMPesaSettings - Bind error: %v", err)
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid request payload"})
+	}
+
+	// Check if the settings exist and belong to the organization
+	var existingSettings MPesaSettings
+	if err := db.GetDB().Where("id = ? AND organization_id = ?", id, organizationID).First(&existingSettings).Error; err != nil {
+		log.Printf("EditMPesaSettings - Settings not found: %v", err)
+		return c.JSON(http.StatusNotFound, echo.Map{"error": "Settings not found or not authorized"})
+	}
+
+	// Update settings
+	existingSettings.ConsumerKey = settings.ConsumerKey
+	existingSettings.ConsumerSecret = settings.ConsumerSecret
+	existingSettings.BusinessShortCode = settings.BusinessShortCode
+	existingSettings.PassKey = settings.PassKey
+	existingSettings.Password = settings.Password
+	existingSettings.CallbackURL = settings.CallbackURL
+	existingSettings.Environment = settings.Environment
+
+	if err := db.GetDB().Save(&existingSettings).Error; err != nil {
+		log.Printf("EditMPesaSettings - Error updating settings: %v", err)
+		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Failed to update MPesa settings"})
+	}
+
+	log.Printf("EditMPesaSettings - MPesaSettings updated: %+v", existingSettings)
+	return c.JSON(http.StatusOK, existingSettings)
+}
+
+// GetMPesaSettingsByOrganization retrieves MPesa settings for the authenticated organization.
+func GetMPesaSettingsByOrganization(c echo.Context) error {
+	organizationID, ok := c.Get("organizationID").(uint)
+	if !ok {
+		log.Println("GetMPesaSettingsByOrganization - Failed to get organizationID from context")
+		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
+	}
+	log.Printf("GetMPesaSettingsByOrganization - OrganizationID: %d", organizationID)
+
+	var settings []MPesaSettings
+	if err := db.GetDB().Where("organization_id = ?", organizationID).Find(&settings).Error; err != nil {
+		log.Printf("GetMPesaSettingsByOrganization - Error retrieving settings: %v", err)
+		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Failed to retrieve MPesa settings"})
+	}
+
+	if len(settings) == 0 {
+		log.Println("GetMPesaSettingsByOrganization - No settings found")
+		return c.JSON(http.StatusNotFound, echo.Map{"error": "No settings found for this organization"})
+	}
+
+	log.Printf("GetMPesaSettingsByOrganization - Settings found: %+v", settings)
+	return c.JSON(http.StatusOK, settings)
 }
