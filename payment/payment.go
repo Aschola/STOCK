@@ -53,17 +53,15 @@ func ProcessPayment(userID string, totalCost float64) error {
 	amountStr := fmt.Sprintf("%d", int(totalCost))
 	fmt.Println("Processing payment of amount:", amountStr)
 
-	// Data for payment processing
 	data := map[string]string{
-		"publicApi": "ISpublic_Api_Keysitq2v5mutip95ra.shabanet", // Partner ID
+		"publicApi": "ISpublic_Api_Keysitq2v5mutip95ra.shabanet", 
 		"Token":     "ISSecrete_Token_Keya8x3xi4z32959rt1.shabanet",
-		"Phone":     "0740385892",    // Phone
-		"username":  "Pascal Ongeri", // Username
-		"password":  "2222",          // Password
+		"Phone":     "0740385892",    
+		"username":  "Pascal Ongeri", 
+		"password":  "2222",          
 		"Amount":    amountStr,
 	}
 
-	// Log the complete request data
 	fmt.Printf("Sending payment request: %+v\n", data)
 
 	// Make the payment request with retries

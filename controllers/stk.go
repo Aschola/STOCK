@@ -316,6 +316,9 @@ type STKPushResponse struct {
 	CustomerMessage     string `json:"CustomerMessage"`
 	TransactionID       string `json:"TransactionID"`
 }
+func (STKPushResponse) TableName() string {
+	return "mpesa_callbacks"
+}
 
 // TransactionRecord represents the database model for MPesa transactions
 type TransactionRecord struct {
