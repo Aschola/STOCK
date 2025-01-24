@@ -40,24 +40,20 @@ func (Users) TableName() string {
 }
 
 type Suppliers struct {
-	ID             uint           `json:"id" gorm:"primaryKey"`
-	Name           string         `json:"name"`
-	Phonenumber    int64          `json:"phone_number" gorm:"column:phone_number"` 
+	ID          uint   `json:"id" gorm:"primaryKey"`
+	Name        string `json:"name"`
+	Phonenumber int64  `json:"phone_number" gorm:"column:phone_number"`
 	// Phonenumber    int64          `json:"phone_number"`
 	//ProductID          uint64     `gorm:"not null" json:"product_id"`
-	OrganizationID uint           `json:"organization_id" gorm:"not null"`
+	OrganizationID uint `json:"organization_id" gorm:"not null"`
 	//OrganizationID uint           `json:"organization_id"`
-	CreatedAt      time.Time      `json:"created_at"`
-	UpdatedAt      time.Time      `json:"updated_at"`
-	DeletedAt      gorm.DeletedAt `json:"deleted_at" gorm:"index"`
-	CreatedBy      uint           `json:"created_by"`
-	Stock          []Stock        `json:"stock" gorm:"foreignKey:SupplierID"`
+	CreatedAt time.Time      `json:"created_at"`
+	UpdatedAt time.Time      `json:"updated_at"`
+	DeletedAt gorm.DeletedAt `json:"deleted_at" gorm:"index"`
+	CreatedBy uint           `json:"created_by"`
+	Stock     []Stock        `json:"stock" gorm:"foreignKey:SupplierID"`
 }
 
 func (Suppliers) TableName() string {
 	return "suppliers"
 }
-
-
-
-

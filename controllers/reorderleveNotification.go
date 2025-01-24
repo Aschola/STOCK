@@ -9,7 +9,6 @@ import (
 	"log"
 	"net/http"
 	models "stock/models"
-	"testing"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -110,6 +109,8 @@ func SendSms(apiToken, message, phoneNumber string) error {
 		log.Printf("Error reading response body: %v", err)
 		return err
 	}
+
+	log.Printf("Sending SMS to %s: %s", phoneNumber, message)
 	log.Printf("HTTP Status Code: %d\nResponse: %s", resp.StatusCode, body)
 
 	if resp.StatusCode != http.StatusOK {
@@ -203,30 +204,6 @@ func CheckStockLevelsAndLog(db *gorm.DB) {
 	} else {
 		log.Println("No products are below the reorder level for any organization.")
 	}
-}
-
-// TestSendSmsHandler is used for testing the SMS send functionality every 30 seconds
-func TestSendSmsHandler(t *testing.T) {
-	// Set up a ticker to call the handler every 30 seconds
-	ticker := time.NewTicker(30 * time.Second)
-	defer ticker.Stop()
-
-	// Run the SMS send logic in a goroutine
-	go func() {
-		for {
-			select {
-			case <-ticker.C:
-				var db *gorm.DB // Replace with actual DB initialization for your test
-				// db := db.GetDB() // Example: If you have a function to get DB connection
-
-				// Generate the message based on stock levels and send the SMS
-				CheckStockLevelsAndLog(db) // Only pass db, no organizationID
-			}
-		}
-	}()
-
-	// Sleep for 2 minutes to allow the test to send multiple requests
-	time.Sleep(2 * time.Minute)
 }
 
 // StartReorderLevelNotification starts a ticker to check stock levels every 30 seconds
