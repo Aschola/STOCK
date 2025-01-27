@@ -7,7 +7,6 @@ import (
 	"stock/db"
 	models "stock/models"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -251,15 +250,13 @@ func UpdateProduct(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]string{"message": "Product updated successfully"})
 }
 
-// DeleteProduct deletes a product by ID
+// DeleteProduct checks if the product exists in the stock before deleting it from products
 func DeleteProduct(c echo.Context) error {
-	fullProductID := c.Param("product_id")
-	log.Printf("Received product_id to delete: %s", fullProductID)
-
-	productIDStr := strings.TrimPrefix(fullProductID, "products/")
+	// Extract product_id from the URL
+	productIDStr := c.Param("product_id")
 	productID, err := strconv.Atoi(productIDStr)
 	if err != nil {
-		log.Printf("Error: Invalid product ID: %s", fullProductID)
+		log.Printf("Error: Invalid product_id %s", productIDStr)
 		return errorResponse(c, http.StatusBadRequest, "Invalid product ID")
 	}
 
@@ -279,6 +276,20 @@ func DeleteProduct(c echo.Context) error {
 	// Convert organizationID from uint to int64 for DB compatibility
 	orgID := int64(organizationID)
 
+	// Check if the product exists in stock
+	var stockCount int64
+	if err := db.Table("stock").Where("product_id = ? AND organization_id = ?", productID, orgID).Count(&stockCount).Error; err != nil {
+		log.Printf("Error: Failed to check stock for product ID %d in organization %d: %v", productID, organizationID, err)
+		return errorResponse(c, http.StatusInternalServerError, "Error checking stock")
+	}
+
+	if stockCount > 0 {
+		// If the product exists in stock, return an error message
+		log.Printf("Error: Product ID %d exists in stock and cannot be deleted", productID)
+		return errorResponse(c, http.StatusConflict, "Product exists in stock and cannot be deleted")
+	}
+
+	// Proceed with deleting the product from the products table
 	if err := db.Delete(&models.Product{}, "product_id = ? AND organizations_id = ?", productID, orgID).Error; err != nil {
 		log.Printf("Error: Failed to delete product with ID %d for organization ID %d: %v", productID, organizationID, err)
 		return errorResponse(c, http.StatusInternalServerError, "Failed to delete product")
@@ -286,4 +297,83 @@ func DeleteProduct(c echo.Context) error {
 
 	log.Printf("Successfully deleted product with ID %d for organization ID %d", productID, organizationID)
 	return c.JSON(http.StatusOK, map[string]string{"message": "Product deleted successfully"})
+}
+
+// UpdateProductWithoutStock updates product details (excluding stock information) based on product_id
+func UpdateProductWithoutStock(c echo.Context) error {
+	// Get the database instance
+	db := getDB()
+	if db == nil {
+		log.Println("Error: Failed to get database instance while updating product")
+		return errorResponse(c, http.StatusInternalServerError, "Failed to connect to the database")
+	}
+
+	// Retrieve organizationID from context (middleware should have set this)
+	organizationID, ok := c.Get("organizationID").(uint)
+	if !ok {
+		log.Println("Error: Failed to get organizationID from context")
+		return errorResponse(c, http.StatusUnauthorized, "Unauthorized")
+	}
+
+	// Convert organizationID from uint to int64 for DB compatibility
+	orgID := int64(organizationID)
+
+	// Get product_id from the URL parameters
+	productIDStr := c.Param("product_id")
+	productID, err := strconv.Atoi(productIDStr)
+	if err != nil {
+		log.Printf("Error: Invalid product_id %s", productIDStr)
+		return errorResponse(c, http.StatusBadRequest, "Invalid product ID")
+	}
+
+	// Fetch the product by product_id and organizations_id
+	var product models.Product
+	log.Printf("Fetching product with ID %d for organization ID: %d...", productID, organizationID)
+
+	if err := db.Table("products").
+		Where("product_id = ? AND organizations_id = ? AND deleted_at IS NULL", productID, orgID).
+		First(&product).Error; err != nil {
+		log.Printf("Error fetching product with ID %d for organization ID %d: %v", productID, organizationID, err)
+		if err == gorm.ErrRecordNotFound {
+			return errorResponse(c, http.StatusNotFound, "Product not found")
+		}
+		return errorResponse(c, http.StatusInternalServerError, "Failed to fetch product")
+	}
+
+	// Bind the request body to the product model
+	var updatedProduct models.Product
+	if err := c.Bind(&updatedProduct); err != nil {
+		log.Printf("Error: Failed to bind updated product data: %v", err)
+		return errorResponse(c, http.StatusBadRequest, "Failed to parse request body")
+	}
+
+	// Update the product's fields (but not the stock-related fields)
+	updatedProduct.UpdatedAt = time.Now() // Set the current timestamp for the update
+
+	// Only update fields that have changed (you can customize this as needed)
+	if updatedProduct.ProductName != "" {
+		product.ProductName = updatedProduct.ProductName
+	}
+	if updatedProduct.CategoryName != "" {
+		product.CategoryName = updatedProduct.CategoryName
+	}
+	if updatedProduct.ProductDescription != "" {
+		product.ProductDescription = updatedProduct.ProductDescription
+	}
+	if updatedProduct.ReorderLevel > 0 {
+		product.ReorderLevel = updatedProduct.ReorderLevel
+	}
+
+	// Save the updated product to the database
+	if err := db.Table("products").
+		Where("product_id = ? AND organizations_id = ?", productID, orgID).
+		Updates(product).Error; err != nil {
+		log.Printf("Error: Failed to update product with ID %d for organization ID %d: %v", productID, organizationID, err)
+		return errorResponse(c, http.StatusInternalServerError, "Failed to update product")
+	}
+
+	log.Printf("Successfully updated product with ID %d for organization ID %d", productID, organizationID)
+
+	// Return the updated product as a JSON response
+	return c.JSON(http.StatusOK, product)
 }
