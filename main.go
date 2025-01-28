@@ -17,7 +17,6 @@ func main() {
 	// Initialize the database
 	db.Init()
 
-	// Start the background task to check and insert missing organizations every 30 seconds
 	go controllers.CheckAndInsertMissingOrganizations(db.GetDB())
 	go controllers.StartReorderLevelNotification(db.GetDB())
 
