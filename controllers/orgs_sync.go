@@ -10,7 +10,9 @@ import (
 
 // CheckAndInsertMissingOrganizations checks every 30 seconds if any organization_id is missing in company_settings and inserts missing records
 func CheckAndInsertMissingOrganizations(db *gorm.DB) {
-	ticker := time.NewTicker(30 * time.Second) // Set the ticker to 30 seconds
+
+	ticker := time.NewTicker(3 * time.Second) // Set the ticker to 3 seconds
+
 	defer ticker.Stop()
 
 	for {
@@ -63,7 +65,7 @@ func CheckAndInsertMissingOrganizations(db *gorm.DB) {
 
 			// Step 6: Log a message if no missing organizations were found
 			if !missingOrgFound {
-				log.Println("No missing organizations found in company_settings.")
+				//log.Println("No missing organizations found in company_settings.")
 			}
 		}
 	}
