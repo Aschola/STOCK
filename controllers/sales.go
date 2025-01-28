@@ -56,8 +56,8 @@ func SellProduct(c echo.Context) error {
 	}()
 	defer tx.Rollback() // Rollback in case of failure
 
-	// Generate a common sale_id for this transaction
-	saleID := time.Now().UnixNano() // Unique ID based on timestamp (in nanoseconds)
+	// Generate a shortened sale_id using Unix timestamp in seconds (10-digit ID)
+	saleID := time.Now().Unix() // Unique ID based on timestamp (in seconds)
 
 	// Calculate total selling price
 	var totalSellingPrice float64
@@ -126,7 +126,7 @@ func SellProduct(c echo.Context) error {
 		balance := payload.CashReceived - totalSellingPrice
 
 		sale := models.Sale{
-			SaleID:            saleID,         // Use the common sale_id for all items in this transaction
+			SaleID:            saleID,         // Use the shortened sale_id generated above
 			OrganizationsID:   organizationID, // Use OrganizationsID to associate with the correct organization
 			Name:              product.ProductName,
 			CategoryName:      product.CategoryName,
