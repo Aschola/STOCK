@@ -3,9 +3,11 @@ package main
 import (
 	"log"
 	"os"
-	//"stock/controllers"
+	"stock/controllers"
 	"stock/db"
 	"stock/routes"
+
+	//"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -15,7 +17,12 @@ func main() {
 	// Initialize the database
 	db.Init()
 
+	go controllers.StartReorderLevelNotification(db.GetDB())
+
 	e := echo.New()
+
+	e.POST("/send-sms", controllers.SendSmsHandler)
+	e.POST("/mpesa/callback", controllers.HandleMpesaCallback)
 
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{"*"},
@@ -26,8 +33,12 @@ func main() {
 	// Register routes
 	routes.RegisterRoutes(e)
 	routes.SetupRoutes(e)
-	
-	//go controllers.GetProductsfornotification()
+
+
+	// Start the test goroutine to send SMS every 30 seconds
+
+	// If you want to call the test function, you can now call it directly from main
+	//go runTestSendSmsHandler()
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -36,6 +47,7 @@ func main() {
 
 	log.Fatal(e.Start(":" + port))
 }
+
 // package main
 
 // import (
@@ -114,4 +126,3 @@ func main() {
 
 // 	log.Fatal(e.Start(":" + port))
 // }
-
