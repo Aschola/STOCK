@@ -40,8 +40,13 @@ func GetCompanySettings(c echo.Context) error {
 		})
 	}
 
-	// Return the company settings as JSON
-	return c.JSON(http.StatusOK, companySettings)
+	// Add KraPin to each company setting (if necessary)
+	for i := range companySettings {
+		companySettings[i].KraPin = companySettings[i].KraPin
+	}
+
+	// Return the company settings as a JSON array
+	return c.JSON(http.StatusOK, companySettings) // Already an array, no further modifications needed
 }
 
 // UpdateCompanySettings updates the company settings for a specific organization
@@ -79,6 +84,9 @@ func UpdateCompanySettings(c echo.Context) error {
 		return errorResponse(c, http.StatusInternalServerError, "Failed to update company settings")
 	}
 
-	// Return the updated company settings
-	return c.JSON(http.StatusOK, updatedSettings)
+	// Add KraPin to the updated company settings
+	updatedSettings.KraPin = updatedSettings.KraPin
+
+	// Return the updated company settings as a JSON array
+	return c.JSON(http.StatusOK, []models.CompanySetting{updatedSettings}) // Wrapping in an array
 }
