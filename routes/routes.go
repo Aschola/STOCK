@@ -159,10 +159,10 @@ func SetupRoutes(e *echo.Echo) {
 	organization.DELETE("/products/:product_id", controllers.DeleteProduct)
 	organization.POST("/products", controllers.AddProduct) // Add a new product
 	organization.PUT("/products/:product_id", controllers.UpdateProduct)
+	organization.PUT("/products/:product_id", controllers.UpdateProductWithoutStock)
 
 	organization.GET("", controllers.GetCategories)
 	//organization.GET("/:category_id", controllers.GetCategoryByID)
-
 	//organization.GET("/only", controllers.GetCategoriesOnly)
 	organization.GET("/categories_only", controllers.GetCategories)
 	organization.PUT("/categories_only/:id", controllers.UpdateCategory)
@@ -180,5 +180,8 @@ func SetupRoutes(e *echo.Echo) {
 
 	organization.GET("/sales/user/:user_id", controllers.GetSalesByUserID)
 	organization.GET("/sales/username/:username", controllers.GetSalesByUsername)
+
+	organization.GET("/company/settings", controllers.GetCompanySettings)
+	organization.PUT("/company/settings", controllers.UpdateCompanySettings)
 
 }

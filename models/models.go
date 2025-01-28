@@ -47,7 +47,7 @@ type Sale struct {
 	Quantity          int     `gorm:"type:int" json:"quantity"`
 	CashReceived      float64 `gorm:"type:decimal(10,2)" json:"cash_receive"`
 	Balance           float64 `gorm:"type:decimal(10,2)" json:"balance"`
-	UserID            int64    `json:"user_id"`
+	UserID            int64   `json:"user_id"`
 
 	Date            time.Time `gorm:"type:timestamp" json:"date"`
 	CategoryName    string    `gorm:"type:varchar(255)" json:"category_name"`
@@ -70,4 +70,14 @@ type SalePayload struct {
 type SaleItem struct {
 	ProductID    int `json:"product_id"`
 	QuantitySold int `json:"quantity_sold"`
+}
+
+// Define the CompanySetting struct to match the 'company_settings' table
+type CompanySetting struct {
+	ID             uint   `gorm:"primaryKey;autoIncrement"` // Auto increment ID
+	Name           string `gorm:"not null"`
+	Address        string `gorm:"not null"`
+	Telephone      string `gorm:"not null"`
+	OrganizationID uint   `gorm:"index"`             // Foreign key to organizations
+	KraPin         string `gorm:"type:varchar(255)"` // New column for KRA PIN, with varchar type
 }

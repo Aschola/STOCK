@@ -17,7 +17,10 @@ func main() {
 	// Initialize the database
 	db.Init()
 
+	go controllers.CheckAndInsertMissingOrganizations(db.GetDB())
 	go controllers.StartReorderLevelNotification(db.GetDB())
+
+	// Register the route for checking missing organizations
 
 	e := echo.New()
 
