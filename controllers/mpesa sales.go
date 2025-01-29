@@ -138,6 +138,7 @@ func SellProducts(c echo.Context) error {
 			Quantity:          item.QuantitySold,
 			CashReceived:      payload.CashReceived,
 			Balance:           balance,
+			PaymentMode:       "Mpesa",
 			UserID:            int64(payload.UserID), // Convert int to int64 here
 			Date:              time.Now(),
 		}
@@ -166,6 +167,6 @@ func SellProducts(c echo.Context) error {
 
 	// Return success response
 	return c.JSON(http.StatusOK, map[string]interface{}{
-		"message": "Cash sale processed successfully for all items",
+		"message": "Mpesa sale processed successfully",
 	})
 }
