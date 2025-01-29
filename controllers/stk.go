@@ -369,7 +369,9 @@ func InitiateSTKPush(organizationID int64, req STKPushRequest) (*STKPushResponse
 	
 }
 func HandleMpesaCallback(c echo.Context) error {
-    log.Println("Mpesa callback hit")
+    log.Printf("Request Method: %s, URL: %s", c.Request().Method, c.Request().URL)
+    log.Printf("Headers: %+v", c.Request().Header)
+
     // Read the request body
     body, err := io.ReadAll(c.Request().Body)
     if err != nil {
@@ -378,34 +380,25 @@ func HandleMpesaCallback(c echo.Context) error {
             "error": "Failed to read request body",
         })
     }
-    log.Println("Request body read successfully")
+    log.Printf("Raw callback body: %s", string(body))
+
+    // Restore the request body for further processing
+    c.Request().Body = io.NopCloser(bytes.NewBuffer(body))
 
     // Parse the callback response
     var callbackResp MpesaCallbackResponse
     if err := json.Unmarshal(body, &callbackResp); err != nil {
         log.Printf("Failed to unmarshal callback response: %v", err)
+        log.Printf("Failed body content: %s", string(body))
         return c.JSON(http.StatusBadRequest, map[string]string{
             "error": "Invalid callback format",
         })
     }
-    log.Printf("Callback response parsed successfully: %+v", callbackResp)
+    log.Printf("Callback response parsed: %+v", callbackResp)
 
     // Extract metadata from the callback
     stkCallback := callbackResp.Body.StkCallback
     log.Printf("Processing STK callback: %+v", stkCallback)
-
-    mpesaReceipt := ""
-    amount := 0.0
-    for _, item := range stkCallback.CallbackMetadata.Item {
-        if item.Name == "MpesaReceiptNumber" {
-            mpesaReceipt = item.Value.(string)
-            log.Printf("Mpesa receipt number extracted: %s", mpesaReceipt)
-        }
-        if item.Name == "Amount" {
-            amount = item.Value.(float64)
-            log.Printf("Transaction amount extracted: %.2f", amount)
-        }
-    }
 
     // Find the corresponding transaction
     var transaction TransactionRecord
@@ -413,24 +406,82 @@ func HandleMpesaCallback(c echo.Context) error {
         stkCallback.MerchantRequestID, stkCallback.CheckoutRequestID).First(&transaction)
 
     if result.Error != nil {
-        log.Printf("Transaction not found for MerchantRequestID: %s or CheckoutRequestID: %s, error: %v",
+        log.Printf("Transaction not found - MerchantRequestID: %s, CheckoutRequestID: %s, Error: %v",
             stkCallback.MerchantRequestID, stkCallback.CheckoutRequestID, result.Error)
         return c.JSON(http.StatusNotFound, map[string]string{
             "error": "Transaction not found",
         })
     }
-    log.Printf("Transaction found: %+v", transaction)
+    log.Printf("Found transaction: %+v", transaction)
 
-    // Update the transaction details
+    // Check if the transaction failed
+    if stkCallback.ResultCode != 0 {
+        log.Printf("Transaction failed with ResultCode: %d, ResultDesc: %s", 
+            stkCallback.ResultCode, stkCallback.ResultDesc)
+
+        // Update the transaction as FAILED
+        transaction.Status = "FAILED"
+        transaction.UpdatedAt = time.Now()
+
+        if err := db.GetDB().Save(&transaction).Error; err != nil {
+            log.Printf("Failed to update failed transaction: %v", err)
+            return c.JSON(http.StatusInternalServerError, map[string]string{
+                "error": "Failed to update transaction",
+            })
+        }
+        log.Printf("Transaction status updated to FAILED: %+v", transaction)
+
+        // Save the callback details
+        callback := STKPushResponse{
+            MerchantRequestID:   stkCallback.MerchantRequestID,
+            CheckoutRequestID:   stkCallback.CheckoutRequestID,
+            ResponseCode:        fmt.Sprintf("%d", stkCallback.ResultCode),
+            ResponseDescription: stkCallback.ResultDesc,
+            CustomerMessage:     "Transaction failed",
+        }
+
+        if err := db.GetDB().Create(&callback).Error; err != nil {
+            log.Printf("Failed to save callback data: %v", err)
+            return c.JSON(http.StatusInternalServerError, map[string]string{
+                "error": "Failed to save callback data",
+            })
+        }
+
+        log.Println("Failed transaction recorded successfully")
+        return c.JSON(http.StatusOK, map[string]string{
+            "message": "Transaction failed",
+            "reason":  stkCallback.ResultDesc,
+        })
+    }
+
+    // If transaction was successful, process normally
+    mpesaReceipt := ""
+    amount := 0.0
+    log.Println("Processing successful transaction metadata")
+    for _, item := range stkCallback.CallbackMetadata.Item {
+        if item.Name == "MpesaReceiptNumber" {
+            mpesaReceipt = item.Value.(string)
+            log.Printf("Mpesa receipt number found: %s", mpesaReceipt)
+        }
+        if item.Name == "Amount" {
+            amount = item.Value.(float64)
+            log.Printf("Transaction amount found: %.2f", amount)
+        }
+    }
+
+    // Update the transaction as COMPLETED
     transaction.Status = "COMPLETED"
     transaction.Amount = amount
+    transaction.UpdatedAt = time.Now()
+    transaction.MpesaReceipt = mpesaReceipt
+
     if err := db.GetDB().Save(&transaction).Error; err != nil {
-        log.Printf("Failed to update transaction: %v", err)
+        log.Printf("Failed to update completed transaction: %v", err)
         return c.JSON(http.StatusInternalServerError, map[string]string{
             "error": "Failed to update transaction",
         })
     }
-    log.Printf("Transaction updated successfully: %+v", transaction)
+    log.Printf("Transaction updated successfully as COMPLETED: %+v", transaction)
 
     // Save the callback details
     callback := STKPushResponse{
@@ -442,20 +493,17 @@ func HandleMpesaCallback(c echo.Context) error {
     }
 
     if err := db.GetDB().Create(&callback).Error; err != nil {
-        log.Printf("Failed to save callback data: %v", err)
+        log.Printf("Failed to save success callback data: %v", err)
         return c.JSON(http.StatusInternalServerError, map[string]string{
             "error": "Failed to save callback data",
         })
     }
-    log.Printf("Callback data saved successfully: %+v", callback)
+    log.Printf("Success callback data saved: %+v", callback)
 
-    // Send a success response
-    log.Println("Callback processed successfully")
     return c.JSON(http.StatusOK, map[string]string{
         "message": "Callback processed successfully",
     })
 }
-
 func maskString(s string) string {
 	if len(s) <= 4 {
 		return "****"
