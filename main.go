@@ -25,6 +25,7 @@ func main() {
 	e := echo.New()
 
 	e.POST("/send-sms", controllers.SendSmsHandler)
+	e.POST("/mpesa/callback", controllers.HandleMpesaCallback)
 
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{"*"},
@@ -35,6 +36,7 @@ func main() {
 	// Register routes
 	routes.RegisterRoutes(e)
 	routes.SetupRoutes(e)
+
 
 	// Start the test goroutine to send SMS every 30 seconds
 

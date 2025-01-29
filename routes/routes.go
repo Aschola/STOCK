@@ -61,6 +61,8 @@ func SetupRoutes(e *echo.Echo) {
 	e.POST("shopkeeper/logout", controllers.Logout)
 	e.POST("auditor/login", controllers.AuditorLogin)
 	e.POST("auditor/logout", controllers.AuditorLogout)
+	
+
 	//e.POST("/addsupplier", controllers.AddSupplier)
 	// e.PUT("/editsupplier/:id", controllers.EditSupplier)
 	// e.DELETE("/deletesupplier", controllers.DeleteSupplier)
@@ -138,7 +140,8 @@ func SetupRoutes(e *echo.Echo) {
 	orgAdminGroup.PATCH("/users/:id/activate-deactivate", controllers.OrganizationAdminActivateDeactivateUser)
 
 	organization := e.Group("/organization")
-	e.Use(middlewares.AuthMiddleware("Admin", "Shopkeeper", "Auditor"))
+	organization.Use(middlewares.AuthMiddleware("Admin", "Shopkeeper", "Auditor"))
+	//e.Use(middlewares.AuthMiddleware("Admin", "Shopkeeper", "Auditor"))
 	organization.POST("/addsupplier", controllers.AddSupplier)
 	organization.PUT("/editsupplier/:id", controllers.EditSupplier)
 	organization.DELETE("/deletesupplier/:id", controllers.DeleteSupplier)
@@ -150,7 +153,7 @@ func SetupRoutes(e *echo.Echo) {
 	organization.GET("/viewallstock", controllers.ViewAllStock)
 	organization.GET("/viewstock/:id", controllers.ViewStockByID)
 	organization.POST("/mpesa/stkpush", controllers.HandleSTKPush)
-	organization.POST("/mpesa/callback", controllers.HandleMpesaCallback)
+	organization.GET("/transactions", controllers.GetCompletedTransactions)
 
 	organization.GET("/products/:product_id", controllers.GetProductByID)
 	organization.GET("/products", controllers.GetProducts)
