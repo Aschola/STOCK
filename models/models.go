@@ -35,30 +35,29 @@ type SaleByCategory struct {
 	CategoryName string  `json:"category_name"`
 }
 
-// Sale represents the structure of the sales_by_cash table
+// Sale represents the structure of the sales_transactions table
 type Sale struct {
-	SaleID            int64   `gorm:"primaryKey;autoIncrement" json:"sale_id"`
-	Name              string  `gorm:"type:varchar(255)" json:"product_name"` // Removed the extra space
-	UnitBuyingPrice   float64 `gorm:"type:decimal(10,2)" json:"unit_buying_price"`
-	TotalBuyingPrice  float64 `gorm:"type:decimal(10,2)" json:"total_buying_price"`
-	UnitSellingPrice  float64 `gorm:"type:decimal(10,2)" json:"unit_selling_price"`
-	TotalSellingPrice float64 `gorm:"type:float" json:"total_selling_price"`
-	Profit            float64 `gorm:"type:float" json:"profit"`
-	Quantity          int     `gorm:"type:int" json:"quantity"`
-	CashReceived      float64 `gorm:"type:decimal(10,2)" json:"cash_receive"`
-	Balance           float64 `gorm:"type:decimal(10,2)" json:"balance"`
-	UserID            int64   `json:"user_id"`
-
-	Date            time.Time `gorm:"type:timestamp" json:"date"`
-	CategoryName    string    `gorm:"type:varchar(255)" json:"category_name"`
-	OrganizationsID uint      `json:"organization_id"` // Add this line
+	SaleID            int64     `gorm:"primaryKey;autoIncrement" json:"sale_id"`
+	Name              string    `gorm:"type:varchar(255)" json:"product_name"`
+	UnitBuyingPrice   float64   `gorm:"type:decimal(10,2)" json:"unit_buying_price"`
+	TotalBuyingPrice  float64   `gorm:"type:decimal(10,2)" json:"total_buying_price"`
+	UnitSellingPrice  float64   `gorm:"type:decimal(10,2)" json:"unit_selling_price"`
+	TotalSellingPrice float64   `gorm:"type:float" json:"total_selling_price"`
+	Profit            float64   `gorm:"type:float" json:"profit"`
+	Quantity          int       `gorm:"type:int" json:"quantity"`
+	CashReceived      float64   `gorm:"type:decimal(10,2)" json:"cash_received"` // Corrected the typo from 'cash_receive'
+	Balance           float64   `gorm:"type:decimal(10,2)" json:"balance"`
+	PaymentMode       string    `gorm:"type:varchar(50)" json:"payment_mode"`    // New PaymentMode column
+	UserID            int64     `json:"user_id"`
+	Date              time.Time `gorm:"type:timestamp" json:"date"`
+	CategoryName      string    `gorm:"type:varchar(255)" json:"category_name"`
+	OrganizationsID   uint      `json:"organization_id"` // Keep organization_id field as before
 }
 
-// TableName overrides the default table name (sales -> sales_by_cash)
+// TableName overrides the default table name (sales -> sales_transactions)
 func (Sale) TableName() string {
-	return "sales_by_cash"
+	return "sales_transactions" // Updated to match the new table name
 }
-
 // SalePayload represents the data structure for sale request
 type SalePayload struct {
 	UserID       int        `json:"user_id"`
@@ -74,10 +73,10 @@ type SaleItem struct {
 
 // Define the CompanySetting struct to match the 'company_settings' table
 type CompanySetting struct {
-	ID             uint   `gorm:"primaryKey;autoIncrement"` // Auto increment ID
-	Name           string `gorm:"not null"`
-	Address        string `gorm:"not null"`
-	Telephone      string `gorm:"not null"`
-	OrganizationID uint   `gorm:"index"`             // Foreign key to organizations
-	KraPin         string `gorm:"type:varchar(255)"` // New column for KRA PIN, with varchar type
+	ID             uint    `gorm:"primaryKey;autoIncrement"` // Auto increment ID
+	Name           string  `gorm:"not null"`
+	Address        string  `gorm:"not null"`
+	Telephone      string  `gorm:"not null"`
+	OrganizationID uint    `gorm:"index"`   // Foreign key to organizations
+	KraPin         *string `json:"kra_pin"` // New column for KRA PIN, with varchar type
 }
