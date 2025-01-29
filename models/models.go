@@ -74,10 +74,10 @@ type SaleItem struct {
 
 // Define the CompanySetting struct to match the 'company_settings' table
 type CompanySetting struct {
-	ID             uint   `gorm:"primaryKey;autoIncrement"` // Auto increment ID
-	Name           string `gorm:"not null"`
-	Address        string `gorm:"not null"`
-	Telephone      string `gorm:"not null"`
-	OrganizationID uint   `gorm:"index"`             // Foreign key to organizations
-	KraPin         string `gorm:"type:varchar(255)"` // New column for KRA PIN, with varchar type
+	ID             uint    `gorm:"primaryKey;autoIncrement"` // Auto increment ID
+	Name           string  `gorm:"not null"`
+	Address        string  `gorm:"not null"`
+	Telephone      string  `gorm:"not null"`
+	OrganizationID uint    `gorm:"index"`   // Foreign key to organizations
+	KraPin         *string `json:"kra_pin"` // New column for KRA PIN, with varchar type
 }
