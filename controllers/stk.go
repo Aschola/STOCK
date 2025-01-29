@@ -578,3 +578,29 @@ func GetMPesaSettingsByOrganization(c echo.Context) error {
 	log.Printf("GetMPesaSettingsByOrganization - Settings found: %+v", settings)
 	return c.JSON(http.StatusOK, settings)
 }
+
+func GetCompletedTransactions(c echo.Context) error {
+	log.Println("GetCompletedTransactions - Entry")
+
+	// Retrieve organizationID from context
+	organizationID, ok := c.Get("organizationID").(uint)
+	if !ok {
+		log.Println("GetCompletedTransactions - Failed to get organizationID from context")
+		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
+	}
+
+	log.Printf("GetCompletedTransactions - OrganizationID: %d", organizationID)
+
+	// Fetch completed transactions for the given organization
+	var transactions []TransactionRecord
+	if err := db.GetDB().
+		Where("organization_id = ? AND status = ?", organizationID, "COMPLETED").
+		Find(&transactions).Error; err != nil {
+		log.Printf("GetCompletedTransactions - Error fetching transactions: %v", err)
+		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Failed to fetch transactions"})
+	}
+
+	log.Printf("GetCompletedTransactions - Retrieved %d completed transactions", len(transactions))
+	log.Println("GetCompletedTransactions - Exit")
+	return c.JSON(http.StatusOK, transactions)
+}
