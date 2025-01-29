@@ -138,6 +138,7 @@ func SellProduct(c echo.Context) error {
 			Quantity:          item.QuantitySold,
 			CashReceived:      payload.CashReceived,
 			Balance:           balance,
+			PaymentMode:       "cash",
 			UserID:            int64(payload.UserID), // Convert int to int64 here
 			Date:              time.Now(),
 		}
