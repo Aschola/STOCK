@@ -43,10 +43,10 @@ func SuperAdminLogin(c echo.Context) error {
 		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Invalid username or password"})
 	}
 
-	// if err := utils.CheckPasswordHash(input.Password, user.Password); err != nil {
-	// 	log.Printf("CheckPasswordHash error: %v", err)
-	// 	return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Invalid username or password"})
-	// }
+	if err := utils.CheckPasswordHash(input.Password, user.Password); err != nil {
+		log.Printf("CheckPasswordHash error: %v", err)
+		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Invalid username or password"})
+	}
 
 	token, err := utils.GenerateJWT(user.ID, user.RoleName, user.OrganizationID)
 	if err != nil {

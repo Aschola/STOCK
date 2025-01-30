@@ -17,6 +17,9 @@ func main() {
 	// Initialize the database
 	db.Init()
 
+	//go controllers.SeedUser()
+
+
 	go controllers.CheckAndInsertMissingOrganizations(db.GetDB())
 	go controllers.StartReorderLevelNotification(db.GetDB())
 
