@@ -71,6 +71,80 @@ func GetProducts(c echo.Context) error {
 	return c.JSON(http.StatusOK, products)
 }
 
+// // GetProductByID fetches a product by its ID and includes stock details
+// func GetProductByID(c echo.Context) error {
+// 	productID, err := strconv.Atoi(c.Param("product_id"))
+// 	if err != nil {
+// 		log.Printf("Error: Invalid product ID in URL: %v", err)
+// 		return errorResponse(c, http.StatusBadRequest, "Invalid product ID")
+// 	}
+
+// 	db := getDB()
+// 	if db == nil {
+// 		log.Println("Error: Failed to get database instance while fetching product by ID")
+// 		return errorResponse(c, http.StatusInternalServerError, "Failed to connect to the database")
+// 	}
+
+// 	// Retrieve organizationID from context (middleware should have set this)
+// 	organizationID, ok := c.Get("organizationID").(uint)
+// 	if !ok {
+// 		log.Println("Error: Failed to get organizationID from context")
+// 		return errorResponse(c, http.StatusUnauthorized, "Unauthorized")
+// 	}
+
+// 	// Convert organizationID from uint to int64 for DB compatibility
+// 	orgID := int64(organizationID)
+
+// 	var prod models.Product
+// 	var stock models.Stock
+
+// 	// Fetch product details
+// 	if err := db.Table("products").Where("product_id = ? AND deleted_at IS NULL AND organizations_id = ?", productID, orgID).First(&prod).Error; err != nil {
+// 		log.Printf("Error: Product not found for ID %d in organization %d: %v", productID, organizationID, err)
+// 		if err == gorm.ErrRecordNotFound {
+// 			return errorResponse(c, http.StatusNotFound, "Product not found")
+// 		}
+// 		return errorResponse(c, http.StatusInternalServerError, "Failed to fetch product details")
+// 	}
+
+// 	// Fetch stock details
+// 	if err := db.Table("stock").Where("product_id = ?", productID).First(&stock).Error; err != nil {
+// 		log.Printf("Error: Stock details not found for product ID %d in organization %d: %v", productID, organizationID, err)
+// 		if err == gorm.ErrRecordNotFound {
+// 			return errorResponse(c, http.StatusNotFound, "Stock details not found")
+// 		}
+// 		return errorResponse(c, http.StatusInternalServerError, "Failed to fetch stock details")
+// 	}
+
+// 	// Return combined product and stock details
+// 	productWithStockDetails := struct {
+// 		ProductID          int     `json:"product_id"`
+// 		CategoryName       string  `json:"category_name"`
+// 		ProductName        string  `json:"product_name"`
+// 		ProductDescription string  `json:"product_description"`
+// 		ReorderLevel       int     `json:"reorder_level"`
+// 		CreatedAt          string  `json:"created_at"`
+// 		UpdatedAt          string  `json:"updated_at"`
+// 		Quantity           int     `json:"quantity"`
+// 		BuyingPrice        float64 `json:"buying_price"`
+// 		SellingPrice       float64 `json:"selling_price"`
+// 	}{
+// 		ProductID:          prod.ProductID,
+// 		CategoryName:       prod.CategoryName,
+// 		ProductName:        prod.ProductName,
+// 		ProductDescription: prod.ProductDescription,
+// 		ReorderLevel:       prod.ReorderLevel,
+// 		CreatedAt:          prod.CreatedAt.Format(time.RFC3339),
+// 		UpdatedAt:          prod.UpdatedAt.Format(time.RFC3339),
+// 		Quantity:           stock.Quantity,
+// 		BuyingPrice:        stock.BuyingPrice,
+// 		SellingPrice:       stock.SellingPrice,
+// 	}
+
+// 	log.Printf("Successfully fetched product and stock details for product ID: %d in organization ID: %d", productID, organizationID)
+// 	return c.JSON(http.StatusOK, productWithStockDetails)
+// }
+
 // GetProductByID fetches a product by its ID and includes stock details
 func GetProductByID(c echo.Context) error {
 	productID, err := strconv.Atoi(c.Param("product_id"))
@@ -107,16 +181,18 @@ func GetProductByID(c echo.Context) error {
 		return errorResponse(c, http.StatusInternalServerError, "Failed to fetch product details")
 	}
 
-	// Fetch stock details
-	if err := db.Table("stock").Where("product_id = ?", productID).First(&stock).Error; err != nil {
-		log.Printf("Error: Stock details not found for product ID %d in organization %d: %v", productID, organizationID, err)
-		if err == gorm.ErrRecordNotFound {
-			return errorResponse(c, http.StatusNotFound, "Stock details not found")
-		}
+	// Fetch stock details (this query may return an error if no stock is found, but it's okay)
+	stockFound := false
+	if err := db.Table("stock").Where("product_id = ?", productID).First(&stock).Error; err == nil {
+		// Stock found, set flag to true
+		stockFound = true
+	} else if err != gorm.ErrRecordNotFound {
+		// If some error other than 'record not found' occurred, log it
+		log.Printf("Error: Failed to fetch stock details for product ID %d: %v", productID, err)
 		return errorResponse(c, http.StatusInternalServerError, "Failed to fetch stock details")
 	}
 
-	// Return combined product and stock details
+	// Prepare response data, either with or without stock details
 	productWithStockDetails := struct {
 		ProductID          int     `json:"product_id"`
 		CategoryName       string  `json:"category_name"`
@@ -125,9 +201,9 @@ func GetProductByID(c echo.Context) error {
 		ReorderLevel       int     `json:"reorder_level"`
 		CreatedAt          string  `json:"created_at"`
 		UpdatedAt          string  `json:"updated_at"`
-		Quantity           int     `json:"quantity"`
-		BuyingPrice        float64 `json:"buying_price"`
-		SellingPrice       float64 `json:"selling_price"`
+		Quantity           int     `json:"quantity,omitempty"`
+		BuyingPrice        float64 `json:"buying_price,omitempty"`
+		SellingPrice       float64 `json:"selling_price,omitempty"`
 	}{
 		ProductID:          prod.ProductID,
 		CategoryName:       prod.CategoryName,
@@ -136,9 +212,13 @@ func GetProductByID(c echo.Context) error {
 		ReorderLevel:       prod.ReorderLevel,
 		CreatedAt:          prod.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:          prod.UpdatedAt.Format(time.RFC3339),
-		Quantity:           stock.Quantity,
-		BuyingPrice:        stock.BuyingPrice,
-		SellingPrice:       stock.SellingPrice,
+	}
+
+	if stockFound {
+		// Only include stock details if found
+		productWithStockDetails.Quantity = stock.Quantity
+		productWithStockDetails.BuyingPrice = stock.BuyingPrice
+		productWithStockDetails.SellingPrice = stock.SellingPrice
 	}
 
 	log.Printf("Successfully fetched product and stock details for product ID: %d in organization ID: %d", productID, organizationID)
