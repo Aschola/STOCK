@@ -61,7 +61,6 @@ func SetupRoutes(e *echo.Echo) {
 	e.POST("shopkeeper/logout", controllers.Logout)
 	e.POST("auditor/login", controllers.AuditorLogin)
 	e.POST("auditor/logout", controllers.AuditorLogout)
-	
 
 	//e.POST("/addsupplier", controllers.AddSupplier)
 	// e.PUT("/editsupplier/:id", controllers.EditSupplier)
