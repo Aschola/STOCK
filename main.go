@@ -16,7 +16,7 @@ import (
 func main() {
 	// Initialize the database
 	db.Init()
-
+	//inserting the missing organizations
 	go controllers.CheckAndInsertMissingOrganizations(db.GetDB())
 	go controllers.StartReorderLevelNotification(db.GetDB())
 
@@ -36,7 +36,6 @@ func main() {
 	// Register routes
 	routes.RegisterRoutes(e)
 	routes.SetupRoutes(e)
-
 
 	// Start the test goroutine to send SMS every 30 seconds
 
