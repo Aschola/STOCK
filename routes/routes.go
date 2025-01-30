@@ -74,8 +74,8 @@ func SetupRoutes(e *echo.Echo) {
 	// e.GET("/viewstock/:id", controllers.ViewStockByID)
 	//e.POST("/organizationadmin/login", controllers.OrganizationAdminLogin)
 	//e.POST("/organizationadmin/logout", controllers.OrganizationAdminLogout)
-	e.POST("/forgot-password", controllers.ForgotPassword)
-	e.POST("/reset-password", controllers.ResetPassword)
+	//e.POST("/forgot-password", controllers.ForgotPassword)
+	//e.POST("/reset-password", controllers.ResetPassword)
 	e.POST("/activationemail/:id", controllers.HandleSendActivationEmail)
 
 

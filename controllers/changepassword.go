@@ -9,8 +9,6 @@ import (
 //"github.com/golang-jwt/jwt"
 
 )
-     
-
 
 func ChangePassword(c echo.Context) error {
 	log.Println("ChangePassword - Entry")
@@ -27,12 +25,6 @@ func ChangePassword(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		log.Printf("ChangePassword - Bind error: %v", err)
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid input"})
-	}
-
-	// Validate the request data
-	if req.NewPassword != req.ConfirmPassword {
-		log.Println("ChangePassword - Error: New password and confirm password do not match")
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": "New password and confirm password do not match"})
 	}
 
 	// Fetch the user from the database

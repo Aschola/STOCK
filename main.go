@@ -18,6 +18,8 @@ func main() {
 	db.Init()
 
 	//go controllers.SeedUser()
+	//go controllers.HandleMpesaCallback()
+
 
 
 	go controllers.CheckAndInsertMissingOrganizations(db.GetDB())

@@ -10,10 +10,8 @@ import (
 	"stock/models"
 )
 func SeedUser() {
-	// Connect to the database
 	database := db.GetDB()
 
-	// Define the users to seed
 	users := []models.User{
 		{
 			Username:       "rooot",
@@ -21,10 +19,10 @@ func SeedUser() {
 			FullName:       "Super Admin",
 			Organization:   "",
 			RoleName:       "Superadmin",
-			Password:       "Newvera@764", // This will be hashed before inserting
-			//OrganizationID: 1, // Example OrganizationID
+			Password:       "Newvera@764", 
+			//OrganizationID: 1, 
 			IsActive:       true,
-			CreatedBy:      1, // Example CreatedBy userID
+			CreatedBy:      1, 
 			Phonenumber:    0720000000,
 			CreatedAt:      time.Now(),
 			UpdatedAt:      time.Now(),
@@ -51,7 +49,6 @@ func SeedUser() {
 			log.Fatalf("Error hashing password for user %s: %v", user.Username, err)
 		}
 
-		// Assign hashed password before saving
 		user.Password = hashedPassword
 
 		// Insert user into the database

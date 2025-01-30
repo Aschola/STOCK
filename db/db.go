@@ -80,7 +80,7 @@ func GetDB() *gorm.DB {
 // 	}
 
 // 	err = dbInstance.AutoMigrate(
-// 		&models.Suppliers{},
+// 		&models.ChangePasswordRequest{},
 // 	)
 // 	if err != nil {
 // 		log.Fatalf("Error during migration: %v", err)
