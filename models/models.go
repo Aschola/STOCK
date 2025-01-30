@@ -47,7 +47,7 @@ type Sale struct {
 	Quantity          int       `gorm:"type:int" json:"quantity"`
 	CashReceived      float64   `gorm:"type:decimal(10,2)" json:"cash_received"` // Corrected the typo from 'cash_receive'
 	Balance           float64   `gorm:"type:decimal(10,2)" json:"balance"`
-	PaymentMode       string    `gorm:"type:varchar(50)" json:"payment_mode"`    // New PaymentMode column
+	PaymentMode       string    `gorm:"type:varchar(50)" json:"payment_mode"` // New PaymentMode column
 	UserID            int64     `json:"user_id"`
 	Date              time.Time `gorm:"type:timestamp" json:"date"`
 	CategoryName      string    `gorm:"type:varchar(255)" json:"category_name"`
@@ -56,13 +56,15 @@ type Sale struct {
 
 // TableName overrides the default table name (sales -> sales_transactions)
 func (Sale) TableName() string {
-	return "sales_transactions" 
+	return "sales_transactions"
 }
+
 // SalePayload represents the data structure for sale request
 type SalePayload struct {
 	UserID       int        `json:"user_id"`
 	CashReceived float64    `json:"cash_received"`
 	Items        []SaleItem `json:"items"`
+	PaymentMode  string     `json:"payment_mode"` // Add this field
 }
 
 // SaleItem represents an individual item in the sale

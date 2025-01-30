@@ -176,7 +176,7 @@ func SetupRoutes(e *echo.Echo) {
 
 	//organization.GET("/sales/:sale_id", controllers.GetSalesBySaleID)
 	organization.POST("/sell", controllers.SellProduct)
-	//organization.POST("/sell", controllers.SellProducts)
+	organization.POST("/sells", controllers.SellProducts)
 
 	//organization.GET("/cash/salesbyuser_id/:user_id", controllers.GetSalesByUser)
 	organization.GET("/sales/reports_by_date_and_by_sales_ids/:date", controllers.GetSalesByDate)

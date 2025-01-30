@@ -17,6 +17,65 @@ import (
 )
 
 // AdminCreateStock handles the creation of a stock item
+// func CreateStock(c echo.Context) error {
+// 	log.Println("CreateStock - Entry")
+
+// 	// Retrieve the user's role and organization ID from the context
+// 	roleName, ok := c.Get("roleName").(string)
+// 	if !ok {
+// 		log.Println("CreateStock - Unauthorized: roleName not found in context")
+// 		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
+// 	}
+
+// 	organizationIDRaw := c.Get("organizationID")
+// 	if organizationIDRaw == nil {
+// 		log.Println("CreateStock - Unauthorized: organizationID not found in context")
+// 		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
+// 	}
+
+// 	organizationID, ok := organizationIDRaw.(uint)
+// 	if !ok {
+// 		log.Println("CreateStock - Unauthorized: organizationID is not of type uint")
+// 		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
+// 	}
+
+// 	// Log the role and organization ID (optional)
+// 	log.Printf("CreateStock - User Role: %s, OrganizationID: %d", roleName, organizationID)
+
+// 	// Create the stock item by binding the request body to the Stock model
+// 	var stock models.Stock
+// 	if err := c.Bind(&stock); err != nil {
+// 		log.Printf("CreateStock - Bind error: %v", err)
+// 		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
+// 	}
+
+// 	// Check if the stock already exists in the organization
+// 	var existingStock models.Stock
+// 	if err := db.GetDB().
+// 		Where("product_id = ? AND organization_id = ? AND deleted_at IS NULL", stock.ProductID, organizationID).
+// 		First(&existingStock).Error; err == nil {
+// 		log.Printf("CreateStock - Stock already exists: ProductID %d in OrganizationID %d", stock.ProductID, organizationID)
+// 		return c.JSON(http.StatusConflict, echo.Map{"error": "Stock already exists for this product in the organization"})
+// 	} else if err != gorm.ErrRecordNotFound {
+// 		log.Printf("CreateStock - Error checking existing stock: %v", err)
+// 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not check for existing stock"})
+// 	}
+
+// 	// Set the organization ID of the stock to the user's organization
+// 	stock.OrganizationID = organizationID
+
+// 	log.Printf("CreateStock - New stock data: %+v", stock)
+
+// 	// Insert the new stock into the database
+// 	if err := db.GetDB().Create(&stock).Error; err != nil {
+// 		log.Printf("CreateStock - Create error: %v", err)
+// 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
+// 	}
+
+// 	log.Println("CreateStock - Stock item created successfully")
+// 	log.Println("CreateStock - Exit")
+// 	return c.JSON(http.StatusOK, echo.Map{"message": "Stock item added successfully"})
+// }
 func CreateStock(c echo.Context) error {
 	log.Println("CreateStock - Entry")
 
@@ -39,17 +98,25 @@ func CreateStock(c echo.Context) error {
 		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
 	}
 
-	// Log the role and organization ID (optional)
 	log.Printf("CreateStock - User Role: %s, OrganizationID: %d", roleName, organizationID)
 
-	// Create the stock item by binding the request body to the Stock model
+	// Bind request body to the Stock model
 	var stock models.Stock
 	if err := c.Bind(&stock); err != nil {
 		log.Printf("CreateStock - Bind error: %v", err)
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 	}
 
-	// Check if the stock already exists in the organization
+	// ✅ Check if the supplier exists first
+	var existingSupplier models.Suppliers
+	if err := db.GetDB().
+		Where("id = ?", stock.SupplierID).
+		First(&existingSupplier).Error; err != nil {
+		log.Printf("CreateStock - Supplier with ID %d not found", stock.SupplierID)
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid supplier ID"})
+	}
+
+	// ✅ Check if the stock already exists in the organization
 	var existingStock models.Stock
 	if err := db.GetDB().
 		Where("product_id = ? AND organization_id = ? AND deleted_at IS NULL", stock.ProductID, organizationID).
@@ -61,12 +128,12 @@ func CreateStock(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not check for existing stock"})
 	}
 
-	// Set the organization ID of the stock to the user's organization
+	// ✅ Set the organization ID to the user's organization
 	stock.OrganizationID = organizationID
 
 	log.Printf("CreateStock - New stock data: %+v", stock)
 
-	// Insert the new stock into the database
+	// ✅ Save only the stock item (without recreating the supplier)
 	if err := db.GetDB().Create(&stock).Error; err != nil {
 		log.Printf("CreateStock - Create error: %v", err)
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
@@ -243,7 +310,7 @@ func ViewAllStock(c echo.Context) error {
             s.quantity,
             s.buying_price,
             s.selling_price,
-            DATE_FORMAT(s.expiry_date, '%Y%m%d') as expiry_date,
+            DATE_FORMAT(s.expiry_date, '%Y-%m-%d') as expiry_date,
             p.product_description AS product_description,
             su.name AS supplier_name
         FROM stock s
@@ -270,9 +337,9 @@ func ViewAllStock(c echo.Context) error {
             quantity          int
             buyingPrice       float64
             sellingPrice      float64
-            expiryDate        sql.NullString  // Changed to sql.NullString to handle NULL dates
+            expiryDate        sql.NullString  
             productDescription string
-            supplierName      sql.NullString  // Using sql.NullString for nullable supplier name
+            supplierName      sql.NullString  
         )
 
         err = rows.Scan(&id, &productID, &productName, &quantity, &buyingPrice, 
@@ -291,7 +358,7 @@ func ViewAllStock(c echo.Context) error {
             "buying_price":        buyingPrice,
             "selling_price":       sellingPrice,
             "product_description": productDescription,
-            "supplier_name":       nil,  // Default to nil
+            "supplier_name":       nil,  
         }
 
         // Handle nullable fields
