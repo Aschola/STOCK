@@ -56,7 +56,7 @@ type Sale struct {
 
 // TableName overrides the default table name (sales -> sales_transactions)
 func (Sale) TableName() string {
-	return "sales_transactions" // Updated to match the new table name
+	return "sales_transactions" 
 }
 // SalePayload represents the data structure for sale request
 type SalePayload struct {
