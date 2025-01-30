@@ -7,6 +7,8 @@ import (
 
 	"stock/db"
 	"strconv"
+    "database/sql"
+
 
 	"github.com/labstack/echo/v4"
 
@@ -72,7 +74,7 @@ func CreateStock(c echo.Context) error {
 
 	log.Println("CreateStock - Stock item created successfully")
 	log.Println("CreateStock - Exit")
-	return c.JSON(http.StatusOK, echo.Map{"message": "Stock item created successfully"})
+	return c.JSON(http.StatusOK, echo.Map{"message": "Stock item added successfully"})
 }
 
 // AdminEditStock handles editing of a stock item
@@ -131,17 +133,99 @@ func DeleteStock(c echo.Context) error {
 }
 
 // AdminViewAllStock retrieves all stock items
+// func ViewAllStock(c echo.Context) error {
+//     gormDB := db.GetDB()
+
+//     // Ensure the database connection is properly configured to reflect recent changes
+//     err := gormDB.Exec("SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED").Error
+//     if err != nil {
+//         fmt.Printf("Failed to set isolation level: %v\n", err)
+//         return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Database configuration error"})
+//     }
+
+//     // Retrieve organizationID from context
+//     organizationID, ok := c.Get("organizationID").(uint)
+//     if !ok {
+//         log.Println("ViewAllStock - Failed to get organizationID from context")
+//         return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
+//     }
+
+//     log.Printf("ViewAllStock - OrganizationID: %d", organizationID)
+
+//     // SQL Query with LEFT JOIN to include all stock items specific to an organization
+//     query := `
+//         SELECT 
+//             s.id,
+//             s.product_id,
+//             p.product_name AS product_name,
+//             s.quantity,
+//             s.buying_price,
+//             s.selling_price,
+//             s.expiry_date,
+//             p.product_description AS product_description,
+//             su.name AS supplier_name
+//         FROM stock s
+//         LEFT JOIN products p ON s.product_id = p.product_id
+//         LEFT JOIN suppliers su ON su.id = s.supplier_id
+//         WHERE p.product_id IS NOT NULL  -- Ensures that we only get products that exist in the products table
+//         AND s.organization_id = ?      -- Filter by organization_id
+//     `
+
+//     // Execute the query, passing the organizationID as a parameter
+//     rows, err := gormDB.Raw(query, organizationID).Rows()
+//     if err != nil {
+//         fmt.Printf("Query execution failed: %v\nQuery: %s\n", err, query)
+//         return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to fetch stock"})
+//     }
+//     defer rows.Close()
+
+//     var stocks []map[string]interface{}
+//     for rows.Next() {
+//         var (
+//             id                 uint64
+//             productID          uint64
+//             productName        string
+//             quantity           int
+//             buyingPrice        float64
+//             sellingPrice       float64
+//             expiryDate         *string
+//             productDescription string
+//             supplierName       *string  // Supplier name may be null
+//         )
+
+//         err = rows.Scan(&id, &productID, &productName, &quantity, &buyingPrice, &sellingPrice, &expiryDate, &productDescription, &supplierName)
+//         if err != nil {
+//             fmt.Printf("Error scanning row: %v\n", err)
+//             return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Error reading stock data"})
+//         }
+
+//         stock := map[string]interface{}{
+//             "id":                  id,
+//             "product_id":          productID,
+//             "product_name":        productName,
+//             "quantity":            quantity,
+//             "buying_price":        buyingPrice,
+//             "selling_price":       sellingPrice,
+//             "expiry_date":         expiryDate,
+//             "product_description": productDescription,
+//             "supplier_name":       supplierName,  // Supplier name might be null, hence *string
+//         }
+
+//         stocks = append(stocks, stock)
+//     }
+
+//     return c.JSON(http.StatusOK, stocks)
+// }
 func ViewAllStock(c echo.Context) error {
     gormDB := db.GetDB()
 
-    // Ensure the database connection is properly configured to reflect recent changes
+    // Set isolation level
     err := gormDB.Exec("SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED").Error
     if err != nil {
         fmt.Printf("Failed to set isolation level: %v\n", err)
         return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Database configuration error"})
     }
 
-    // Retrieve organizationID from context
     organizationID, ok := c.Get("organizationID").(uint)
     if !ok {
         log.Println("ViewAllStock - Failed to get organizationID from context")
@@ -150,7 +234,7 @@ func ViewAllStock(c echo.Context) error {
 
     log.Printf("ViewAllStock - OrganizationID: %d", organizationID)
 
-    // SQL Query with LEFT JOIN to include all stock items specific to an organization
+    // Modify the query to format the date as YYYYMMDD
     query := `
         SELECT 
             s.id,
@@ -159,17 +243,17 @@ func ViewAllStock(c echo.Context) error {
             s.quantity,
             s.buying_price,
             s.selling_price,
-            s.expiry_date,
+            DATE_FORMAT(s.expiry_date, '%Y%m%d') as expiry_date,
             p.product_description AS product_description,
             su.name AS supplier_name
         FROM stock s
         LEFT JOIN products p ON s.product_id = p.product_id
         LEFT JOIN suppliers su ON su.id = s.supplier_id
-        WHERE p.product_id IS NOT NULL  -- Ensures that we only get products that exist in the products table
-        AND s.organization_id = ?      -- Filter by organization_id
+        WHERE p.product_id IS NOT NULL
+        AND s.organization_id = ?
+        ORDER BY s.id DESC
     `
 
-    // Execute the query, passing the organizationID as a parameter
     rows, err := gormDB.Raw(query, organizationID).Rows()
     if err != nil {
         fmt.Printf("Query execution failed: %v\nQuery: %s\n", err, query)
@@ -183,20 +267,22 @@ func ViewAllStock(c echo.Context) error {
             id                 uint64
             productID          uint64
             productName        string
-            quantity           int
-            buyingPrice        float64
-            sellingPrice       float64
-            expiryDate         *string
+            quantity          int
+            buyingPrice       float64
+            sellingPrice      float64
+            expiryDate        sql.NullString  // Changed to sql.NullString to handle NULL dates
             productDescription string
-            supplierName       *string  // Supplier name may be null
+            supplierName      sql.NullString  // Using sql.NullString for nullable supplier name
         )
 
-        err = rows.Scan(&id, &productID, &productName, &quantity, &buyingPrice, &sellingPrice, &expiryDate, &productDescription, &supplierName)
+        err = rows.Scan(&id, &productID, &productName, &quantity, &buyingPrice, 
+            &sellingPrice, &expiryDate, &productDescription, &supplierName)
         if err != nil {
             fmt.Printf("Error scanning row: %v\n", err)
             return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Error reading stock data"})
         }
 
+        // Create the stock map with proper null handling
         stock := map[string]interface{}{
             "id":                  id,
             "product_id":          productID,
@@ -204,9 +290,19 @@ func ViewAllStock(c echo.Context) error {
             "quantity":            quantity,
             "buying_price":        buyingPrice,
             "selling_price":       sellingPrice,
-            "expiry_date":         expiryDate,
             "product_description": productDescription,
-            "supplier_name":       supplierName,  // Supplier name might be null, hence *string
+            "supplier_name":       nil,  // Default to nil
+        }
+
+        // Handle nullable fields
+        if expiryDate.Valid {
+            stock["expiry_date"] = expiryDate.String
+        } else {
+            stock["expiry_date"] = nil
+        }
+
+        if supplierName.Valid {
+            stock["supplier_name"] = supplierName.String
         }
 
         stocks = append(stocks, stock)
@@ -214,42 +310,6 @@ func ViewAllStock(c echo.Context) error {
 
     return c.JSON(http.StatusOK, stocks)
 }
-
-// func ViewAllStock(c echo.Context) error {
-// 	log.Println("AdminViewAllStock - Entry")
-
-// 	var stocks []models.Stock
-// 	if err := db.GetDB().Find(&stocks).Error; err != nil {
-// 		log.Printf("AdminViewAllStock - Retrieve error: %v", err)
-// 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not retrieve stock items"})
-// 	}
-
-// 	log.Println("AdminViewAllStock - Stock items retrieved successfully")
-// 	log.Println("AdminViewAllStock - Exit")
-// 	return c.JSON(http.StatusOK, echo.Map{"stocks": stocks})
-// }
-
-
-// func ViewStockByID(c echo.Context) error {
-//     log.Println("GetStock - Entry")
-
-//     // Get supplier ID from path
-//     id, err := strconv.Atoi(c.Param("id"))
-//     if err != nil {
-//         log.Printf("GetStock - Invalid ID: %v", err)
-//         return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid stock ID"})
-//     }
-
-//     var stock models.Stock
-//     if err := db.GetDB().First(&stock, id).Error; err != nil {
-//         log.Printf("GetStock - Stock not found: %v", err)
-//         return c.JSON(http.StatusNotFound, echo.Map{"error": "Stock not found"})
-//     }
-
-//     log.Println("GetStock - Stock retrieved successfully")
-//     log.Println("GetStock - Exit")
-//     return c.JSON(http.StatusOK, stock)
-// }
 func ViewStockByID(c echo.Context) error {
     log.Println("ViewStockByID - Entry")
 
