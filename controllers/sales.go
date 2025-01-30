@@ -170,3 +170,164 @@ func SellProduct(c echo.Context) error {
 		"message": "Cash sale processed successfully for all items",
 	})
 }
+
+// func SellProduct(c echo.Context) error {
+//     // Log the incoming request
+//     log.Println("[INFO] Received request to sell products.")
+
+//     // Retrieve organizationID from context
+//     organizationID, err := getOrganizationID(c)
+//     if err != nil {
+//         return err
+//     }
+
+//     // Parse the incoming request body
+//     var payload models.SalePayload
+//     if err := json.NewDecoder(c.Request().Body).Decode(&payload); err != nil {
+//         log.Printf("[ERROR] Error parsing request body: %v", err)
+//         return echo.NewHTTPError(http.StatusBadRequest, "Invalid input data")
+//     }
+
+//     // Log the parsed payload
+//     log.Printf("[INFO] Parsed Payload: %+v", payload)
+
+//     // Database connection
+//     db := getDB()
+//     if db == nil {
+//         log.Println("[ERROR] Database connection failed")
+//         return echo.NewHTTPError(http.StatusInternalServerError, "Failed to connect to the database")
+//     }
+
+//     // Start a transaction
+//     tx := db.Begin()
+//     defer func() {
+//         if r := recover(); r != nil {
+//             tx.Rollback()
+//             log.Printf("[ERROR] Unexpected error: %v", r)
+//         }
+//     }()
+//     defer tx.Rollback() // Rollback in case of failure
+
+//     // Generate a shortened sale_id using Unix timestamp in seconds (10-digit ID)
+//     saleID := time.Now().Unix() // Unique ID based on timestamp (in seconds)
+
+//     // Calculate total selling price
+//     var totalSellingPrice float64
+//     for _, item := range payload.Items {
+//         var product models.Product
+//         if err := tx.First(&product, "product_id = ?", item.ProductID).Error; err != nil {
+//             if err == gorm.ErrRecordNotFound {
+//                 log.Printf("[ERROR] Product not found for product_id: %d", item.ProductID)
+//                 return echo.NewHTTPError(http.StatusNotFound, "Product not found")
+//             }
+//             log.Printf("[ERROR] Error fetching product details: %v", err)
+//             return echo.NewHTTPError(http.StatusInternalServerError, "Error fetching product details")
+//         }
+
+//         // Retrieve stock information for the product
+//         var stock models.Stock
+//         if err := tx.First(&stock, "product_id = ?", item.ProductID).Error; err != nil {
+//             log.Printf("[ERROR] Error fetching stock details for product_id: %d", item.ProductID)
+//             return echo.NewHTTPError(http.StatusInternalServerError, "Error fetching stock details")
+//         }
+
+//         // Check stock availability
+//         if stock.Quantity < item.QuantitySold {
+//             log.Printf("[ERROR] Insufficient stock for product_id: %d. Available: %d, Requested: %d", item.ProductID, stock.Quantity, item.QuantitySold)
+//             return echo.NewHTTPError(http.StatusBadRequest, "Insufficient stock")
+//         }
+
+//         // Update total selling price for the transaction
+//         totalSellingPrice += float64(item.QuantitySold) * stock.SellingPrice
+
+//         // Update stock quantity
+//         stock.Quantity -= item.QuantitySold
+//         if err := tx.Save(&stock).Error; err != nil {
+//             log.Printf("[ERROR] Error updating stock for product_id: %d: %v", item.ProductID, err)
+//             return echo.NewHTTPError(http.StatusInternalServerError, "Error updating stock")
+//         }
+//     }
+
+//     // Handle payment mode: "cash" or "mpesa"
+//     if payload.PaymentMode == "cash" {
+//         // For cash payment, check if the cash received is enough
+//         if payload.CashReceived < totalSellingPrice {
+//             log.Printf("[ERROR] Insufficient cash received. Received: %f, Required: %f", payload.CashReceived, totalSellingPrice)
+//             return echo.NewHTTPError(http.StatusBadRequest, "Insufficient cash received")
+//         }
+//     } else if payload.PaymentMode == "mpesa" {
+//         // For mpesa payment, add any specific logic (e.g., confirm Mpesa payment)
+//         // Example: you can add a `MpesaTransactionID` to the payload to track the payment.
+//         mpesaTransactionID := c.FormValue("mpesa_transaction_id")
+//         if mpesaTransactionID == "" {
+//             log.Printf("[ERROR] Missing Mpesa transaction ID")
+//             return echo.NewHTTPError(http.StatusBadRequest, "Mpesa transaction ID is required")
+//         }
+
+//         // You might want to verify the payment through Mpesa API here
+//         // For simplicity, we assume the payment was successful.
+//     } else {
+//         return echo.NewHTTPError(http.StatusBadRequest, "Invalid payment mode")
+//     }
+
+//     // Process the sale for each item (same as before)
+//     for _, item := range payload.Items {
+//         var product models.Product
+//         if err := tx.First(&product, "product_id = ?", item.ProductID).Error; err != nil {
+//             if err == gorm.ErrRecordNotFound {
+//                 log.Printf("[ERROR] Product not found for product_id: %d", item.ProductID)
+//                 return echo.NewHTTPError(http.StatusNotFound, "Product not found")
+//             }
+//             log.Printf("[ERROR] Error fetching product details: %v", err)
+//             return echo.NewHTTPError(http.StatusInternalServerError, "Error fetching product details")
+//         }
+
+//         var stock models.Stock
+//         if err := tx.First(&stock, "product_id = ?", item.ProductID).Error; err != nil {
+//             log.Printf("[ERROR] Error fetching stock details for product_id: %d", item.ProductID)
+//             return echo.NewHTTPError(http.StatusInternalServerError, "Error fetching stock details")
+//         }
+
+//         totalCost := float64(item.QuantitySold) * stock.BuyingPrice
+//         profit := (float64(item.QuantitySold) * stock.SellingPrice) - totalCost
+//         balance := payload.CashReceived - totalSellingPrice
+
+//         sale := models.Sale{
+//             SaleID:            saleID,
+//             OrganizationsID:   organizationID,
+//             Name:              product.ProductName,
+//             CategoryName:      product.CategoryName,
+//             UnitBuyingPrice:   stock.BuyingPrice,
+//             TotalBuyingPrice:  totalCost,
+//             UnitSellingPrice:  stock.SellingPrice,
+//             TotalSellingPrice: float64(item.QuantitySold) * stock.SellingPrice,
+//             Profit:            profit,
+//             Quantity:          item.QuantitySold,
+//             CashReceived:      payload.CashReceived,
+//             Balance:           balance,
+//             PaymentMode:       payload.PaymentMode, // Save the payment mode
+//             UserID:            int64(payload.UserID),
+//             Date:              time.Now(),
+//         }
+
+//         log.Printf("[INFO] Sale Object: %+v", sale)
+
+//         if err := tx.Create(&sale).Error; err != nil {
+//             log.Printf("[ERROR] Error recording sale for product_id: %d: %v", item.ProductID, err)
+//             return echo.NewHTTPError(http.StatusInternalServerError, "Error recording sale")
+//         }
+
+//         log.Printf("[INFO] Sale recorded successfully for product_id: %d", item.ProductID)
+//     }
+
+//     if err := tx.Commit().Error; err != nil {
+//         log.Printf("[ERROR] Error committing transaction: %v", err)
+//         return echo.NewHTTPError(http.StatusInternalServerError, "Error committing transaction")
+//     }
+
+//     log.Println("[INFO] Transaction committed successfully")
+
+//     return c.JSON(http.StatusOK, map[string]interface{}{
+//         "message": "Sale processed successfully for all items",
+//     })
+// }
