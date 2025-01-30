@@ -21,6 +21,8 @@ type User struct {
 	DeletedAt      gorm.DeletedAt `json:"deleted_at" gorm:"index"`
 	CreatedBy      uint           `json:"created_by"`
 	Phonenumber    int64          `json:"phone_number" gorm:"column:phone_number"`
+	ActivationToken       string    `json:"activation_token"`
+    ActivationTokenExpiry time.Time `json:"activation_token_expiry"`
 	//Phonenumber    int64          `json:"phone_number"`
 	//ResetToken       string
 	//ResetTokenExpiry time.Time

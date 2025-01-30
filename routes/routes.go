@@ -77,6 +77,8 @@ func SetupRoutes(e *echo.Echo) {
 	//e.POST("/organizationadmin/logout", controllers.OrganizationAdminLogout)
 	e.POST("/forgot-password", controllers.ForgotPassword)
 	e.POST("/reset-password", controllers.ResetPassword)
+	e.POST("/activationemail/:id", controllers.HandleSendActivationEmail)
+
 
 	// Super Admin routes
 	superadmin := e.Group("/superadmin")
@@ -154,6 +156,8 @@ func SetupRoutes(e *echo.Echo) {
 	organization.GET("/viewstock/:id", controllers.ViewStockByID)
 	organization.POST("/mpesa/stkpush", controllers.HandleSTKPush)
 	organization.GET("/transactions", controllers.GetAllTransactions)
+	//organization.POST("/activationemail", controllers.SendActivationEmail(user *models.User, token string))
+
 
 	organization.GET("/products/:product_id", controllers.GetProductByID)
 	organization.GET("/products", controllers.GetProducts)
@@ -175,7 +179,7 @@ func SetupRoutes(e *echo.Echo) {
 
 	//organization.GET("/sales/:sale_id", controllers.GetSalesBySaleID)
 	organization.POST("/sell", controllers.SellProduct)
-	organization.POST("/sells", controllers.SellProducts)
+	organization.POST("/sell", controllers.SellProducts)
 
 	//organization.GET("/cash/salesbyuser_id/:user_id", controllers.GetSalesByUser)
 	organization.GET("/sales/reports_by_date_and_by_sales_ids/:date", controllers.GetSalesByDate)
