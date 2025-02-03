@@ -63,8 +63,6 @@ type SalePayload struct {
 	UserID       int        `json:"user_id"`
 	CashReceived float64    `json:"cash_received"`
 	Items        []SaleItem `json:"items"`
-	PaymentMode  string     `json:"payment_mode"`
-	PhoneNumber int64 `json:"phone_number"`
 }
 
 // SaleItem represents an individual item in the sale

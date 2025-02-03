@@ -1,60 +1,54 @@
-// package main
+package main
 
-// import (
-// 	"log"
-// 	"os"
-// 	"stock/controllers"
-// 	"stock/db"
-// 	"stock/routes"
+import (
+	"log"
+	"os"
+	"stock/controllers"
+	"stock/db"
+	"stock/routes"
 
-// 	//"time"
+	//"time"
 
-// 	"github.com/labstack/echo/v4"
-// 	"github.com/labstack/echo/v4/middleware"
-// )
+	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
+)
 
-// func main() {
-// 	// Initialize the database
-// 	db.Init()
+func main() {
+	// Initialize the database
+	db.Init()
+	//inserting the missing organizations
+	go controllers.CheckAndInsertMissingOrganizations(db.GetDB())
+	go controllers.StartReorderLevelNotification(db.GetDB())
 
-// 	//go controllers.SeedUser()
-// 	//go controllers.HandleMpesaCallback()
+	// Register the route for checking missing organizations
 
+	e := echo.New()
 
+	e.POST("/send-sms", controllers.SendSmsHandler)
+	e.POST("/mpesa/callback", controllers.HandleMpesaCallback)
 
-// 	go controllers.CheckAndInsertMissingOrganizations(db.GetDB())
-// 	go controllers.StartReorderLevelNotification(db.GetDB())
+	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
+		AllowOrigins: []string{"*"},
+		AllowMethods: []string{echo.GET, echo.POST, echo.PUT, echo.DELETE},
+		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
+	}))
 
-// 	// Register the route for checking missing organizations
+	// Register routes
+	routes.RegisterRoutes(e)
+	routes.SetupRoutes(e)
 
-// 	e := echo.New()
+	// Start the test goroutine to send SMS every 30 seconds
 
-// 	e.POST("/send-sms", controllers.SendSmsHandler)
-// 	e.POST("/mpesa/callback", controllers.HandleMpesaCallback)
+	// If you want to call the test function, you can now call it directly from main
+	//go runTestSendSmsHandler()
 
-// 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-// 		AllowOrigins: []string{"*"},
-// 		AllowMethods: []string{echo.GET, echo.POST, echo.PUT, echo.DELETE},
-// 		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
-// 	}))
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
 
-// 	// Register routes
-// 	routes.RegisterRoutes(e)
-// 	routes.SetupRoutes(e)
-
-
-// 	// Start the test goroutine to send SMS every 30 seconds
-
-// 	// If you want to call the test function, you can now call it directly from main
-// 	//go runTestSendSmsHandler()
-
-// 	port := os.Getenv("PORT")
-// 	if port == "" {
-// 		port = "8080"
-// 	}
-
-// 	log.Fatal(e.Start(":" + port))
-// }
+	log.Fatal(e.Start(":" + port))
+}
 
 // package main
 
@@ -167,13 +161,13 @@ func main() {
 		log.Fatalf("[ERROR] Failed to initialize email config: %v", err)
 	}
 
-	//go controllers.CheckAndInsertMissingOrganizations(db.GetDB())
-	//go controllers.StartReorderLevelNotification(db.GetDB())
+	go controllers.CheckAndInsertMissingOrganizations(db.GetDB())
+	go controllers.StartReorderLevelNotification(db.GetDB())
 
 	e := echo.New()
 
 	e.POST("/send-sms", controllers.SendSmsHandler)
-	// e.POST("/mpesa/callback", controllers.HandleMpesaCallback)
+	e.POST("/mpesa/callback", controllers.HandleMpesaCallback)
 	e.POST("/reset-password", controllers.ResetPassword)
 
 

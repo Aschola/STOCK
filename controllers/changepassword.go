@@ -1,82 +1,78 @@
 package controllers
-
 import (
-	"log"
-	"net/http"
-
-	"github.com/labstack/echo/v4"
-	"gorm.io/gorm"
-	"stock/utils" 
+    "github.com/labstack/echo/v4"
+    "log"
+    "net/http"
+    "stock/models"
+    "stock/db"
+	"stock/utils"
+    "golang.org/x/crypto/bcrypt"
 )
 
-// ChangePasswordRequest struct
-type ChangePasswordRequest struct {
-	OldPassword string `json:"old_password" validate:"required"`
-	NewPassword string `json:"new_password" validate:"required,min=6"`
-}
 
 // ChangePassword allows users to update their password securely
 func ChangePassword(c echo.Context) error {
-	userID, ok := c.Get("userID").(uint)
-	if !ok {
-		log.Println("[ERROR] User ID missing in token context")
-		return echo.NewHTTPError(http.StatusUnauthorized, "Unauthorized access")
-	}
-	log.Printf("[INFO] Change password request received for user ID: %d", userID)
+    log.Println("ChangePassword - Entry")
 
-	// Get database instance from Echo context
-	db, ok := c.Get("db").(*gorm.DB)
-	if !ok {
-		log.Println("[ERROR] Database connection not found")
-		return echo.NewHTTPError(http.StatusInternalServerError, "Database error")
-	}
+    // Retrieve user ID from the context
+    userID, ok := c.Get("userID").(uint)
+    if !ok {
+        log.Println("ChangePassword - Unauthorized: userID not found in context")
+        return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
+    }
 
-	// Parse the request body
-	var req ChangePasswordRequest
-	if err := c.Bind(&req); err != nil {
-		log.Printf("[ERROR] Failed to parse request body: %v", err)
-		return echo.NewHTTPError(http.StatusBadRequest, "Invalid request format")
-	}
-	log.Printf("[INFO] Request body parsed successfully for user ID: %d", userID)
+    // Parse the request body
+    var req models.ChangePasswordRequest
+    if err := c.Bind(&req); err != nil {
+        log.Printf("ChangePassword - Bind error: %v", err)
+        return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid input"})
+    }
 
-	// Fetch user details from DB
-	var user struct {
-		ID       uint
-		Password string // Storing hashed password
-	}
-	if err := db.Table("users").Where("id = ?", userID).First(&user).Error; err != nil {
-		log.Printf("[ERROR] User not found in database for user ID: %d, error: %v", userID, err)
-		return echo.NewHTTPError(http.StatusNotFound, "User not found")
-	}
-	log.Printf("[INFO] Retrieved user data for user ID: %d", userID)
+    // Fetch the user from the database
+    var user models.User
+    if err := db.GetDB().Where("id = ?", userID).First(&user).Error; err != nil {
+        log.Printf("ChangePassword - User not found: %v", err)
+        return c.JSON(http.StatusNotFound, echo.Map{"error": "User not found"})
+    }
+    // Store the old password hash for logging
+    oldPasswordHash := user.Password
 
-	// Verify old password using `utils.CheckPasswordHash`
-	if err := utils.CheckPasswordHash(req.OldPassword, user.Password); err != nil {
-		log.Printf("[ERROR] Incorrect old password for user ID: %d, error: %v", userID, err)
-		return echo.NewHTTPError(http.StatusUnauthorized, "Incorrect old password")
-	}
-	log.Printf("[INFO] Old password verified for user ID: %d", userID)
+    log.Printf("Stored Hashed Password: %s", user.Password)
+log.Printf("Entered Old Password: %s", req.OldPassword)
 
-	// Prevent using the same password
-	if req.OldPassword == req.NewPassword {
-		log.Printf("[WARN] New password cannot be the same as the old password for user ID: %d", userID)
-		return echo.NewHTTPError(http.StatusBadRequest, "New password cannot be the same as old password")
-	}
+if err := utils.CheckPasswordHash(req.OldPassword, user.Password); err != nil {
+    log.Println("ChangePassword - Error: Old password is incorrect")
+    return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Old password is incorrect"})
+}
 
-	// Hash the new password using `utils.HashPassword`
-	hashedPassword, err := utils.HashPassword(req.NewPassword)
-	if err != nil {
-		log.Printf("[ERROR] Password hashing failed for user ID: %d, error: %v", userID, err)
-		return echo.NewHTTPError(http.StatusInternalServerError, "Could not hash password")
-	}
-	log.Printf("[INFO] New password hashed successfully for user ID: %d", userID)
+// Hash new password
+hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+if err != nil {
+    log.Printf("ChangePassword - Error hashing password: %v", err)
+    return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not update password"})
+}
 
-	// Update the password in the database
-	if err := db.Table("users").Where("id = ?", userID).Update("password", hashedPassword).Error; err != nil {
-		log.Printf("[ERROR] Failed to update password for user ID: %d, error: %v", userID, err)
-		return echo.NewHTTPError(http.StatusInternalServerError, "Could not update password")
-	}
-	log.Printf("[INFO] Password updated successfully for user ID: %d", userID)
+// Save the new password
+user.Password = string(hashedPassword)
+if err := db.GetDB().Save(&user).Error; err != nil {
+    log.Printf("ChangePassword - Error updating password: %v", err)
+    return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not update password"})
+}
 
-	return c.JSON(http.StatusOK, echo.Map{"message": "Password changed successfully"})
+// Verify the update
+var updatedUser models.User
+if err := db.GetDB().Where("id = ?", userID).First(&updatedUser).Error; err != nil {
+    log.Printf("ChangePassword - Error fetching updated user: %v", err)
+    return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not verify password update"})
+}
+
+log.Printf("Updated Hashed Password: %s", updatedUser.Password)
+
+if oldPasswordHash == updatedUser.Password {
+    log.Println("ChangePassword - Error: Password not actually updated")
+    return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Password update failed"})
+}
+
+log.Println("ChangePassword - Password updated successfully")
+return c.JSON(http.StatusOK, echo.Map{"message": "Password changed successfully"})
 }

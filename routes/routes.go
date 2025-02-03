@@ -83,7 +83,6 @@ func SetupRoutes(e *echo.Echo) {
 	//e.POST("/reset-password", controllers.ResetPassword)
 	e.POST("/activationemail/:id", controllers.HandleSendActivationEmail)
 
-
 	// Super Admin routes
 	superadmin := e.Group("/superadmin")
 	superadmin.POST("/addadmin", controllers.AdminSignup)
@@ -162,7 +161,6 @@ func SetupRoutes(e *echo.Echo) {
 	organization.GET("/transactions", controllers.GetAllTransactions)
 	organization.PUT("/changepassword", controllers.ChangePassword)
 	//organization.POST("/activationemail", controllers.SendActivationEmail(user *models.User, token string))
-
 
 	organization.GET("/products/:product_id", controllers.GetProductByID)
 	organization.GET("/products", controllers.GetProducts)
