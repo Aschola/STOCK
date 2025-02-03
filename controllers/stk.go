@@ -180,7 +180,9 @@ func loadMPesaCredentials(organizationID int64) (MPesaSettings, error) {
 
 // getAccessToken generates an OAuth access token
 func getAccessToken(creds MPesaSettings) (string, error) {
-	authURL := "https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials"
+	//authURL := "https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials"
+	authURL := "https:api.safaricom.co.ke/mpesa/stkpush/v1/processrequest"
+
 
 	auth := base64.StdEncoding.EncodeToString([]byte(creds.ConsumerKey + ":" + creds.ConsumerSecret))
 

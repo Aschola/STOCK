@@ -61,6 +61,9 @@ func SetupRoutes(e *echo.Echo) {
 	e.POST("shopkeeper/logout", controllers.Logout)
 	e.POST("auditor/login", controllers.AuditorLogin)
 	e.POST("auditor/logout", controllers.AuditorLogout)
+	e.POST("/forgot-password", controllers.ForgotPassword)
+    // e.POST("/reset-password", controllers.ResetPassword)
+
 
 	//e.POST("/addsupplier", controllers.AddSupplier)
 	// e.PUT("/editsupplier/:id", controllers.EditSupplier)
@@ -74,8 +77,8 @@ func SetupRoutes(e *echo.Echo) {
 	// e.GET("/viewstock/:id", controllers.ViewStockByID)
 	//e.POST("/organizationadmin/login", controllers.OrganizationAdminLogin)
 	//e.POST("/organizationadmin/logout", controllers.OrganizationAdminLogout)
-	e.POST("/forgot-password", controllers.ForgotPassword)
-	e.POST("/reset-password", controllers.ResetPassword)
+	//e.POST("/forgot-password", controllers.ForgotPassword)
+	//e.POST("/reset-password", controllers.ResetPassword)
 	e.POST("/activationemail/:id", controllers.HandleSendActivationEmail)
 
 	// Super Admin routes
@@ -154,6 +157,7 @@ func SetupRoutes(e *echo.Echo) {
 	organization.GET("/viewstock/:id", controllers.ViewStockByID)
 	organization.POST("/mpesa/stkpush", controllers.HandleSTKPush)
 	organization.GET("/transactions", controllers.GetAllTransactions)
+	organization.PUT("/changepassword", controllers.ChangePassword)
 	//organization.POST("/activationemail", controllers.SendActivationEmail(user *models.User, token string))
 
 	organization.GET("/products/:product_id", controllers.GetProductByID)

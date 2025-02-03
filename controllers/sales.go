@@ -360,4 +360,4 @@ func SellProduct(c echo.Context) error {
 // 	return c.JSON(http.StatusOK, map[string]interface{}{
 // 		"message": "Sale processed successfully for all items",
 // 	})
-// }
+//
