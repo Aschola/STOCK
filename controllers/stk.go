@@ -13,7 +13,7 @@ import (
 	"strconv"
 
 
-	//"github.com/google/uuid"
+	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"stock/db"
 )
@@ -92,10 +92,10 @@ type MpesaCallbackResponse struct {
     } `json:"Body"`
 }
 
-// generateTransactionID creates a unique transaction ID
-// func generateTransactionID() string {
-// 	return fmt.Sprintf("MPE-%s-%d", uuid.New().String()[:8], time.Now().Unix())
-// }
+//generateTransactionID creates a unique transaction ID
+func generateTransactionID() string {
+	return fmt.Sprintf("MPE-%s-%d", uuid.New().String()[:8], time.Now().Unix())
+}
 
 // HandleSTKPush processes the STK push request
 func HandleSTKPush(c echo.Context) error {
@@ -259,11 +259,11 @@ func InitiateSTKPush(organizationID int64, req STKPushRequest) (*STKPushResponse
 	log.Printf("Using credentials: BusinessShortCode=%s, Environment=%s, CallbackURL=%s",
 		creds.BusinessShortCode, creds.Environment, creds.CallbackURL)
 
-	// Generate transaction ID if not provided
-	// if req.TransactionID == "" {
-	// 	req.TransactionID = generateTransactionID()
-	// 	log.Printf("Generated transaction ID: %s", req.TransactionID)
-	// }
+	//Generate transaction ID if not provided
+	if req.TransactionID == "" {
+		req.TransactionID = generateTransactionID()
+		log.Printf("Generated transaction ID: %s", req.TransactionID)
+	}
 
 	token, err := getAccessToken(creds)
 	if err != nil {
