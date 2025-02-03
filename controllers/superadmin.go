@@ -462,10 +462,10 @@ func Login(c echo.Context) error {
 		return c.JSON(http.StatusForbidden, echo.Map{"error": "Organization is inactive"})
 	}
 
-	// if err := utils.CheckPasswordHash(loginData.Password, user.Password); err != nil {
-	// 	log.Printf("Login - CheckPasswordHash error: %v", err)
-	// 	return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Invalid username or password"})
-	// }
+	if err := utils.CheckPasswordHash(loginData.Password, user.Password); err != nil {
+		log.Printf("Login - CheckPasswordHash error: %v", err)
+		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Invalid username or password"})
+	}
 
 	token, err := utils.GenerateJWT(user.ID, user.RoleName, user.OrganizationID)
 	if err != nil {
