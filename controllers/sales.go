@@ -18,7 +18,6 @@ func logError(message string, err error) {
 	}
 }
 
-// SellProduct function with Mpesa STK Push integration
 func SellProduct(c echo.Context) error {
 	log.Println("[INFO] Received request to sell products.")
 
@@ -36,6 +35,9 @@ func SellProduct(c echo.Context) error {
 
 	// Log the parsed payload for debugging
 	log.Printf("[INFO] Parsed Payload: %+v", payload)
+
+	// Verify the phone number has been parsed correctly
+	log.Printf("[INFO] Parsed phone number: %d", payload.PhoneNumber)
 
 	// Database connection
 	db := getDB()
@@ -91,11 +93,64 @@ func SellProduct(c echo.Context) error {
 		}
 	}
 
-	// Check if the cash received is enough for the total selling price
-	if payload.CashReceived < totalSellingPrice {
-		log.Printf("[ERROR] Insufficient cash received. Received: %f, Required: %f", payload.CashReceived, totalSellingPrice)
-		return echo.NewHTTPError(http.StatusBadRequest, "Insufficient cash received")
+	// Determine payment mode
+	// log.Printf("[INFO] Payment Mode: %s", payload.PaymentMode)
+	// var paymentMode string
+	// if payload.PaymentMode == "cash" {
+	// 	paymentMode = "cash"
+	// } else if payload.PaymentMode == "Mpesa" {
+	// 	paymentMode = "Mpesa"
+
+	// 	// If payment mode is Mpesa, initiate STK Push before committing the sale
+	// 	log.Printf("[INFO] Initiating Mpesa STK Push for KES %.2f to phone number: %d", totalSellingPrice, payload.PhoneNumber)
+
+	// 	// Create the STK Push request
+	// 	stkRequest := STKPushRequest{
+	// 		PhoneNumber: payload.PhoneNumber,
+
+	// 	}
+
+	// 	// Initiate the STK Push
+	// 	result, err := InitiateSTKPush(int64(totalSellingPrice), stkRequest)
+	// 	if err != nil {
+	// 		log.Printf("[ERROR] Mpesa STK Push failed: %v", err)
+	// 		return echo.NewHTTPError(http.StatusInternalServerError, "Error initiating Mpesa payment")
+	// 	}
+
+	// 	// You might want to store the result for future reference
+	// 	log.Printf("[INFO] STK Push initiated successfully: %+v", result)
+	// }
+	// Determine payment mode
+log.Printf("[INFO] Payment Mode: %s", payload.PaymentMode)
+var paymentMode string
+if payload.PaymentMode == "cash" {
+	paymentMode = "cash"
+} else if payload.PaymentMode == "Mpesa" {
+	paymentMode = "Mpesa"
+
+	// If payment mode is Mpesa, initiate STK Push before committing the sale
+	log.Printf("[INFO] Initiating Mpesa STK Push for KES %.2f to phone number: %d", totalSellingPrice, payload.PhoneNumber)
+
+	// Create the STK Push request
+	stkRequest := STKPushRequest{
+		PhoneNumber: payload.PhoneNumber,
+		Amount: (totalSellingPrice),
+		
 	}
+
+	// Initiate the STK Push
+	result, err := InitiateSTKPush(int64(organizationID), stkRequest)
+	//result, err := InitiateSTKPush(int64(totalSellingPrice), stkRequest)
+	if err != nil {
+		log.Printf("[ERROR] Mpesa STK Push failed: %v", err)
+		return echo.NewHTTPError(http.StatusInternalServerError, "Error initiating Mpesa payment")
+	}
+
+	log.Printf("[INFO] Mpesa STK Push successful. Response: %+v", result)
+} else {
+	log.Printf("[ERROR] Invalid payment mode received: %s", payload.PaymentMode)
+	return echo.NewHTTPError(http.StatusBadRequest, "Invalid payment mode")
+}
 
 	// Process each item in the sale and create sale records
 	for _, item := range payload.Items {
@@ -130,11 +185,13 @@ func SellProduct(c echo.Context) error {
 			Quantity:          item.QuantitySold,
 			CashReceived:      payload.CashReceived,
 			Balance:           balance,
-			UserID:            int64(payload.UserID), // Convert int to int64 here
+			PaymentMode:       paymentMode,
+			UserID:            int64(payload.UserID),
 			Date:              time.Now(),
 		}
 
-		// Log the sale object before inserting into the database
+		// Log the sale creation info
+		log.Printf("[INFO] Creating sale with payment mode: %s", paymentMode)
 		log.Printf("[INFO] Sale Object: %+v", sale)
 
 		// Save the sale record
@@ -156,6 +213,6 @@ func SellProduct(c echo.Context) error {
 
 	// Return a successful response
 	return c.JSON(http.StatusOK, map[string]interface{}{
-		"message": "Cash sale processed successfully for all items",
+		"message": "Sale processed successfully for all items",
 	})
 }
