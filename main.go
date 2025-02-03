@@ -1,60 +1,60 @@
-package main
+// package main
 
-import (
-	"log"
-	"os"
-	"stock/controllers"
-	"stock/db"
-	"stock/routes"
+// import (
+// 	"log"
+// 	"os"
+// 	"stock/controllers"
+// 	"stock/db"
+// 	"stock/routes"
 
-	//"time"
+// 	//"time"
 
-	"github.com/labstack/echo/v4"
-	"github.com/labstack/echo/v4/middleware"
-)
+// 	"github.com/labstack/echo/v4"
+// 	"github.com/labstack/echo/v4/middleware"
+// )
 
-func main() {
-	// Initialize the database
-	db.Init()
+// func main() {
+// 	// Initialize the database
+// 	db.Init()
 
-	//go controllers.SeedUser()
-	//go controllers.HandleMpesaCallback()
-
-
-
-	go controllers.CheckAndInsertMissingOrganizations(db.GetDB())
-	go controllers.StartReorderLevelNotification(db.GetDB())
-
-	// Register the route for checking missing organizations
-
-	e := echo.New()
-
-	e.POST("/send-sms", controllers.SendSmsHandler)
-	e.POST("/mpesa/callback", controllers.HandleMpesaCallback)
-
-	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-		AllowOrigins: []string{"*"},
-		AllowMethods: []string{echo.GET, echo.POST, echo.PUT, echo.DELETE},
-		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
-	}))
-
-	// Register routes
-	routes.RegisterRoutes(e)
-	routes.SetupRoutes(e)
+// 	//go controllers.SeedUser()
+// 	//go controllers.HandleMpesaCallback()
 
 
-	// Start the test goroutine to send SMS every 30 seconds
 
-	// If you want to call the test function, you can now call it directly from main
-	//go runTestSendSmsHandler()
+// 	go controllers.CheckAndInsertMissingOrganizations(db.GetDB())
+// 	go controllers.StartReorderLevelNotification(db.GetDB())
 
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
-	}
+// 	// Register the route for checking missing organizations
 
-	log.Fatal(e.Start(":" + port))
-}
+// 	e := echo.New()
+
+// 	e.POST("/send-sms", controllers.SendSmsHandler)
+// 	e.POST("/mpesa/callback", controllers.HandleMpesaCallback)
+
+// 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
+// 		AllowOrigins: []string{"*"},
+// 		AllowMethods: []string{echo.GET, echo.POST, echo.PUT, echo.DELETE},
+// 		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
+// 	}))
+
+// 	// Register routes
+// 	routes.RegisterRoutes(e)
+// 	routes.SetupRoutes(e)
+
+
+// 	// Start the test goroutine to send SMS every 30 seconds
+
+// 	// If you want to call the test function, you can now call it directly from main
+// 	//go runTestSendSmsHandler()
+
+// 	port := os.Getenv("PORT")
+// 	if port == "" {
+// 		port = "8080"
+// 	}
+
+// 	log.Fatal(e.Start(":" + port))
+// }
 
 // package main
 
@@ -134,3 +134,64 @@ func main() {
 
 // 	log.Fatal(e.Start(":" + port))
 // }
+
+package main
+
+import (
+	"log"
+	"os"
+	"stock/controllers"
+	"stock/db"
+	"stock/routes"
+
+	"github.com/joho/godotenv" // Import .env loader
+	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
+)
+
+func main() {
+	// Load environment variables from .env file
+	err := godotenv.Load()
+	if err != nil {
+		log.Println("[ERROR] Error loading .env file:", err)
+	} else {
+		log.Println("[INFO] .env file loaded successfully")
+	}
+
+	// Initialize the database
+	db.Init()
+
+	// Initialize email configuration
+	err = controllers.InitEmailConfig()
+	if err != nil {
+		log.Fatalf("[ERROR] Failed to initialize email config: %v", err)
+	}
+
+	go controllers.CheckAndInsertMissingOrganizations(db.GetDB())
+	go controllers.StartReorderLevelNotification(db.GetDB())
+
+	e := echo.New()
+
+	e.POST("/send-sms", controllers.SendSmsHandler)
+	e.POST("/mpesa/callback", controllers.HandleMpesaCallback)
+	e.POST("/reset-password", controllers.ResetPassword)
+
+
+	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
+		AllowOrigins: []string{"*"},
+		AllowMethods: []string{echo.GET, echo.POST, echo.PUT, echo.DELETE},
+		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
+	}))
+
+	// Register routes
+	routes.RegisterRoutes(e)
+	routes.SetupRoutes(e)
+
+	// Start server
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+	log.Println("[INFO] Server starting on port", port)
+	e.Start(":" + port)
+}

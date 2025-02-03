@@ -147,6 +147,90 @@ func AdminLogout(c echo.Context) error {
 	return c.JSON(http.StatusOK, echo.Map{"message": "Successfully logged out"})
 }
 
+// func AdminSignup(c echo.Context) error {
+// 	var input models.User
+
+// 	// Bind the input JSON to the User struct
+// 	if err := c.Bind(&input); err != nil {
+// 		log.Printf("Bind error: %v", err)
+// 		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
+// 	}
+
+// 	// Validate the input
+// 	SignupInput := validators.SignupInput{
+// 		Username: input.Username,
+// 		Password: input.Password,
+// 	}
+// 	if err := validators.ValidateSignupInput(SignupInput); err != nil {
+// 		log.Printf("AdminSignup - Validation error: %v", err)
+// 		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
+// 	}
+
+// 	log.Printf("Received JSON: %+v", input)
+
+// 	// Check if username or email already exists
+// 	var user models.User
+// 	if err := db.GetDB().Where("phone_number = ?", input.Phonenumber).First(&user).Error; err == nil {
+// 		return c.JSON(http.StatusConflict, echo.Map{"error": "Phonenumber already exists"})
+// 	}
+// 	if err := db.GetDB().Where("email = ?", input.Email).First(&user).Error; err == nil {
+// 		return c.JSON(http.StatusConflict, echo.Map{"error": "Email already exists"})
+// 	}
+
+// 	// Hash the password
+// 	hashedPassword, err := utils.HashPassword(input.Password)
+// 	if err != nil {
+// 		log.Printf("HashPassword error: %v", err)
+// 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not hash password"})
+// 	}
+// 	input.Password = hashedPassword
+
+// 	// Check if the organization already exists by name
+// 	var organization models.Organization
+// 	if err := db.GetDB().Where("name = ?", input.Organization).First(&organization).Error; err != nil {
+// 		if errors.Is(err, gorm.ErrRecordNotFound) {
+// 			// Create the organization if not found
+// 			organization = models.Organization{
+// 				Name:  input.Organization,
+// 				Email: input.Email,
+// 			}
+// 			if err := db.GetDB().Create(&organization).Error; err != nil {
+// 				log.Printf("Organization creation error: %v", err)
+// 				return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not create organization"})
+// 			}
+// 		} else {
+// 			log.Printf("Organization query error: %v", err)
+// 			return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Error checking organization"})
+// 		}
+// 	}
+
+// 	// Set organization ID for the user
+// 	input.OrganizationID = organization.ID
+// 	input.RoleName = "Admin"
+// 	input.IsActive = true
+
+// 	// Create the user
+// 	if err := db.GetDB().Create(&input).Error; err != nil {
+// 		log.Printf("User creation error: %v", err)
+// 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
+// 	}
+
+// 	// Generate JWT token
+// 	token, err := utils.GenerateJWT(input.ID, input.RoleName, input.OrganizationID)
+// 	if err != nil {
+// 		log.Printf("GenerateJWT error: %v", err)
+// 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not generate token"})
+// 	}
+
+// 	log.Println("Admin signed up successfully")
+// 	return c.JSON(http.StatusOK, echo.Map{
+// 		"message":         "Admin signed up successfully",
+// 		"token":           token,
+// 		"user_id":         input.ID,
+// 		"role_name":       input.RoleName,
+// 		"organization_id": input.OrganizationID,
+// 	})
+// }
 func AdminSignup(c echo.Context) error {
 	var input models.User
 
@@ -168,13 +252,15 @@ func AdminSignup(c echo.Context) error {
 
 	log.Printf("Received JSON: %+v", input)
 
-	// Check if username or email already exists
+	// Check if phone number or email already exists
 	var user models.User
-	if err := db.GetDB().Where("phone_number = ?", input.Phonenumber).First(&user).Error; err == nil {
-		return c.JSON(http.StatusConflict, echo.Map{"error": "Phonenumber already exists"})
-	}
-	if err := db.GetDB().Where("email = ?", input.Email).First(&user).Error; err == nil {
-		return c.JSON(http.StatusConflict, echo.Map{"error": "Email already exists"})
+	if err := db.GetDB().Where("phone_number = ? OR email = ?", input.Phonenumber, input.Email).First(&user).Error; err == nil {
+		if user.Phonenumber == input.Phonenumber {
+			return c.JSON(http.StatusConflict, echo.Map{"error": "Phone number already exists"})
+		}
+		if user.Email == input.Email {
+			return c.JSON(http.StatusConflict, echo.Map{"error": "Email already exists"})
+		}
 	}
 
 	// Hash the password
@@ -324,7 +410,7 @@ func AdminSignup(c echo.Context) error {
 func AdminAddUser(c echo.Context) error {
     log.Println("AdminAddUser - Entry")
 
-    // Authorization checks
+    // Authorization checks remain the same...
     userID, ok := c.Get("userID").(uint)
     if !ok {
         log.Println("AdminAddUser - Unauthorized: userID not found in context")
@@ -344,7 +430,6 @@ func AdminAddUser(c echo.Context) error {
         return c.JSON(http.StatusForbidden, echo.Map{"error": "Permission denied"})
     }
 
-    // Get organization ID
     organizationIDRaw := c.Get("organizationID")
     if organizationIDRaw == nil {
         log.Println("AdminAddUser - organizationID not found in context")
@@ -372,12 +457,20 @@ func AdminAddUser(c echo.Context) error {
         return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid role name. Allowed roles: shopkeeper, auditor, admin"})
     }
 
-    // Check existing user
-    var existingUser models.User
-    if err := db.GetDB().Where("organization_id = ? AND (email = ? OR phone_number = ?)", 
-        organizationID, input.Email, input.Username).First(&existingUser).Error; err == nil {
-        log.Println("AdminAddUser - User with same email or phone_number already exists in the organization")
-        return c.JSON(http.StatusConflict, echo.Map{"error": "User with the same email or phonenumber already exists"})
+    // Check existing user by email
+    var existingUserEmail models.User
+    if err := db.GetDB().Where("organization_id = ? AND email = ?", 
+        organizationID, input.Email).First(&existingUserEmail).Error; err == nil {
+        log.Printf("AdminAddUser - User with email %s already exists in the organization", input.Email)
+        return c.JSON(http.StatusConflict, echo.Map{"error": "User with this email already exists"})
+    }
+
+    // Check existing user by phone number
+    var existingUserPhone models.User
+    if err := db.GetDB().Where("organization_id = ? AND phone_number = ?", 
+        organizationID, input.Phonenumber).First(&existingUserPhone).Error; err == nil {
+        log.Printf("AdminAddUser - User with phone number %s already exists in the organization", input.Phonenumber)
+        return c.JSON(http.StatusConflict, echo.Map{"error": "User with this phone number already exists"})
     }
 
     // Validate input
@@ -390,12 +483,14 @@ func AdminAddUser(c echo.Context) error {
         return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
     }
 
+
     // Hash password
     hashedPassword, err := utils.HashPassword(input.Password)
     if err != nil {
         log.Printf("AdminAddUser - Password hashing error: %v", err)
         return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not hash password"})
     }
+
 
     // Prepare user data
     input.Password = hashedPassword
@@ -454,6 +549,7 @@ func AdminAddUser(c echo.Context) error {
             "user_id": input.ID,
             "warning": "Activation email sending failed",
         })
+		
     }
 
     log.Println("AdminAddUser - User created successfully with activation email sent")
