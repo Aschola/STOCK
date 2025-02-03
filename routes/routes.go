@@ -62,7 +62,9 @@ func SetupRoutes(e *echo.Echo) {
 	e.POST("auditor/login", controllers.AuditorLogin)
 	e.POST("auditor/logout", controllers.AuditorLogout)
 	e.POST("/forgot-password", controllers.ForgotPassword)
+	e.POST("/mpesa/callback", controllers.HandleMpesaCallback)
     // e.POST("/reset-password", controllers.ResetPassword)
+	
 
 
 	//e.POST("/addsupplier", controllers.AddSupplier)
@@ -182,7 +184,6 @@ func SetupRoutes(e *echo.Echo) {
 
 	//organization.GET("/sales/:sale_id", controllers.GetSalesBySaleID)
 	organization.POST("/sell", controllers.SellProduct)
-	organization.POST("/sells", controllers.SellProducts)
 
 	//organization.GET("/cash/salesbyuser_id/:user_id", controllers.GetSalesByUser)
 	organization.GET("/sales/reports_by_date_and_by_sales_ids/:date", controllers.GetSalesByDate)

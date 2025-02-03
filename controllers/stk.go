@@ -13,7 +13,7 @@ import (
 	"strconv"
 
 
-	"github.com/google/uuid"
+	//"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"stock/db"
 )
@@ -37,9 +37,10 @@ func (MPesaSettings) TableName() string {
 
 // STKPushRequest represents the incoming request
 type STKPushRequest struct {
-	PhoneNumber   string  `json:"phone_number"`
+	PhoneNumber   int64  `json:"phone_number"`
 	Amount        float64 `json:"amount"`
 	TransactionID string  `json:"transaction_id,omitempty"`
+	OrganizationID int64   
 }
 
 type STKPushResponse struct {
@@ -92,9 +93,9 @@ type MpesaCallbackResponse struct {
 }
 
 // generateTransactionID creates a unique transaction ID
-func generateTransactionID() string {
-	return fmt.Sprintf("MPE-%s-%d", uuid.New().String()[:8], time.Now().Unix())
-}
+// func generateTransactionID() string {
+// 	return fmt.Sprintf("MPE-%s-%d", uuid.New().String()[:8], time.Now().Unix())
+// }
 
 // HandleSTKPush processes the STK push request
 func HandleSTKPush(c echo.Context) error {
@@ -109,16 +110,22 @@ func HandleSTKPush(c echo.Context) error {
 
 	log.Printf("Received STK Push request: %+v", req)
 
+	// organizationID, ok := c.Get("organizationID").(uint)
+	// if !ok {
+	// 	log.Printf("Failed to get organizationID from context")
+	// 	return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
+	// }
 	organizationID, ok := c.Get("organizationID").(uint)
-	if !ok {
-		log.Printf("Failed to get organizationID from context")
-		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
-	}
+if !ok {
+    log.Printf("Failed to get organizationID from context")
+    return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
+}
+log.Printf("Processing request for organization ID: %d", organizationID)
 
 	log.Printf("Processing request for organization ID: %d", organizationID)
 
 	// Validate request
-	if req.PhoneNumber == "" {
+	if req.PhoneNumber == 0 {
 		return c.JSON(http.StatusBadRequest, map[string]string{
 			"error": "Phone number is required",
 		})
@@ -180,8 +187,8 @@ func loadMPesaCredentials(organizationID int64) (MPesaSettings, error) {
 
 // getAccessToken generates an OAuth access token
 func getAccessToken(creds MPesaSettings) (string, error) {
-	//authURL := "https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials"
-	authURL := "https:api.safaricom.co.ke/mpesa/stkpush/v1/processrequest"
+	authURL := "https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials"
+	//authURL := "https:api.safaricom.co.ke/mpesa/stkpush/v1/processrequest"
 
 
 	auth := base64.StdEncoding.EncodeToString([]byte(creds.ConsumerKey + ":" + creds.ConsumerSecret))
@@ -253,10 +260,10 @@ func InitiateSTKPush(organizationID int64, req STKPushRequest) (*STKPushResponse
 		creds.BusinessShortCode, creds.Environment, creds.CallbackURL)
 
 	// Generate transaction ID if not provided
-	if req.TransactionID == "" {
-		req.TransactionID = generateTransactionID()
-		log.Printf("Generated transaction ID: %s", req.TransactionID)
-	}
+	// if req.TransactionID == "" {
+	// 	req.TransactionID = generateTransactionID()
+	// 	log.Printf("Generated transaction ID: %s", req.TransactionID)
+	// }
 
 	token, err := getAccessToken(creds)
 	if err != nil {
@@ -279,7 +286,8 @@ func InitiateSTKPush(organizationID int64, req STKPushRequest) (*STKPushResponse
 	log.Printf("Using STK Push URL: %s", stkURL)
 
 	// Format phone number
-	phoneNumber := formatPhoneNumber(req.PhoneNumber)
+	//phoneNumber := formatPhoneNumber(req.PhoneNumber)
+	phoneNumber := formatPhoneNumber(strconv.FormatInt(req.PhoneNumber, 10))
 	log.Printf("Formatted phone number: %s", phoneNumber)
 
 	requestBody := map[string]interface{}{
@@ -368,9 +376,16 @@ func InitiateSTKPush(organizationID int64, req STKPushRequest) (*STKPushResponse
 
 	log.Printf("Successfully saved transaction record with ID: %d", record.ID)
 	return &stkResponse, nil
+	// result, err := InitiateSTKPush(int64(organizationID), stkRequest)
+	// //result, err := InitiateSTKPush(int64(totalSellingPrice), stkRequest)
+	// if err != nil {
+	// 	log.Printf("[ERROR] Mpesa STK Push failed: %v", err)
+	// 	return echo.NewHTTPError(http.StatusInternalServerError, "Error initiating Mpesa payment")
+	// }
 	
 }
 func HandleMpesaCallback(c echo.Context) error {
+	log.Printf("callback triggered")
     log.Printf("Request Method: %s, URL: %s", c.Request().Method, c.Request().URL)
     log.Printf("Headers: %+v", c.Request().Header)
 
@@ -628,32 +643,6 @@ func GetMPesaSettingsByOrganization(c echo.Context) error {
 	log.Printf("GetMPesaSettingsByOrganization - Settings found: %+v", settings)
 	return c.JSON(http.StatusOK, settings)
 }
-
-// func GetCompletedTransactions(c echo.Context) error {
-// 	log.Println("GetCompletedTransactions - Entry")
-
-// 	// Retrieve organizationID from context
-// 	organizationID, ok := c.Get("organizationID").(uint)
-// 	if !ok {
-// 		log.Println("GetCompletedTransactions - Failed to get organizationID from context")
-// 		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
-// 	}
-
-// 	log.Printf("GetCompletedTransactions - OrganizationID: %d", organizationID)
-
-// 	// Fetch completed transactions for the given organization
-// 	var transactions []TransactionRecord
-// 	if err := db.GetDB().
-// 		Where("organization_id = ? AND status = ?", organizationID, "COMPLETED").
-// 		Find(&transactions).Error; err != nil {
-// 		log.Printf("GetCompletedTransactions - Error fetching transactions: %v", err)
-// 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Failed to fetch transactions"})
-// 	}
-
-// 	log.Printf("GetCompletedTransactions - Retrieved %d completed transactions", len(transactions))
-// 	log.Println("GetCompletedTransactions - Exit")
-// 	return c.JSON(http.StatusOK, transactions)
-// }
 
 func GetAllTransactions(c echo.Context) error {
 	log.Println("GetAllTransactionsPerOrganization - Entry")
