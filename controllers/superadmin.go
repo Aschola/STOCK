@@ -435,7 +435,7 @@ func Login(c echo.Context) error {
 	log.Println("Login - Entry")
 
 	var loginData struct {
-		Username string `json:"username" binding:"required"`
+		Email string `json:"username" binding:"required"`
 		Password string `json:"password" binding:"required"`
 	}
 
@@ -447,14 +447,18 @@ func Login(c echo.Context) error {
 	log.Printf("Login - Received data: %+v", loginData)
 
 	var user models.User
-	if err := db.GetDB().Where("username = ?", loginData.Username).First(&user).Error; err != nil {
+	if err := db.GetDB().Where("email = ?", loginData.Email).First(&user).Error; err != nil {
 		log.Printf("Login - Where error: %v", err)
-		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Invalid username or password"})
+		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Invalid email or password"})
 	}
 	var organization models.Organization
 	if err := db.GetDB().Where("id = ?", user.OrganizationID).First(&organization).Error; err != nil {
 		log.Printf("Login - Organization lookup error: %v", err)
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not verify organization status"})
+	}
+	if !user.IsActive {
+		log.Printf("Login - Organization is inactive: %v", user.ID)
+		return c.JSON(http.StatusForbidden, echo.Map{"error": "user inactive"})
 	}
 
 	if !organization.IsActive {
@@ -495,7 +499,7 @@ func AuditorLogin(c echo.Context) error {
 	log.Println("AuditorLogin - Entry")
 
 	var loginData struct {
-		Username string `json:"username" binding:"required"`
+		Email string `json:"username" binding:"required"`
 		Password string `json:"password" binding:"required"`
 	}
 
@@ -507,14 +511,14 @@ func AuditorLogin(c echo.Context) error {
 	log.Printf("AuditorLogin - Received data: %+v", loginData)
 
 	var user models.User
-	if err := db.GetDB().Where("username = ?", loginData.Username).First(&user).Error; err != nil {
+	if err := db.GetDB().Where("email = ?", loginData.Email).First(&user).Error; err != nil {
 		log.Printf("AuditorLogin - Where error: %v", err)
-		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Invalid username or password"})
+		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Invalid email or password"})
 	}
 
 	if err := utils.CheckPasswordHash(loginData.Password, user.Password); err != nil {
 		log.Printf("AuditorLogin - CheckPasswordHash error: %v", err)
-		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Invalid username or password"})
+		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "email or password"})
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{

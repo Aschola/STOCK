@@ -16,39 +16,47 @@
 // func main() {
 // 	// Initialize the database
 // 	db.Init()
-// 	//inserting the missing organizations
-// 	go controllers.CheckAndInsertMissingOrganizations(db.GetDB())
-// 	go controllers.StartReorderLevelNotification(db.GetDB())
 
-// 	// Register the route for checking missing organizations
-
+// 	// Create an Echo instance
 // 	e := echo.New()
 
+// 	// Log all registered routes
+// 	for _, route := range e.Routes() {
+// 		log.Printf("Registered route: %s %s", route.Method, route.Path)
+// 	}
+
+// 	// Register routes
 // 	e.POST("/send-sms", controllers.SendSmsHandler)
 // 	e.POST("/mpesa/callback", controllers.HandleMpesaCallback)
 
+// 	// CORS configuration
 // 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 // 		AllowOrigins: []string{"*"},
 // 		AllowMethods: []string{echo.GET, echo.POST, echo.PUT, echo.DELETE},
 // 		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
 // 	}))
+	
+// 	// Middleware for body size limit
+// 	e.Use(middleware.BodyLimit("2M"))
 
-// 	// Register routes
+// 	// Add middleware to parse and log request body
+// 	e.Use(middleware.BodyDump(func(c echo.Context, reqBody, resBody []byte) {
+// 		log.Printf("Request Body: %s", string(reqBody))
+// 	}))
+
+// 	// Register additional routes (if needed)
 // 	routes.RegisterRoutes(e)
 // 	routes.SetupRoutes(e)
 
-// 	// Start the test goroutine to send SMS every 30 seconds
-
-// 	// If you want to call the test function, you can now call it directly from main
-// 	//go runTestSendSmsHandler()
-
+// 	// Set the port from environment variable or use default (8000)
 // 	port := os.Getenv("PORT")
 // 	if port == "" {
-// 		port = "8080"
+// 		port = "8000"
 // 	}
 
 // 	log.Fatal(e.Start(":" + port))
 // }
+
 
 // package main
 
@@ -184,7 +192,7 @@ func main() {
 	// Start server
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "8080"
+		port = "8000"
 	}
 	log.Println("[INFO] Server starting on port", port)
 	e.Start(":" + port)

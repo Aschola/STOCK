@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"stock/models"
 	"time"
+	"fmt"
+	//"stock/db"
 
 	"github.com/labstack/echo/v4"
 	"gorm.io/gorm"
@@ -18,6 +20,188 @@ func logError(message string, err error) {
 	}
 }
 
+// func SellProduct(c echo.Context) error {
+// 	log.Println("[INFO] Received request to sell products.")
+
+// 	organizationID, err := getOrganizationID(c)
+// 	if err != nil {
+// 		return err
+// 	}
+
+// 	var payload models.SalePayload
+// 	if err := json.NewDecoder(c.Request().Body).Decode(&payload); err != nil {
+// 		log.Printf("[ERROR] Error parsing request body: %v", err)
+// 		return echo.NewHTTPError(http.StatusBadRequest, "Invalid input data")
+// 	}
+
+// 	db := getDB()
+// 	if db == nil {
+// 		log.Println("[ERROR] Database connection failed")
+// 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to connect to the database")
+// 	}
+
+// 	tx := db.Begin()
+// 	defer func() {
+// 		if r := recover(); r != nil {
+// 			tx.Rollback()
+// 			log.Printf("[ERROR] Unexpected error: %v", r)
+// 		}
+// 	}()
+// 	defer tx.Rollback()
+
+// 	saleID := time.Now().Unix()
+// 	var totalSellingPrice float64
+
+// 	for _, item := range payload.Items {
+// 		var product models.Product
+// 		if err := tx.First(&product, "product_id = ?", item.ProductID).Error; err != nil {
+// 			if err == gorm.ErrRecordNotFound {
+// 				log.Printf("[ERROR] Product not found for product_id: %d", item.ProductID)
+// 				return echo.NewHTTPError(http.StatusNotFound, "Product not found")
+// 			}
+// 			log.Printf("[ERROR] Error fetching product details: %v", err)
+// 			return echo.NewHTTPError(http.StatusInternalServerError, "Error fetching product details")
+// 		}
+
+// 		var stock models.Stock
+// 		if err := tx.First(&stock, "product_id = ?", item.ProductID).Error; err != nil {
+// 			log.Printf("[ERROR] Error fetching stock details for product_id: %d", item.ProductID)
+// 			return echo.NewHTTPError(http.StatusInternalServerError, "Error fetching stock details")
+// 		}
+
+// 		totalSellingPrice += float64(item.QuantitySold) * stock.SellingPrice
+// 	}
+
+// 	log.Printf("[INFO] Payment Mode: %s", payload.PaymentMode)
+// 	if payload.PaymentMode == "cash" {
+// 		// Process cash payment immediately
+// 		for _, item := range payload.Items {
+// 			var stock models.Stock
+// 			if err := tx.First(&stock, "product_id = ?", item.ProductID).Error; err != nil {
+// 				log.Printf("[ERROR] Error fetching stock details for product_id: %d", item.ProductID)
+// 				return echo.NewHTTPError(http.StatusInternalServerError, "Error fetching stock details")
+// 			}
+
+// 			if stock.Quantity < item.QuantitySold {
+// 				log.Printf("[ERROR] Insufficient stock for product_id: %d", item.ProductID)
+// 				return echo.NewHTTPError(http.StatusBadRequest, "Insufficient stock")
+// 			}
+
+// 			stock.Quantity -= item.QuantitySold
+// 			if err := tx.Save(&stock).Error; err != nil {
+// 				log.Printf("[ERROR] Error updating stock for product_id: %d: %v", item.ProductID, err)
+// 				return echo.NewHTTPError(http.StatusInternalServerError, "Error updating stock")
+// 			}
+
+// 			var product models.Product
+// 			if err := tx.First(&product, "product_id = ?", item.ProductID).Error; err != nil {
+// 				log.Printf("[ERROR] Error fetching product details: %v", err)
+// 				return echo.NewHTTPError(http.StatusInternalServerError, "Error fetching product details")
+// 			}
+
+// 			totalCost := float64(item.QuantitySold) * stock.BuyingPrice
+// 			profit := (float64(item.QuantitySold) * stock.SellingPrice) - totalCost
+// 			balance := payload.CashReceived - totalSellingPrice
+
+// 			sale := models.Sale{
+// 				SaleID:            saleID,
+// 				OrganizationsID:   organizationID,
+// 				Name:              product.ProductName,
+// 				CategoryName:      product.CategoryName,
+// 				UnitBuyingPrice:   stock.BuyingPrice,
+// 				TotalBuyingPrice:  totalCost,
+// 				UnitSellingPrice:  stock.SellingPrice,
+// 				TotalSellingPrice: int64(float64(item.QuantitySold) * stock.SellingPrice),
+// 				Profit:            profit,
+// 				Quantity:          item.QuantitySold,
+// 				CashReceived:      payload.CashReceived,
+// 				Balance:           balance,
+// 				PaymentMode:       "cash",
+// 				UserID:            int64(payload.UserID),
+// 				Date:              time.Now(),
+// 				TransactionStatus: "COMPLETE",
+// 			}
+
+// 			if err := tx.Create(&sale).Error; err != nil {
+// 				log.Printf("[ERROR] Error recording sale for product_id: %d: %v", item.ProductID, err)
+// 				return echo.NewHTTPError(http.StatusInternalServerError, "Error recording sale")
+// 			}
+// 		}
+
+// 		if err := tx.Commit().Error; err != nil {
+// 			log.Printf("[ERROR] Error committing transaction: %v", err)
+// 			return echo.NewHTTPError(http.StatusInternalServerError, "Error committing transaction")
+// 		}
+
+// 		return c.JSON(http.StatusOK, map[string]interface{}{
+// 			"message": "Sale processed successfully for all items",
+// 		})
+
+// 	} else if payload.PaymentMode == "Mpesa" {
+// 		stkRequest := STKPushRequest{
+// 			PhoneNumber: payload.PhoneNumber,
+// 			Amount:      totalSellingPrice,
+// 		}
+
+// 		result, err := InitiateSTKPush(int64(organizationID), stkRequest)
+// 		if err != nil {
+// 			log.Printf("[ERROR] Mpesa STK Push failed: %v", err)
+// 			return echo.NewHTTPError(http.StatusInternalServerError, "Error initiating Mpesa payment")
+// 		}
+
+// 		for _, item := range payload.Items {
+// 			var stock models.Stock
+// 			var product models.Product
+// 			if err := tx.First(&product, "product_id = ?", item.ProductID).Error; err != nil {
+// 				log.Printf("[ERROR] Error fetching product details: %v", err)
+// 				return echo.NewHTTPError(http.StatusInternalServerError, "Error fetching product details")
+// 			}
+
+// 			totalCost := float64(item.QuantitySold) * stock.BuyingPrice
+// 			profit := (float64(item.QuantitySold) * stock.SellingPrice) - totalCost
+// 			balance := payload.CashReceived - totalSellingPrice
+
+// 			sale := models.Sale{
+// 				SaleID:            saleID,
+// 				OrganizationsID:   organizationID,
+// 				Name:              product.ProductName,
+// 				CategoryName:      product.CategoryName,
+// 				UnitBuyingPrice:   stock.BuyingPrice,
+// 				TotalBuyingPrice:  totalCost,
+// 				UnitSellingPrice:  stock.SellingPrice,
+// 				TotalSellingPrice: int64(float64(item.QuantitySold) * stock.SellingPrice),
+// 				Profit:            profit,
+// 				Quantity:          item.QuantitySold,
+// 				CashReceived:      payload.CashReceived,
+// 				Balance:           balance,
+// 				PaymentMode:       "Mpesa",
+// 				UserID:            int64(payload.UserID),
+// 				Date:              time.Now(),
+// 				TransactionID:     result.TransactionID,
+// 				TransactionStatus: "PENDING",
+// 			}
+
+// 			if err := tx.Create(&sale).Error; err != nil {
+// 				log.Printf("[ERROR] Error recording sale for product_id: %d: %v", item.ProductID, err)
+// 				return echo.NewHTTPError(http.StatusInternalServerError, "Error recording sale")
+// 			}
+// 		}
+
+// 		if err := tx.Commit().Error; err != nil {
+// 			log.Printf("[ERROR] Error committing transaction: %v", err)
+// 			return echo.NewHTTPError(http.StatusInternalServerError, "Error committing transaction")
+// 		}
+
+// 		return c.JSON(http.StatusAccepted, map[string]interface{}{
+// 			"message": "Sale recorded and awaiting Mpesa payment confirmation",
+// 			"transactionId": result.TransactionID,
+// 		})
+
+// 	} else {
+// 		log.Printf("[ERROR] Invalid payment mode received: %s", payload.PaymentMode)
+// 		return echo.NewHTTPError(http.StatusBadRequest, "Invalid payment mode")
+// 	}
+// }
 func SellProduct(c echo.Context) error {
 	log.Println("[INFO] Received request to sell products.")
 
@@ -26,20 +210,12 @@ func SellProduct(c echo.Context) error {
 		return err
 	}
 
-	// Parse the payload to extract Sale data
 	var payload models.SalePayload
 	if err := json.NewDecoder(c.Request().Body).Decode(&payload); err != nil {
 		log.Printf("[ERROR] Error parsing request body: %v", err)
 		return echo.NewHTTPError(http.StatusBadRequest, "Invalid input data")
 	}
 
-	// Log the parsed payload for debugging
-	log.Printf("[INFO] Parsed Payload: %+v", payload)
-
-	// Verify the phone number has been parsed correctly
-	log.Printf("[INFO] Parsed phone number: %d", payload.PhoneNumber)
-
-	// Database connection
 	db := getDB()
 	if db == nil {
 		log.Println("[ERROR] Database connection failed")
@@ -55,10 +231,11 @@ func SellProduct(c echo.Context) error {
 	}()
 	defer tx.Rollback()
 
-	saleID := time.Now().Unix()
 	var totalSellingPrice float64
+	var items []models.SaleItem
+	saleID := time.Now().Unix()
 
-	// Process each item in the sale
+	// Validate products and calculate total price
 	for _, item := range payload.Items {
 		var product models.Product
 		if err := tx.First(&product, "product_id = ?", item.ProductID).Error; err != nil {
@@ -76,102 +253,87 @@ func SellProduct(c echo.Context) error {
 			return echo.NewHTTPError(http.StatusInternalServerError, "Error fetching stock details")
 		}
 
-		// Ensure there is sufficient stock
 		if stock.Quantity < item.QuantitySold {
 			log.Printf("[ERROR] Insufficient stock for product_id: %d", item.ProductID)
 			return echo.NewHTTPError(http.StatusBadRequest, "Insufficient stock")
 		}
 
-		// Calculate total selling price
 		totalSellingPrice += float64(item.QuantitySold) * stock.SellingPrice
-		stock.Quantity -= item.QuantitySold
+		items = append(items, item)
+	}
 
-		// Update stock after sale
-		if err := tx.Save(&stock).Error; err != nil {
-			log.Printf("[ERROR] Error updating stock for product_id: %d: %v", item.ProductID, err)
-			return echo.NewHTTPError(http.StatusInternalServerError, "Error updating stock")
+	log.Printf("[INFO] Payment Mode: %s", payload.PaymentMode)
+	if payload.PaymentMode == "cash" {
+		// Process cash payment immediately
+		if err := processCashSale(tx, items, saleID, organizationID, totalSellingPrice, payload); err != nil {
+			return err
 		}
+
+		if err := tx.Commit().Error; err != nil {
+			log.Printf("[ERROR] Error committing transaction: %v", err)
+			return echo.NewHTTPError(http.StatusInternalServerError, "Error committing transaction")
+		}
+
+		return c.JSON(http.StatusOK, map[string]interface{}{
+			"message": "Sale processed successfully for all items",
+		})
+
+	} else if payload.PaymentMode == "Mpesa" {
+		// Initiate Mpesa payment
+		stkRequest := STKPushRequest{
+			PhoneNumber: payload.PhoneNumber,
+			Amount:      totalSellingPrice,
+		}
+
+		result, err := InitiateSTKPush(int64(organizationID), stkRequest)
+		if err != nil {
+			log.Printf("[ERROR] Mpesa STK Push failed: %v", err)
+			return echo.NewHTTPError(http.StatusInternalServerError, "Error initiating Mpesa payment")
+		}
+
+		// Create pending sales records without reducing stock
+		if err := createPendingMpesaSales(tx, items, saleID, organizationID, totalSellingPrice, payload, result.TransactionID); err != nil {
+			return err
+		}
+
+		if err := tx.Commit().Error; err != nil {
+			log.Printf("[ERROR] Error committing transaction: %v", err)
+			return echo.NewHTTPError(http.StatusInternalServerError, "Error committing transaction")
+		}
+
+		return c.JSON(http.StatusAccepted, map[string]interface{}{
+			"message":       "Payment requested. Awaiting confirmation",
+			"transactionId": result.TransactionID,
+		})
+
+	} else {
+		log.Printf("[ERROR] Invalid payment mode received: %s", payload.PaymentMode)
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid payment mode")
 	}
-
-	// Determine payment mode
-	// log.Printf("[INFO] Payment Mode: %s", payload.PaymentMode)
-	// var paymentMode string
-	// if payload.PaymentMode == "cash" {
-	// 	paymentMode = "cash"
-	// } else if payload.PaymentMode == "Mpesa" {
-	// 	paymentMode = "Mpesa"
-
-	// 	// If payment mode is Mpesa, initiate STK Push before committing the sale
-	// 	log.Printf("[INFO] Initiating Mpesa STK Push for KES %.2f to phone number: %d", totalSellingPrice, payload.PhoneNumber)
-
-	// 	// Create the STK Push request
-	// 	stkRequest := STKPushRequest{
-	// 		PhoneNumber: payload.PhoneNumber,
-
-	// 	}
-
-	// 	// Initiate the STK Push
-	// 	result, err := InitiateSTKPush(int64(totalSellingPrice), stkRequest)
-	// 	if err != nil {
-	// 		log.Printf("[ERROR] Mpesa STK Push failed: %v", err)
-	// 		return echo.NewHTTPError(http.StatusInternalServerError, "Error initiating Mpesa payment")
-	// 	}
-
-	// 	// You might want to store the result for future reference
-	// 	log.Printf("[INFO] STK Push initiated successfully: %+v", result)
-	// }
-	// Determine payment mode
-log.Printf("[INFO] Payment Mode: %s", payload.PaymentMode)
-var paymentMode string
-if payload.PaymentMode == "cash" {
-	paymentMode = "cash"
-} else if payload.PaymentMode == "Mpesa" {
-	paymentMode = "Mpesa"
-
-	// If payment mode is Mpesa, initiate STK Push before committing the sale
-	log.Printf("[INFO] Initiating Mpesa STK Push for KES %.2f to phone number: %d", totalSellingPrice, payload.PhoneNumber)
-
-	// Create the STK Push request
-	stkRequest := STKPushRequest{
-		PhoneNumber: payload.PhoneNumber,
-		Amount: (totalSellingPrice),
-		
-	}
-
-	// Initiate the STK Push
-	result, err := InitiateSTKPush(int64(organizationID), stkRequest)
-	//result, err := InitiateSTKPush(int64(totalSellingPrice), stkRequest)
-	if err != nil {
-		log.Printf("[ERROR] Mpesa STK Push failed: %v", err)
-		return echo.NewHTTPError(http.StatusInternalServerError, "Error initiating Mpesa payment")
-	}
-
-	log.Printf("[INFO] Mpesa STK Push successful. Response: %+v", result)
-} else {
-	log.Printf("[ERROR] Invalid payment mode received: %s", payload.PaymentMode)
-	return echo.NewHTTPError(http.StatusBadRequest, "Invalid payment mode")
 }
 
-	// Process each item in the sale and create sale records
-	for _, item := range payload.Items {
-		var product models.Product
-		if err := tx.First(&product, "product_id = ?", item.ProductID).Error; err != nil {
-			log.Printf("[ERROR] Error fetching product details: %v", err)
-			return echo.NewHTTPError(http.StatusInternalServerError, "Error fetching product details")
-		}
-
+// Helper function to process cash sales
+func processCashSale(tx *gorm.DB, items []models.SaleItem, saleID int64, organizationID uint, totalSellingPrice float64, payload models.SalePayload) error {
+	for _, item := range items {
 		var stock models.Stock
 		if err := tx.First(&stock, "product_id = ?", item.ProductID).Error; err != nil {
-			log.Printf("[ERROR] Error fetching stock details for product_id: %d", item.ProductID)
 			return echo.NewHTTPError(http.StatusInternalServerError, "Error fetching stock details")
 		}
 
-		// Calculate cost, profit, and balance
+		stock.Quantity -= item.QuantitySold
+		if err := tx.Save(&stock).Error; err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, "Error updating stock")
+		}
+
+		var product models.Product
+		if err := tx.First(&product, "product_id = ?", item.ProductID).Error; err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, "Error fetching product details")
+		}
+
 		totalCost := float64(item.QuantitySold) * stock.BuyingPrice
 		profit := (float64(item.QuantitySold) * stock.SellingPrice) - totalCost
 		balance := payload.CashReceived - totalSellingPrice
 
-		// Sale object creation
 		sale := models.Sale{
 			SaleID:            saleID,
 			OrganizationsID:   organizationID,
@@ -185,34 +347,113 @@ if payload.PaymentMode == "cash" {
 			Quantity:          item.QuantitySold,
 			CashReceived:      payload.CashReceived,
 			Balance:           balance,
-			PaymentMode:       paymentMode,
+			PaymentMode:       "cash",
 			UserID:            int64(payload.UserID),
 			Date:              time.Now(),
 		}
 
-		// Log the sale creation info
-		log.Printf("[INFO] Creating sale with payment mode: %s", paymentMode)
-		log.Printf("[INFO] Sale Object: %+v", sale)
+		if err := tx.Create(&sale).Error; err != nil {
+			log.Printf("[ERROR] Error recording sale for product_id: %d: %v", item.ProductID, err)
+			return echo.NewHTTPError(http.StatusInternalServerError, "Error recording sale")
+			log.Printf("[DEBUG] Received Sale Request: %+v", payload)
 
-		// Save the sale record
+		}
+	}
+	return nil
+}
+
+// Helper function to create pending Mpesa sales
+func createPendingMpesaSales(tx *gorm.DB, items []models.SaleItem, saleID int64, organizationID uint, totalSellingPrice float64, payload models.SalePayload, transactionID string) error {
+	for _, item := range items {
+		var product models.Product
+		if err := tx.First(&product, "product_id = ?", item.ProductID).Error; err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, "Error fetching product details")
+		}
+
+		var stock models.Stock
+		if err := tx.First(&stock, "product_id = ?", item.ProductID).Error; err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, "Error fetching stock details")
+		}
+
+		totalCost := float64(item.QuantitySold) * stock.BuyingPrice
+		profit := (float64(item.QuantitySold) * stock.SellingPrice) - totalCost
+		balance := payload.CashReceived - totalSellingPrice
+
+		sale := models.Sale{
+			SaleID:            saleID,
+			OrganizationsID:   organizationID,
+			Name:              product.ProductName,
+			CategoryName:      product.CategoryName,
+			ProductID:         item.ProductID,
+			UnitBuyingPrice:   stock.BuyingPrice,
+			TotalBuyingPrice:  totalCost,
+			UnitSellingPrice:  stock.SellingPrice,
+			TotalSellingPrice: int64(float64(item.QuantitySold) * stock.SellingPrice),
+			Profit:            profit,
+			Quantity:          item.QuantitySold,
+			CashReceived:      payload.CashReceived,
+			Balance:           balance,
+			PaymentMode:       "Mpesa",
+			UserID:            int64(payload.UserID),
+			Date:              time.Now(),
+			TransactionID:     transactionID,
+			TransactionStatus: "PENDING",
+		}
+
 		if err := tx.Create(&sale).Error; err != nil {
 			log.Printf("[ERROR] Error recording sale for product_id: %d: %v", item.ProductID, err)
 			return echo.NewHTTPError(http.StatusInternalServerError, "Error recording sale")
 		}
-
-		log.Printf("[INFO] Sale recorded successfully for product_id: %d", item.ProductID)
 	}
-
-	// Commit the transaction
-	if err := tx.Commit().Error; err != nil {
-		log.Printf("[ERROR] Error committing transaction: %v", err)
-		return echo.NewHTTPError(http.StatusInternalServerError, "Error committing transaction")
-	}
-
-	log.Println("[INFO] Transaction committed successfully")
-
-	// Return a successful response
-	return c.JSON(http.StatusOK, map[string]interface{}{
-		"message": "Sale processed successfully for all items",
-	})
+	return nil
 }
+
+// New function to handle Mpesa callback and update stock
+func UpdateMpesaTransactionStatus(transactionID string, newStatus string) error {
+	log.Printf("updating transaction status")
+	db := getDB()
+	if db == nil {
+		return fmt.Errorf("database connection failed")
+	}
+
+	tx := db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+	defer tx.Rollback()
+
+	// Update transaction status in the sales table
+	var sales []models.Sale
+	if err := tx.Where("transaction_id = ?", transactionID).Find(&sales).Error; err != nil {
+		return fmt.Errorf("error fetching sales: %v", err)
+	}
+
+	for _, sale := range sales {
+		sale.TransactionStatus = newStatus
+		if err := tx.Save(&sale).Error; err != nil {
+			return fmt.Errorf("error updating sale status: %v", err)
+		}		
+
+		// If transaction is complete, update stock
+		if newStatus == "COMPLETE" {
+			var stock models.Stock
+			if err := tx.First(&stock, "product_id = ?", sale.ProductID).Error; err != nil {
+				return fmt.Errorf("error fetching stock: %v", err)
+			}
+
+			stock.Quantity -= sale.Quantity
+			if err := tx.Save(&stock).Error; err != nil {
+				return fmt.Errorf("error updating stock: %v", err)
+			}
+		}
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		return fmt.Errorf("error committing transaction: %v", err)
+	}
+
+	return nil
+}
+

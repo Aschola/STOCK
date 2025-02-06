@@ -5,10 +5,12 @@ import (
 	"encoding/base64"
 	"fmt"
 	"log"
+	"net/http"
 	"net/smtp"
 	"os"
 	"stock/db"
 	"stock/models"
+	"strings"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -65,7 +67,112 @@ func generateToken() (string, error) {
 	return token, nil
 }
 
-func sendActivationEmail(user *models.User, token string) error {
+// func sendActivationEmail(user *models.User, token string) error {
+// 	fmt.Println("[DEBUG] Preparing to send activation email to:", user.Email)
+
+// 	// Configure auth with the correct host
+// 	auth := smtp.PlainAuth(
+// 		"",
+// 		emailConfig.FromEmail,
+// 		emailConfig.SMTPPassword,
+// 		emailConfig.SMTPHost,
+// 	)
+
+// 	activationLink := fmt.Sprintf("http://%s/activate-account?token=%s", os.Getenv("BASE_URL"), token)
+
+// 	to := []string{user.Email}
+// 	subject := "Account Activation - " + user.Organization
+// // Message content with login credentials
+// message := fmt.Sprintf(`From: %s
+// To: %s
+// Subject: %s
+// MIME-version: 1.0
+// Content-Type: text/html; charset="UTF-8"
+
+// <html>
+// <body>
+// <p>Hello %s,</p>
+
+// <p>You have been added to %s organization. Below are your login credentials:</p>
+
+// <p><strong>Email:</strong> %s</p>
+// <p><strong>Password:</strong> %s</p>
+
+// <p>You can log in using the following link:</p>
+
+// <p><a href="%s">Click here to log in</a></p>
+
+// <p>For security, please change your password after logging in.</p>
+
+// <p>Best regards,<br>
+// Your Admin</p>
+// </body>
+// </html>
+
+// `, emailConfig.FromEmail, user.Email, subject, user.FullName, user.Organization, user.Email, user.Password, activationLink)
+
+// 	// Connect to SMTP server with full address including port
+// 	smtpAddr := fmt.Sprintf("%s:%s", emailConfig.SMTPHost, emailConfig.SMTPPort)
+// 	fmt.Printf("[DEBUG] Connecting to SMTP server at: %s\n", smtpAddr)
+
+// 	err := smtp.SendMail(
+// 		smtpAddr,
+// 		auth,
+// 		emailConfig.FromEmail,
+// 		to,
+// 		[]byte(message),
+// 	)
+
+// 	if err != nil {
+// 		fmt.Printf("[ERROR] Failed to send email: %v\n", err)
+// 		return fmt.Errorf("failed to send email: %w", err)
+// 	}
+
+// 	fmt.Println("[DEBUG] Activation email sent successfully to:", user.Email)
+// 	return nil
+// }
+
+// // Handler for sending activation email
+// func HandleSendActivationEmail(c echo.Context) error {
+// 	userID := c.Param("user_id")
+// 	fmt.Println("[DEBUG] Handling activation email request for User ID:", userID)
+
+// 	var user models.User
+// 	if err := db.GetDB().First(&user, userID).Error; err != nil {
+// 		fmt.Println("[ERROR] User not found:", err)
+// 		return c.JSON(404, map[string]string{"error": "User not found"})
+// 	}
+// 	log.Printf("received user_id")
+
+// 	// Generate activation token
+// 	token, err := generateToken()
+// 	if err != nil {
+// 		return c.JSON(500, map[string]string{"error": "Failed to generate token"})
+// 	}
+
+// 	// Save activation token
+// 	activationToken := models.ActivationToken{
+// 		UserID:    user.ID,
+// 		Token:     token,
+// 		ExpiresAt: time.Now().Add(24 * time.Hour),
+// 		Used:      false,
+// 	}
+
+// 	fmt.Println("[DEBUG] Saving activation token for User ID:", user.ID)
+// 	if err := db.GetDB().Create(&activationToken).Error; err != nil {
+// 		fmt.Println("[ERROR] Failed to save activation token:", err)
+// 		return c.JSON(500, map[string]string{"error": "Failed to save token"})
+// 	}
+
+// 	// Send email
+// 	if err := sendActivationEmail(&user, token); err != nil {
+// 		return c.JSON(500, map[string]string{"error": "Failed to send email"})
+// 	}
+
+//		fmt.Println("[DEBUG] Activation email process completed for User ID:", user.ID)
+//		return c.JSON(200, map[string]string{"message": "Activation email sent successfully"})
+//	}
+func sendActivationEmail(user *models.User, token, originalPassword string) error {
 	fmt.Println("[DEBUG] Preparing to send activation email to:", user.Email)
 
 	// Configure auth with the correct host
@@ -80,8 +187,9 @@ func sendActivationEmail(user *models.User, token string) error {
 
 	to := []string{user.Email}
 	subject := "Account Activation - " + user.Organization
-// Message content with login credentials
-message := fmt.Sprintf(`From: %s
+
+	// Message content with login credentials
+	message := fmt.Sprintf(`From: %s
 To: %s
 Subject: %s
 MIME-version: 1.0
@@ -106,8 +214,7 @@ Content-Type: text/html; charset="UTF-8"
 Your Admin</p>
 </body>
 </html>
-`, emailConfig.FromEmail, user.Email, subject, user.FullName, user.Organization, user.Email, user.Password, activationLink)
-
+`, emailConfig.FromEmail, user.Email, subject, user.FullName, user.Organization, user.Email, originalPassword, activationLink)
 
 	// Connect to SMTP server with full address including port
 	smtpAddr := fmt.Sprintf("%s:%s", emailConfig.SMTPHost, emailConfig.SMTPPort)
@@ -142,13 +249,11 @@ func HandleSendActivationEmail(c echo.Context) error {
 	}
 	log.Printf("received user_id")
 
-	// Generate activation token
 	token, err := generateToken()
 	if err != nil {
 		return c.JSON(500, map[string]string{"error": "Failed to generate token"})
 	}
 
-	// Save activation token
 	activationToken := models.ActivationToken{
 		UserID:    user.ID,
 		Token:     token,
@@ -162,16 +267,15 @@ func HandleSendActivationEmail(c echo.Context) error {
 		return c.JSON(500, map[string]string{"error": "Failed to save token"})
 	}
 
-	// Send email
-	if err := sendActivationEmail(&user, token); err != nil {
+	originalPassword := user.Password
+
+	if err := sendActivationEmail(&user, token, originalPassword); err != nil {
 		return c.JSON(500, map[string]string{"error": "Failed to send email"})
 	}
 
 	fmt.Println("[DEBUG] Activation email process completed for User ID:", user.ID)
 	return c.JSON(200, map[string]string{"message": "Activation email sent successfully"})
 }
-
-// Handler for activating account
 func ActivateAccount(c echo.Context) error {
 	token := c.QueryParam("token")
 	fmt.Println("[DEBUG] Activating account with token:", token)
@@ -207,4 +311,8 @@ func ActivateAccount(c echo.Context) error {
 
 	fmt.Println("[DEBUG] Account activated successfully for User ID:", user.ID)
 	return c.JSON(200, map[string]string{"message": "Account activated successfully"})
+	loginURL := os.Getenv(fmt.Sprintf("%s_LOGIN_URL", strings.Title(user.RoleName)))
+	return c.Redirect(http.StatusFound, fmt.Sprintf("%s?activated=true", loginURL))
+	//return c.Redirect(http.StatusFound, "/login?activated=true")
+
 }

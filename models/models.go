@@ -9,18 +9,18 @@ type CategoriesOnly struct {
 }
 
 func (CategoriesOnly) TableName() string {
-	return "categories" // Updated table name
+	return "categories" 
 }
 
 type Product struct {
 	ProductID          int        `gorm:"primaryKey;autoIncrement" json:"product_id"`
-	CategoryName       string     `json:"category_name"`                     // Name of the category
-	ProductName        string     `json:"product_name"`                      // Name of the product
-	ProductDescription string     `json:"product_description"`               // Description of the product
-	ReorderLevel       int        `json:"reorder_level"`                     // Reorder level for inventory
-	CreatedAt          time.Time  `gorm:"autoCreateTime" json:"created_at"`  // Timestamp when created
-	UpdatedAt          time.Time  `gorm:"autoUpdateTime" json:"updated_at"`  // Timestamp when last updated
-	DeletedAt          *time.Time `gorm:"index" json:"deleted_at,omitempty"` // Soft delete timestamp, nullable
+	CategoryName       string     `json:"category_name"`                     
+	ProductName        string     `json:"product_name"`                      
+	ProductDescription string     `json:"product_description"`               
+	ReorderLevel       int        `json:"reorder_level"`                     
+	CreatedAt          time.Time  `gorm:"autoCreateTime" json:"created_at"`  
+	UpdatedAt          time.Time  `gorm:"autoUpdateTime" json:"updated_at"`  
+	DeletedAt          *time.Time `gorm:"index" json:"deleted_at,omitempty"` 
 	OrganizationsID    int64      `json:"organizations_id"`
 }
 
@@ -38,19 +38,24 @@ type SaleByCategory struct {
 type Sale struct {
 	SaleID            int64     `gorm:"primaryKey;autoIncrement" json:"sale_id"`
 	Name              string    `gorm:"type:varchar(255)" json:"product_name"`
+	ProductID         int       `gorm:"column:product_id" json:"product_id"`
 	UnitBuyingPrice   float64   `gorm:"type:decimal(10,2)" json:"unit_buying_price"`
 	TotalBuyingPrice  float64   `gorm:"type:decimal(10,2)" json:"total_buying_price"`
 	UnitSellingPrice  float64   `gorm:"type:decimal(10,2)" json:"unit_selling_price"`
 	TotalSellingPrice int64   `gorm:"type:int" json:"total_selling_price"`
 	Profit            float64   `gorm:"type:float" json:"profit"`
 	Quantity          int       `gorm:"type:int" json:"quantity"`
-	CashReceived      float64   `gorm:"type:decimal(10,2)" json:"cash_received"` // Corrected the typo from 'cash_receive'
+	CashReceived      float64   `gorm:"type:decimal(10,2)" json:"cash_received"` 
 	Balance           float64   `gorm:"type:decimal(10,2)" json:"balance"`
-	PaymentMode       string    `gorm:"type:varchar(50)" json:"payment_mode"` // New PaymentMode column
+	PaymentMode       string    `gorm:"type:varchar(50)" json:"payment_mode"` 
 	UserID            int64     `json:"user_id"`
 	Date              time.Time `gorm:"type:timestamp" json:"date"`
 	CategoryName      string    `gorm:"type:varchar(255)" json:"category_name"`
-	OrganizationsID   uint      `json:"organization_id"` // Keep organization_id field as before
+	OrganizationsID   uint      `json:"organization_id"` 
+	TransactionID     string  `json:"transaction_id"`
+	TransactionStatus string `json:"status"`
+
+
 }
 
 // TableName overrides the default table name (sales -> sales_transactions)
@@ -75,10 +80,10 @@ type SaleItem struct {
 
 // Define the CompanySetting struct to match the 'company_settings' table
 type CompanySetting struct {
-	ID             uint    `gorm:"primaryKey;autoIncrement"` // Auto increment ID
+	ID             uint    `gorm:"primaryKey;autoIncrement"` 
 	Name           string  `gorm:"not null"`
 	Address        string  `gorm:"not null"`
 	Telephone      string  `gorm:"not null"`
-	OrganizationID uint    `gorm:"index"`   // Foreign key to organizations
-	KraPin         *string `json:"kra_pin"` // New column for KRA PIN, with varchar type
+	OrganizationID uint    `gorm:"index"`   
+	KraPin         *string `json:"kra_pin"` 
 }

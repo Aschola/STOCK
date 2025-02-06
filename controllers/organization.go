@@ -466,12 +466,12 @@ func AdminAddUser(c echo.Context) error {
     }
 
     // Check existing user by phone number
-    var existingUserPhone models.User
-    if err := db.GetDB().Where("organization_id = ? AND phone_number = ?", 
-        organizationID, input.Phonenumber).First(&existingUserPhone).Error; err == nil {
-        log.Printf("AdminAddUser - User with phone number %s already exists in the organization", input.Phonenumber)
-        return c.JSON(http.StatusConflict, echo.Map{"error": "User with this phone number already exists"})
-    }
+    // var existingUserPhone models.User
+    // if err := db.GetDB().Where("organization_id = ? AND phone_number = ?", 
+    //     organizationID, input.Phonenumber).First(&existingUserPhone).Error; err == nil {
+    //     log.Printf("AdminAddUser - User with phone number %s already exists in the organization", input.Phonenumber)
+    //     return c.JSON(http.StatusConflict, echo.Map{"error": "User with this phone number already exists"})
+    // }
 
     // Validate input
     signupInput := validators.SignupInput{
@@ -482,7 +482,7 @@ func AdminAddUser(c echo.Context) error {
         log.Printf("AdminAddUser - Validation error: %v", err)
         return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
     }
-
+	originalPassword := input.Password
 
     // Hash password
     hashedPassword, err := utils.HashPassword(input.Password)
@@ -490,13 +490,12 @@ func AdminAddUser(c echo.Context) error {
         log.Printf("AdminAddUser - Password hashing error: %v", err)
         return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not hash password"})
     }
-
-
+	
     // Prepare user data
     input.Password = hashedPassword
     input.OrganizationID = organizationID
     input.CreatedBy = userID
-    input.IsActive = false // Set to false until activation
+    input.IsActive = false 
 
     // Start database transaction
     tx := db.GetDB().Begin()
@@ -541,16 +540,24 @@ func AdminAddUser(c echo.Context) error {
     }
 
     // Send activation email
-    if err := sendActivationEmail(&input, token); err != nil {
+	if err := sendActivationEmail(&input, token, originalPassword); err != nil {
         log.Printf("AdminAddUser - Email sending error: %v", err)
-        // Don't return error here, as user is created successfully
         return c.JSON(http.StatusOK, echo.Map{
             "message": "User created successfully but activation email could not be sent",
             "user_id": input.ID,
             "warning": "Activation email sending failed",
         })
-		
     }
+    // if err := sendActivationEmail(&input, token); err != nil {
+    //     log.Printf("AdminAddUser - Email sending error: %v", err)
+    //     // Don't return error here, as user is created successfully
+    //     return c.JSON(http.StatusOK, echo.Map{
+    //         "message": "User created successfully but activation email could not be sent",
+    //         "user_id": input.ID,
+    //         "warning": "Activation email sending failed",
+    //     })
+		
+    // }
 
     log.Println("AdminAddUser - User created successfully with activation email sent")
     return c.JSON(http.StatusOK, echo.Map{
@@ -751,7 +758,7 @@ func AdminLogin(c echo.Context) error {
 	log.Println("AdminLogin - Entry")
 
 	var input struct {
-		Username string `json:"username" binding:"required"`
+		Email string `json:"username" binding:"required"`
 		Password string `json:"password" binding:"required"`
 	}
 
@@ -759,21 +766,21 @@ func AdminLogin(c echo.Context) error {
 		log.Printf("AdminLogin - Bind error: %v", err)
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 	}
-	loginInput := validators.LoginInput{
-		Username: input.Username,
-		Password: input.Password,
-	}
-	if err := validators.ValidateLoginInput(loginInput); err != nil {
-		log.Printf("Validation error: %v", err)
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
-	}
+	// loginInput := validators.LoginInput{
+	// 	Username: input.Username,
+	// 	Password: input.Password,
+	// }
+	// if err := validators.ValidateLoginInput(loginInput); err != nil {
+	// 	log.Printf("Validation error: %v", err)
+	// 	return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
+	// }
 
 	log.Printf("AdminLogin - Received input: %+v", input)
 
 	var user models.User
-	if err := db.GetDB().Where("username = ?", input.Username).First(&user).Error; err != nil {
+	if err := db.GetDB().Where("email = ?", input.Email).First(&user).Error; err != nil {
 		log.Printf("AdminLogin - Where error: %v", err)
-		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Invalid username or password"})
+		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Invalid email or password"})
 	}
 	var organization models.Organization
 	if err := db.GetDB().Where("id = ?", user.OrganizationID).First(&organization).Error; err != nil {

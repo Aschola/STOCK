@@ -19,5 +19,5 @@ type MPesaSettings struct {
 }
 
 func (MPesaSettings) TableName() string {
-	return "mpesasettings" // Explicitly set the table name to "stock"
+	return "mpesasettings" 
 }

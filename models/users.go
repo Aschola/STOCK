@@ -45,14 +45,15 @@ type Suppliers struct {
 	ID          uint   `json:"id" gorm:"primaryKey"`
 	Name        string `json:"name"`
 	Phonenumber int64  `json:"phone_number" gorm:"column:phone_number"`
-	// Phonenumber    int64          `json:"phone_number"`
-	//ProductID          uint64     `gorm:"not null" json:"product_id"`
+	Companyname    string          `json:"company_name"`
+	ProductID          uint64     `gorm:"not null" json:"product_id"`
 	OrganizationID uint `json:"organization_id" gorm:"not null"`
-	//OrganizationID uint           `json:"organization_id"`
+	contact_name string          `json:"contact_name"`
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `json:"deleted_at" gorm:"index"`
 	CreatedBy uint           `json:"created_by"`
+	Address string        `json:address`
 	Stock     []Stock        `json:"stock" gorm:"foreignKey:SupplierID"`
 }
 
