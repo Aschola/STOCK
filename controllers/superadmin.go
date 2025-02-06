@@ -435,7 +435,7 @@ func Login(c echo.Context) error {
 	log.Println("Login - Entry")
 
 	var loginData struct {
-		Email string `json:"username" binding:"required"`
+		Email string `json:"email" binding:"required"`
 		Password string `json:"password" binding:"required"`
 	}
 

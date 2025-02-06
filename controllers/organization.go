@@ -758,7 +758,7 @@ func AdminLogin(c echo.Context) error {
 	log.Println("AdminLogin - Entry")
 
 	var input struct {
-		Email string `json:"username" binding:"required"`
+		Email string `json:"email" binding:"required"`
 		Password string `json:"password" binding:"required"`
 	}
 
