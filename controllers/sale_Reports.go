@@ -107,6 +107,7 @@ func handleDBError(c echo.Context, err error, message string) error {
 // }
 
 // GetAllSales retrieves all sales records from the sales_transactions table and includes payment_mode
+// GetAllSales retrieves all sales records from the sales_transactions table and includes payment_mode and username
 func GetAllSales(c echo.Context) error {
 	log.Println("[INFO] Received request to fetch all sales records.")
 
@@ -122,12 +123,19 @@ func GetAllSales(c echo.Context) error {
 		return handleDBError(c, nil, "Failed to connect to the database")
 	}
 
-	// Retrieve all sales records for the given organizationID from the sales_transactions table
+	// Retrieve all sales records for the given organizationID and join with users table to get usernames
 	var sales []models.Sale
-	if err := db.Table("sales_transactions").
-		Select("sales_transactions.*, sales_transactions.payment_mode").
-		Where("sales_transactions.organizations_id = ?", organizationID).
-		Find(&sales).Error; err != nil {
+	query := db.Table("sales_transactions").
+		Select("sales_transactions.*, sales_transactions.payment_mode, users.username").
+		Joins("JOIN users ON sales_transactions.user_id = users.id").
+		Where("sales_transactions.organizations_id = ?", organizationID)
+
+	// Apply condition for Mpesa payment mode, only fetch completed transactions for Mpesa
+	query = query.Where("sales_transactions.payment_mode != ? OR (sales_transactions.payment_mode = ? AND sales_transactions.transaction_status = ?)",
+		"Mpesa", "Mpesa", "COMPLETED")
+
+	// Execute the query
+	if err := query.Find(&sales).Error; err != nil {
 		return handleDBError(c, err, "Error fetching sales records")
 	}
 
@@ -136,8 +144,7 @@ func GetAllSales(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusNotFound, "No sales records found")
 	}
 
-	// Prepare the response
-	// Group the sales by sale_id
+	// Prepare the response, group the sales by sale_id
 	saleMap := make(map[int64]map[string]interface{})
 	for _, sale := range sales {
 		// If the sale_id already exists in the map, append the product to the "products" list
@@ -158,10 +165,11 @@ func GetAllSales(c echo.Context) error {
 			saleMap[sale.SaleID] = map[string]interface{}{
 				"sale_id":          sale.SaleID,
 				"user_id":          sale.UserID,
+				"username":         sale.Username, // Include the username
 				"cash_received":    sale.CashReceived,
 				"date":             sale.Date.Format("2006-01-02T15:04:05Z"),
-				"organizations_id": sale.OrganizationsID, // Adding organizations_id
-				"payment_mode":     sale.PaymentMode,     // Adding payment_mode from sales_transactions
+				"organizations_id": sale.OrganizationsID,
+				"payment_mode":     sale.PaymentMode, // Adding payment_mode from sales_transactions
 				"products": []map[string]interface{}{
 					{
 						"category_name":       sale.CategoryName,
@@ -186,16 +194,6 @@ func GetAllSales(c echo.Context) error {
 
 	// Return the formatted response
 	return c.JSON(http.StatusOK, response)
-}
-
-// GetAllSal
-// Helper function to extract user IDs from sales
-func getUserIDsFromSales(sales []models.Sale) []int64 {
-	userIDs := make([]int64, 0, len(sales))
-	for _, sale := range sales {
-		userIDs = append(userIDs, sale.UserID)
-	}
-	return userIDs
 }
 
 // GetSalesByDate retrieves sales for a specific date

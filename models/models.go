@@ -1,6 +1,9 @@
 package models
 
-import "time"
+import (
+	//"strings"
+	"time"
+)
 
 type CategoriesOnly struct {
 	CategoryID      int    `json:"category_id"`
@@ -54,6 +57,7 @@ type Sale struct {
 	OrganizationsID   uint      `json:"organization_id"` 
 	TransactionID     string  `json:"transaction_id"`
 	TransactionStatus string `json:"status"`
+	Username string `json:"username"`
 
 
 }
