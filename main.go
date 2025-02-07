@@ -169,8 +169,8 @@ func main() {
 		log.Fatalf("[ERROR] Failed to initialize email config: %v", err)
 	}
 
-	//go controllers.CheckAndInsertMissingOrganizations(db.GetDB())
-	//go controllers.StartReorderLevelNotification(db.GetDB())
+	go controllers.CheckAndInsertMissingOrganizations(db.GetDB())
+	go controllers.StartReorderLevelNotification(db.GetDB())
 
 	e := echo.New()
 

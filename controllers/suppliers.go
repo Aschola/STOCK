@@ -109,6 +109,8 @@ func EditSupplier(c echo.Context) error {
     // Update fields
     existingSupplier.Name = updateData.Name
     existingSupplier.Phonenumber = updateData.Phonenumber
+    existingSupplier.CompanyName = updateData.CompanyName
+    existingSupplier.Address = updateData.Address
     existingSupplier.UpdatedAt = time.Now()
 
     // Save updates
