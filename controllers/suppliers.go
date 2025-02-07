@@ -325,7 +325,6 @@ func DeleteSupplier(c echo.Context) error {
 func GetAllSuppliers(c echo.Context) error {
     log.Println("GetAllSuppliers - Entry")
 
-    // Retrieve organizationID from the context (from token)
     organizationIDRaw := c.Get("organizationID")
     if organizationIDRaw == nil {
         log.Println("GetAllSuppliers - organizationID is not set in the context")
@@ -338,19 +337,18 @@ func GetAllSuppliers(c echo.Context) error {
         return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
     }
 
-    // Log the organization ID
     log.Printf("GetAllSuppliers - OrganizationID: %d", organizationID)
 
-    // Query suppliers linked to the organization
     query := `
-        SELECT s.id AS supplier_id,
-               s.name AS supplier_name,
-               s.phone_number,
-               s.organization_id,
-               s.address,
-               s.company_name,
-               s.created_at,
-               s.deleted_at
+        SELECT 
+            s.id AS supplier_id,
+            s.name AS supplier_name,
+            s.phone_number,
+            s.organization_id,
+            s.company_name,
+            s.address,
+            s.created_at,
+            s.deleted_at
         FROM suppliers s
         LEFT JOIN stock st ON st.supplier_id = s.id
         WHERE s.organization_id = ? AND s.deleted_at IS NULL
@@ -372,20 +370,19 @@ func GetAllSuppliers(c echo.Context) error {
             supplierName   *string
             phoneNumber    *string
             orgID         uint
+            company_name  *string
             address       *string
-            companyName   *string
             createdAt     *string
             deletedAt     *string
         )
 
-        // Scan row data into nullable variables
         if err := rows.Scan(
             &supplierID,
             &supplierName,
             &phoneNumber,
             &orgID,
+            &company_name,
             &address,
-            &companyName,
             &createdAt,
             &deletedAt,
         ); err != nil {
@@ -393,14 +390,13 @@ func GetAllSuppliers(c echo.Context) error {
             return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Error scanning suppliers data"})
         }
 
-        // Construct supplier data with null checks
         supplier := map[string]interface{}{
             "id":              supplierID,
             "name":            nilStringToEmpty(supplierName),
             "phone_number":    nilStringToEmpty(phoneNumber),
-            "address":         nilStringToEmpty(address),
-            "company_name":    nilStringToEmpty(companyName),
             "organization_id": orgID,
+            "company_name":    nilStringToEmpty(company_name),
+            "address":         nilStringToEmpty(address),
             "created_at":      createdAt,
             "deleted_at":      deletedAt,
         }
@@ -412,7 +408,6 @@ func GetAllSuppliers(c echo.Context) error {
     return c.JSON(http.StatusOK, suppliers)
 }
 
-// GetSupplier retrieves a single supplier by ID
 func GetSupplier(c echo.Context) error {
     log.Println("GetSupplier - Entry")
 
@@ -440,8 +435,8 @@ func GetSupplier(c echo.Context) error {
             s.name AS supplier_name,
             s.phone_number,
             s.organization_id,
-            s.address,
             s.company_name,
+            s.address,
             s.created_at,
             s.deleted_at
         FROM suppliers s
@@ -462,8 +457,8 @@ func GetSupplier(c echo.Context) error {
             supplierName *string
             phoneNumber  *string
             orgID       uint
+            company_name *string
             address     *string
-            companyName *string
             createdAt   *string
             deletedAt   *string
         )
@@ -473,8 +468,8 @@ func GetSupplier(c echo.Context) error {
             &supplierName,
             &phoneNumber,
             &orgID,
+            &company_name,
             &address,
-            &companyName,
             &createdAt,
             &deletedAt,
         ); err != nil {
@@ -487,8 +482,8 @@ func GetSupplier(c echo.Context) error {
             "name":            nilStringToEmpty(supplierName),
             "phone_number":    nilStringToEmpty(phoneNumber),
             "organization_id": orgID,
+            "company_name":    nilStringToEmpty(company_name),
             "address":         nilStringToEmpty(address),
-            "company_name":    nilStringToEmpty(companyName),
             "created_at":      createdAt,
             "deleted_at":      deletedAt,
         }

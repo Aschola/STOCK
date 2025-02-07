@@ -45,7 +45,7 @@ type Suppliers struct {
 	ID          uint   `json:"id" gorm:"primaryKey"`
 	Name        string `json:"name"`
 	Phonenumber int64  `json:"phone_number" gorm:"column:phone_number"`
-	Companyname    string          `json:"company_name"`
+	CompanyName    string          `json:"company_name"`
 	ProductID          uint64     `gorm:"not null" json:"product_id"`
 	OrganizationID uint `json:"organization_id" gorm:"not null"`
 	contact_name string          `json:"contact_name"`
