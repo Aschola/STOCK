@@ -156,100 +156,172 @@ func DeleteSupplier(c echo.Context) error {
     return c.JSON(http.StatusOK, echo.Map{"message": "Supplier deleted successfully"})
 }
 
-// GetAllSuppliers retrieves all suppliers
+// Controller function
 // func GetAllSuppliers(c echo.Context) error {
 //     log.Println("GetAllSuppliers - Entry")
 
-//     var suppliers []models.Suppliers
-
-//     // Get all suppliers, excluding soft-deleted ones
-//     if err := db.GetDB().Find(&suppliers).Error; err != nil {
-//         log.Printf("GetAllSuppliers - Query error: %v", err)
-//         return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
+//     // Retrieve organizationID from the context (from token)
+//     organizationIDRaw := c.Get("organizationID")
+//     if organizationIDRaw == nil {
+//         log.Println("GetAllSuppliers - organizationID is not set in the context")
+//         return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
 //     }
 
-//     log.Printf("GetAllSuppliers - Retrieved %d suppliers", len(suppliers))
-//     log.Println("GetAllSuppliers - Exit")
-//     return c.JSON(http.StatusOK, suppliers)
-// }
+//     organizationID, ok := organizationIDRaw.(uint)
+//     if !ok {
+//         log.Println("GetAllSuppliers - organizationID is not of type uint")
+//         return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
+//     }
 
-// func GetAllSuppliers(c echo.Context) error {
+//     // Log the organization ID
+//     log.Printf("GetAllSuppliers - OrganizationID: %d", organizationID)
+
+//     // Query suppliers linked to the organization (without product_name)
 //     query := `
-//         SELECT 
-//             s.id AS supplier_id,
-//             s.name AS supplier_name,
-//             s.organization_id,
-//             s.phone_number,
-//             s.created_at,
-//             s.deleted_at,
-//             p.product_name
-//         FROM 
-//             suppliers s
-//         LEFT JOIN 
-//             stock st ON st.supplier_id = s.id
-//         LEFT JOIN 
-//             products p ON p.product_id = st.product_id
-//         WHERE 
-//             s.deleted_at IS NULL;
+//         SELECT s.id AS supplier_id,
+//                s.name AS supplier_name,
+//                s.phone_number,
+//                s.organization_id,
+//                s.address,
+//                s.company_name,
+//                s.created_at,
+//                s.deleted_at
+//         FROM suppliers s
+//         LEFT JOIN stock st ON st.supplier_id = s.id -- Ensure supplier is included even if they don't have stock
+//         WHERE s.organization_id = ? AND s.deleted_at IS NULL
 //     `
 
-//     rows, err := db.GetDB().Raw(query).Rows()
+//     var suppliers []map[string]interface{}
+
+//     // Execute the query and pass the organizationID as a parameter
+//     rows, err := db.GetDB().Raw(query, organizationID).Rows()
 //     if err != nil {
 //         log.Printf("GetAllSuppliers - Query error: %v", err)
 //         return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not retrieve suppliers"})
 //     }
 //     defer rows.Close()
 
-//     suppliers := map[uint]map[string]interface{}{}
-
+//     // Iterate through rows and scan the data into a slice
 //     for rows.Next() {
 //         var supplierID uint
-//         var supplierName string
-//         var organizationID uint
-//         var phoneNumber int64
-//         var createdAt, deletedAt *string
-//         var productName *string
+//         var supplierName, phoneNumber string
+//         var Companyname string
+//         var address string
+//         var orgID uint
+//         var createdAt, deletedAt *string 
 
-//         if err := rows.Scan(&supplierID, &supplierName, &organizationID, &phoneNumber, &createdAt, &deletedAt, &productName); err != nil {
+//         // Scan row data into variables
+//         if err := rows.Scan(&supplierID, &supplierName, &phoneNumber, &Companyname, &address, &orgID, &createdAt, &deletedAt); err != nil {
 //             log.Printf("GetAllSuppliers - Row scan error: %v", err)
 //             return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Error scanning suppliers data"})
 //         }
 
-//         // Check if supplier already exists in the map
-//         if _, exists := suppliers[supplierID]; !exists {
-//             // Initialize supplier details
-//             suppliers[supplierID] = map[string]interface{}{
-//                 "id":             supplierID,
-//                 "name":           supplierName,
-//                 "organization_id": organizationID,
-//                 "phone_number":   phoneNumber,
-//                 "created_at":     createdAt,
-//                 "deleted_at":     deletedAt,
-//                 "stock":          []map[string]interface{}{},
-//             }
+//         // Construct supplier data
+//         supplier := map[string]interface{}{
+//             "id":              supplierID,
+//             "name":            supplierName,
+//             "phone_number":    phoneNumber,
+//             "address":         address,
+//             "company_name":    Companyname,
+//             "organization_id": orgID,
+//             "created_at":      createdAt,
+//             "deleted_at":      deletedAt,
 //         }
 
-//         // Add product_name to the stock list if available
-//         if productName != nil {
-//             suppliers[supplierID]["stock"] = append(
-//                 suppliers[supplierID]["stock"].([]map[string]interface{}),
-//                 map[string]interface{}{
-//                     "product_name": *productName,
-//                 },
-//             )
-//         }
+//         // Append the supplier to the list
+//         suppliers = append(suppliers, supplier)
 //     }
 
-//     // Convert map to a slice
-//     supplierList := []map[string]interface{}{}
-//     for _, supplier := range suppliers {
-//         supplierList = append(supplierList, supplier)
-//     }
-
-//     return c.JSON(http.StatusOK, supplierList)
+//     // Return the suppliers data as a response
+//     log.Printf("GetAllSuppliers - Retrieved %d suppliers", len(suppliers))
+//     return c.JSON(http.StatusOK, suppliers)
 // }
 
-// Controller function
+
+// // GetSupplier retrieves a single supplier by ID
+// func GetSupplier(c echo.Context) error {
+//     log.Println("GetSupplier - Entry")
+
+//     // Get supplier ID from path
+//     id, err := strconv.Atoi(c.Param("id"))
+//     if err != nil {
+//         log.Printf("GetSupplier - Invalid ID: %v", err)
+//         return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid supplier ID"})
+//     }
+
+//     // Retrieve organizationID from the context
+//     organizationIDRaw := c.Get("organizationID")
+//     if organizationIDRaw == nil {
+//         log.Println("GetSupplier - organizationID not found in context")
+//         return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
+//     }
+
+//     organizationID, ok := organizationIDRaw.(uint)
+//     if !ok {
+//         log.Println("GetSupplier - Invalid organizationID")
+//         return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
+//     }
+
+//     // Query supplier details without product_name
+//     query := `
+//         SELECT 
+//             s.id AS supplier_id,
+//             s.name AS supplier_name,
+//             s.phone_number,
+//             s.organization_id,
+//             s.address,
+//             s.company_name,
+//             s.created_at,
+//             s.deleted_at
+//         FROM suppliers s
+//         WHERE s.id = ? AND s.organization_id = ? AND s.deleted_at IS NULL
+//     `
+
+//     var supplierDetails []map[string]interface{}
+//     rows, err := db.GetDB().Raw(query, id, organizationID).Rows()
+//     if err != nil {
+//         log.Printf("GetSupplier - Query error: %v", err)
+//         return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not retrieve supplier"})
+//     }
+//     defer rows.Close()
+
+//     for rows.Next() {
+//         var supplierID uint
+//         var supplierName, phoneNumber *string
+//         var orgID uint
+//         var createdAt, deletedAt *string
+//         var Companyname string
+//         var address string
+
+//         if err := rows.Scan(&supplierID, &supplierName, &phoneNumber, &Companyname, &address, &orgID, &createdAt, &deletedAt); err != nil {
+//             log.Printf("GetSupplier - Row scan error: %v", err)
+//             return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Error scanning supplier data"})
+//         }
+
+//         supplier := map[string]interface{}{
+//             "id":              supplierID,
+//             "name":            supplierName,
+//             "phone_number":    phoneNumber,
+//             "organization_id": orgID,
+//             "address":         address,
+//             "company_name":    Companyname,
+//             "created_at":      createdAt,
+//             "deleted_at":      deletedAt,
+//         }
+
+//         supplierDetails = append(supplierDetails, supplier)
+//     }
+
+//     // Check if no suppliers were found
+//     if len(supplierDetails) == 0 {
+//         log.Println("GetSupplier - No supplier found for the given ID")
+//         return c.JSON(http.StatusNotFound, echo.Map{"error": "Supplier not found"})
+//     }
+
+//     log.Println("GetSupplier - Supplier retrieved successfully")
+//     log.Println("GetSupplier - Exit")
+//     return c.JSON(http.StatusOK, supplierDetails)
+// }
 func GetAllSuppliers(c echo.Context) error {
     log.Println("GetAllSuppliers - Entry")
 
@@ -269,7 +341,7 @@ func GetAllSuppliers(c echo.Context) error {
     // Log the organization ID
     log.Printf("GetAllSuppliers - OrganizationID: %d", organizationID)
 
-    // Query suppliers linked to the organization (without product_name)
+    // Query suppliers linked to the organization
     query := `
         SELECT s.id AS supplier_id,
                s.name AS supplier_name,
@@ -280,13 +352,13 @@ func GetAllSuppliers(c echo.Context) error {
                s.created_at,
                s.deleted_at
         FROM suppliers s
-        LEFT JOIN stock st ON st.supplier_id = s.id -- Ensure supplier is included even if they don't have stock
+        LEFT JOIN stock st ON st.supplier_id = s.id
         WHERE s.organization_id = ? AND s.deleted_at IS NULL
+        GROUP BY s.id
     `
 
     var suppliers []map[string]interface{}
 
-    // Execute the query and pass the organizationID as a parameter
     rows, err := db.GetDB().Raw(query, organizationID).Rows()
     if err != nil {
         log.Printf("GetAllSuppliers - Query error: %v", err)
@@ -294,55 +366,62 @@ func GetAllSuppliers(c echo.Context) error {
     }
     defer rows.Close()
 
-    // Iterate through rows and scan the data into a slice
     for rows.Next() {
-        var supplierID uint
-        var supplierName, phoneNumber string
-        var Companyname string
-        var address string
-        var orgID uint
-        var createdAt, deletedAt *string 
+        var (
+            supplierID     uint
+            supplierName   *string
+            phoneNumber    *string
+            orgID         uint
+            address       *string
+            companyName   *string
+            createdAt     *string
+            deletedAt     *string
+        )
 
-        // Scan row data into variables
-        if err := rows.Scan(&supplierID, &supplierName, &phoneNumber, &Companyname, &address, &orgID, &createdAt, &deletedAt); err != nil {
+        // Scan row data into nullable variables
+        if err := rows.Scan(
+            &supplierID,
+            &supplierName,
+            &phoneNumber,
+            &orgID,
+            &address,
+            &companyName,
+            &createdAt,
+            &deletedAt,
+        ); err != nil {
             log.Printf("GetAllSuppliers - Row scan error: %v", err)
             return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Error scanning suppliers data"})
         }
 
-        // Construct supplier data
+        // Construct supplier data with null checks
         supplier := map[string]interface{}{
             "id":              supplierID,
-            "name":            supplierName,
-            "phone_number":    phoneNumber,
-            "address":         address,
-            "company_name":    Companyname,
+            "name":            nilStringToEmpty(supplierName),
+            "phone_number":    nilStringToEmpty(phoneNumber),
+            "address":         nilStringToEmpty(address),
+            "company_name":    nilStringToEmpty(companyName),
             "organization_id": orgID,
             "created_at":      createdAt,
             "deleted_at":      deletedAt,
         }
 
-        // Append the supplier to the list
         suppliers = append(suppliers, supplier)
     }
 
-    // Return the suppliers data as a response
     log.Printf("GetAllSuppliers - Retrieved %d suppliers", len(suppliers))
     return c.JSON(http.StatusOK, suppliers)
 }
-
 
 // GetSupplier retrieves a single supplier by ID
 func GetSupplier(c echo.Context) error {
     log.Println("GetSupplier - Entry")
 
-    // Get supplier ID from path
     id, err := strconv.Atoi(c.Param("id"))
     if err != nil {
         log.Printf("GetSupplier - Invalid ID: %v", err)
         return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid supplier ID"})
     }
 
-    // Retrieve organizationID from the context
     organizationIDRaw := c.Get("organizationID")
     if organizationIDRaw == nil {
         log.Println("GetSupplier - organizationID not found in context")
@@ -355,7 +434,6 @@ func GetSupplier(c echo.Context) error {
         return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
     }
 
-    // Query supplier details without product_name
     query := `
         SELECT 
             s.id AS supplier_id,
@@ -379,25 +457,38 @@ func GetSupplier(c echo.Context) error {
     defer rows.Close()
 
     for rows.Next() {
-        var supplierID uint
-        var supplierName, phoneNumber *string
-        var orgID uint
-        var createdAt, deletedAt *string
-        var Companyname string
-        var address string
+        var (
+            supplierID   uint
+            supplierName *string
+            phoneNumber  *string
+            orgID       uint
+            address     *string
+            companyName *string
+            createdAt   *string
+            deletedAt   *string
+        )
 
-        if err := rows.Scan(&supplierID, &supplierName, &phoneNumber, &Companyname, &address, &orgID, &createdAt, &deletedAt); err != nil {
+        if err := rows.Scan(
+            &supplierID,
+            &supplierName,
+            &phoneNumber,
+            &orgID,
+            &address,
+            &companyName,
+            &createdAt,
+            &deletedAt,
+        ); err != nil {
             log.Printf("GetSupplier - Row scan error: %v", err)
             return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Error scanning supplier data"})
         }
 
         supplier := map[string]interface{}{
             "id":              supplierID,
-            "name":            supplierName,
-            "phone_number":    phoneNumber,
+            "name":            nilStringToEmpty(supplierName),
+            "phone_number":    nilStringToEmpty(phoneNumber),
             "organization_id": orgID,
-            "address":         address,
-            "company_name":    Companyname,
+            "address":         nilStringToEmpty(address),
+            "company_name":    nilStringToEmpty(companyName),
             "created_at":      createdAt,
             "deleted_at":      deletedAt,
         }
@@ -405,13 +496,19 @@ func GetSupplier(c echo.Context) error {
         supplierDetails = append(supplierDetails, supplier)
     }
 
-    // Check if no suppliers were found
     if len(supplierDetails) == 0 {
         log.Println("GetSupplier - No supplier found for the given ID")
         return c.JSON(http.StatusNotFound, echo.Map{"error": "Supplier not found"})
     }
 
     log.Println("GetSupplier - Supplier retrieved successfully")
-    log.Println("GetSupplier - Exit")
-    return c.JSON(http.StatusOK, supplierDetails)
+    return c.JSON(http.StatusOK, supplierDetails[0])
+}
+
+// Helper function to convert nil string pointers to empty strings
+func nilStringToEmpty(s *string) string {
+    if s == nil {
+        return ""
+    }
+    return *s
 }
