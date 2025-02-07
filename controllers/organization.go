@@ -495,7 +495,7 @@ func AdminAddUser(c echo.Context) error {
     input.Password = hashedPassword
     input.OrganizationID = organizationID
     input.CreatedBy = userID
-    input.IsActive = false 
+    input.IsActive = true 
 
     // Start database transaction
     tx := db.GetDB().Begin()
@@ -795,7 +795,7 @@ func AdminLogin(c echo.Context) error {
 
 	if err := utils.CheckPasswordHash(input.Password, user.Password); err != nil {
 		log.Printf("AdminLogin - CheckPasswordHash error: %v", err)
-		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Invalid email or password"})
+		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "invalid password"})
 	}
 	// userID := input.ID
 

@@ -93,7 +93,6 @@ func EditSupplier(c echo.Context) error {
         return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid supplier ID"})
     }
 
-    // Find existing supplier
     var existingSupplier models.Suppliers
     if err := db.GetDB().First(&existingSupplier, id).Error; err != nil {
         log.Printf("UpdateSupplier - Supplier not found: %v", err)
