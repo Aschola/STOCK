@@ -275,6 +275,8 @@ func GetAllSuppliers(c echo.Context) error {
                s.name AS supplier_name,
                s.phone_number,
                s.organization_id,
+               s.address,
+               s.company_name,
                s.created_at,
                s.deleted_at
         FROM suppliers s
@@ -296,8 +298,10 @@ func GetAllSuppliers(c echo.Context) error {
     for rows.Next() {
         var supplierID uint
         var supplierName, phoneNumber string
+        var Companyname string
+        var address string
         var orgID uint
-        var createdAt, deletedAt *string // Use pointers to handle NULL values
+        var createdAt, deletedAt *string 
 
         // Scan row data into variables
         if err := rows.Scan(&supplierID, &supplierName, &phoneNumber, &orgID, &createdAt, &deletedAt); err != nil {
@@ -310,6 +314,8 @@ func GetAllSuppliers(c echo.Context) error {
             "id":              supplierID,
             "name":            supplierName,
             "phone_number":    phoneNumber,
+            "address":         address,
+            "company_name":    Companyname,
             "organization_id": orgID,
             "created_at":      createdAt,
             "deleted_at":      deletedAt,
@@ -355,6 +361,8 @@ func GetSupplier(c echo.Context) error {
             s.id AS supplier_id,
             s.name AS supplier_name,
             s.organization_id,
+            s.address,
+            s.company_name,
             s.created_at,
             s.deleted_at
         FROM suppliers s
@@ -374,6 +382,8 @@ func GetSupplier(c echo.Context) error {
         var supplierName string
         var orgID uint
         var createdAt, deletedAt *string
+        var Companyname string
+        var address string
 
         if err := rows.Scan(&supplierID, &supplierName, &orgID, &createdAt, &deletedAt); err != nil {
             log.Printf("GetSupplier - Row scan error: %v", err)
@@ -384,6 +394,8 @@ func GetSupplier(c echo.Context) error {
             "id":              supplierID,
             "name":            supplierName,
             "organization_id": orgID,
+            "address":         address,
+            "company_name":    Companyname,
             "created_at":      createdAt,
             "deleted_at":      deletedAt,
         }

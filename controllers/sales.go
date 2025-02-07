@@ -410,18 +410,17 @@ func createPendingMpesaSales(tx *gorm.DB, items []models.SaleItem, saleID int64,
 
 // New function to handle Mpesa callback and update stock
 func UpdateMpesaTransactionStatus(transactionID string, newStatus string) error {
-	log.Printf("updating transaction status")
 	db := getDB()
-	if db == nil {
-		return fmt.Errorf("database connection failed")
-	}
+    if db == nil {
+        return fmt.Errorf("database connection failed")
+    }
 
-	tx := db.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-		}
-	}()
+    tx := db.Begin()
+    defer func() {
+        if r := recover(); r != nil {
+            tx.Rollback()
+        }
+    }()
 	defer tx.Rollback()
 
 	// Update transaction status in the sales table
@@ -437,7 +436,7 @@ func UpdateMpesaTransactionStatus(transactionID string, newStatus string) error 
 		}		
 
 		// If transaction is complete, update stock
-		if newStatus == "COMPLETE" {
+		if sale.TransactionStatus == "COMPLETED" {
 			var stock models.Stock
 			if err := tx.First(&stock, "product_id = ?", sale.ProductID).Error; err != nil {
 				return fmt.Errorf("error fetching stock: %v", err)
@@ -451,9 +450,10 @@ func UpdateMpesaTransactionStatus(transactionID string, newStatus string) error 
 	}
 
 	if err := tx.Commit().Error; err != nil {
-		return fmt.Errorf("error committing transaction: %v", err)
-	}
+        tx.Rollback()
+        return fmt.Errorf("error committing transaction: %v", err)
+    }
 
-	return nil
+    return nil
 }
 

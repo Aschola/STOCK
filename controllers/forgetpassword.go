@@ -71,7 +71,7 @@ func generateResetToken() (string, error) {
 	}
 	
 	token := base64.URLEncoding.EncodeToString(b)
-	log.Printf("[DEBUG] Token generated successfully: %s", token[:10]) // Log only first 10 chars for security
+	log.Printf("[DEBUG] Token generated successfully: %s", token[:10]) 
 	return token, nil
 }
 
@@ -195,8 +195,10 @@ func ForgotPassword(c echo.Context) error {
 		log.Printf("[ERROR] Failed to send reset email: %v", err)
 		return c.JSON(500, map[string]string{"error": "Failed to send reset email"})
 	}
+	log.Printf("[INFO] Redirecting user to reset password page for email: %s", email)
+	return c.Redirect(302, "/reset-password")
 
-	log.Printf("[INFO] Password reset process completed successfully for email: %s", email)
+	//log.Printf("[INFO] Password reset process completed successfully for email: %s", email)
 	return c.JSON(200, map[string]string{"message": "link sent to your email"})
 }
 

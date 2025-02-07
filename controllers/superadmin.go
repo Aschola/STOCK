@@ -485,6 +485,7 @@ func Login(c echo.Context) error {
 		"organization": user.OrganizationID,
 		"token": token,
 		"role_name": user.RoleName,
+		"redirectUrl": "/login",
 	})
 }
 
