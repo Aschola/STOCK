@@ -304,7 +304,7 @@ func GetAllSuppliers(c echo.Context) error {
         var createdAt, deletedAt *string 
 
         // Scan row data into variables
-        if err := rows.Scan(&supplierID, &supplierName, &phoneNumber, &orgID, &createdAt, &deletedAt); err != nil {
+        if err := rows.Scan(&supplierID, &supplierName, &phoneNumber, &Companyname, &address, &orgID, &createdAt, &deletedAt); err != nil {
             log.Printf("GetAllSuppliers - Row scan error: %v", err)
             return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Error scanning suppliers data"})
         }
@@ -360,6 +360,7 @@ func GetSupplier(c echo.Context) error {
         SELECT 
             s.id AS supplier_id,
             s.name AS supplier_name,
+            s.phone_number,
             s.organization_id,
             s.address,
             s.company_name,
@@ -379,13 +380,13 @@ func GetSupplier(c echo.Context) error {
 
     for rows.Next() {
         var supplierID uint
-        var supplierName string
+        var supplierName, phoneNumber *string
         var orgID uint
         var createdAt, deletedAt *string
         var Companyname string
         var address string
 
-        if err := rows.Scan(&supplierID, &supplierName, &orgID, &createdAt, &deletedAt); err != nil {
+        if err := rows.Scan(&supplierID, &supplierName, &phoneNumber, &Companyname, &address, &orgID, &createdAt, &deletedAt); err != nil {
             log.Printf("GetSupplier - Row scan error: %v", err)
             return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Error scanning supplier data"})
         }
@@ -393,6 +394,7 @@ func GetSupplier(c echo.Context) error {
         supplier := map[string]interface{}{
             "id":              supplierID,
             "name":            supplierName,
+            "phone_number":    phoneNumber,
             "organization_id": orgID,
             "address":         address,
             "company_name":    Companyname,
