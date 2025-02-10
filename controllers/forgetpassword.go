@@ -23,6 +23,7 @@ type ForgotPasswordRequest struct {
 
 type ResetPasswordRequest struct {
 	NewPassword string `json:"new_password"`
+	token 	 string `json:"token"`
 }
 
 // EmailConfig struct for email settings
@@ -202,6 +203,7 @@ func ForgotPassword(c echo.Context) error {
 }
 
 func ResetPassword(c echo.Context) error {
+
 	log.Println("[INFO] Processing password reset request...")
 	
 	token := strings.TrimSpace(c.QueryParam("token"))
@@ -223,7 +225,7 @@ func ResetPassword(c echo.Context) error {
 		return c.JSON(400, map[string]string{"error": "Password must be at least 8 characters long"})
 	}
 
-	log.Printf("[DEBUG] Looking up reset token: %s", token[:10]) // Log only first 10 chars for security
+	log.Printf("[DEBUG] Looking up reset token: %s", token[:10]) 
 	var resetToken models.ResetToken
 	if err := db.GetDB().Where("token = ? AND used = ? AND expires_at > ?", 
 		token, false, time.Now()).First(&resetToken).Error; err != nil {
