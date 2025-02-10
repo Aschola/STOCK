@@ -6,6 +6,10 @@ import (
 	"fmt"
 	"log"
 	"net/smtp"
+	"net/http"
+	"bytes"
+    "encoding/json"
+	"io"
 	"os"
 	"stock/db"
 	"stock/models"
@@ -25,6 +29,7 @@ type ResetPasswordRequest struct {
 	NewPassword string `json:"new_password"`
 	token 	 string `json:"token"`
 }
+
 
 // EmailConfig struct for email settings
 type EmailConfigs struct {
@@ -202,64 +207,185 @@ func ForgotPassword(c echo.Context) error {
 	return c.JSON(200, map[string]string{"message": "link sent to your email"})
 }
 
-func ResetPassword(c echo.Context) error {
+// func ResetPassword(c echo.Context) error {
 
-	log.Println("[INFO] Processing password reset request...")
+// 	log.Println("[INFO] Processing password reset request...")
 	
-	token := strings.TrimSpace(c.QueryParam("token"))
-	if token == "" {
-		log.Println("[ERROR] Reset token is missing")
-		return c.JSON(400, map[string]string{"error": "Reset token is required"})
-	}
+// 	token := strings.TrimSpace(c.QueryParam("token"))
+// 	if token == "" {
+// 		log.Println("[ERROR] Reset token is missing")
+// 		return c.JSON(400, map[string]string{"error": "Reset token is required"})
+// 	}
 
-	// Bind JSON request
-	req := new(ResetPasswordRequest)
-	if err := c.Bind(req); err != nil {
-		log.Printf("[ERROR] Failed to bind request: %v", err)
-		return c.JSON(400, map[string]string{"error": "Invalid request format"})
-	}
+// 	// Bind JSON request
+// 	req := new(ResetPasswordRequest)
+// 	if err := c.Bind(req); err != nil {
+// 		log.Printf("[ERROR] Failed to bind request: %v", err)
+// 		return c.JSON(400, map[string]string{"error": "Invalid request format"})
+// 	}
 
-	newPassword := strings.TrimSpace(req.NewPassword)
-	if len(newPassword) < 8 {
-		log.Println("[ERROR] Password is too short")
-		return c.JSON(400, map[string]string{"error": "Password must be at least 8 characters long"})
-	}
+// 	newPassword := strings.TrimSpace(req.NewPassword)
+// 	if len(newPassword) < 8 {
+// 		log.Println("[ERROR] Password is too short")
+// 		return c.JSON(400, map[string]string{"error": "Password must be at least 8 characters long"})
+// 	}
 
-	log.Printf("[DEBUG] Looking up reset token: %s", token[:10]) 
-	var resetToken models.ResetToken
-	if err := db.GetDB().Where("token = ? AND used = ? AND expires_at > ?", 
-		token, false, time.Now()).First(&resetToken).Error; err != nil {
-		log.Printf("[ERROR] Invalid or expired reset token: %v", err)
-		return c.JSON(400, map[string]string{"error": "Invalid or expired reset token"})
-	}
+// 	log.Printf("[DEBUG] Looking up reset token: %s", token[:10]) 
+// 	var resetToken models.ResetToken
+// 	if err := db.GetDB().Where("token = ? AND used = ? AND expires_at > ?", 
+// 		token, false, time.Now()).First(&resetToken).Error; err != nil {
+// 		log.Printf("[ERROR] Invalid or expired reset token: %v", err)
+// 		return c.JSON(400, map[string]string{"error": "Invalid or expired reset token"})
+// 	}
 
-	log.Printf("[DEBUG] Found valid reset token for user ID: %d", resetToken.UserID)
-	var user models.User
-	if err := db.GetDB().First(&user, resetToken.UserID).Error; err != nil {
-		log.Printf("[ERROR] Failed to find user: %v", err)
-		return c.JSON(500, map[string]string{"error": "Internal server error"})
-	}
+// 	log.Printf("[DEBUG] Found valid reset token for user ID: %d", resetToken.UserID)
+// 	var user models.User
+// 	if err := db.GetDB().First(&user, resetToken.UserID).Error; err != nil {
+// 		log.Printf("[ERROR] Failed to find user: %v", err)
+// 		return c.JSON(500, map[string]string{"error": "Internal server error"})
+// 	}
 
-	// Hash the new password
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
-	if err != nil {
-		log.Printf("[ERROR] Failed to hash password: %v", err)
-		return c.JSON(500, map[string]string{"error": "Failed to process new password"})
-	}
+// 	// Hash the new password
+// 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+// 	if err != nil {
+// 		log.Printf("[ERROR] Failed to hash password: %v", err)
+// 		return c.JSON(500, map[string]string{"error": "Failed to process new password"})
+// 	}
 
-	log.Printf("[DEBUG] Updating password for user ID: %d", user.ID)
-	user.Password = string(hashedPassword)
-	if err := db.GetDB().Save(&user).Error; err != nil {
-		log.Printf("[ERROR] Failed to save new password: %v", err)
-		return c.JSON(500, map[string]string{"error": "Failed to update password"})
-	}
+// 	log.Printf("[DEBUG] Updating password for user ID: %d", user.ID)
+// 	user.Password = string(hashedPassword)
+// 	if err := db.GetDB().Save(&user).Error; err != nil {
+// 		log.Printf("[ERROR] Failed to save new password: %v", err)
+// 		return c.JSON(500, map[string]string{"error": "Failed to update password"})
+// 	}
 
-	log.Printf("[DEBUG] Marking reset token as used for user ID: %d", user.ID)
-	resetToken.Used = true
-	if err := db.GetDB().Save(&resetToken).Error; err != nil {
-		log.Printf("[ERROR] Failed to mark token as used: %v", err)
-	}
+// 	log.Printf("[DEBUG] Marking reset token as used for user ID: %d", user.ID)
+// 	resetToken.Used = true
+// 	if err := db.GetDB().Save(&resetToken).Error; err != nil {
+// 		log.Printf("[ERROR] Failed to mark token as used: %v", err)
+// 	}
 
-	log.Printf("[INFO] Password reset completed successfully for user ID: %d", user.ID)
-	return c.JSON(200, map[string]string{"message": "Password reset successfully"})
+// 	log.Printf("[INFO] Password reset completed successfully for user ID: %d", user.ID)
+// 	return c.JSON(200, map[string]string{"message": "Password reset successfully"})
+// }
+func ResetPassword(c echo.Context) error {
+    log.Println("[INFO] Processing password reset request...")
+
+    // Read the raw body first
+    body, err := io.ReadAll(c.Request().Body)
+    if err != nil {
+        log.Printf("[ERROR] Failed to read request body: %v", err)
+        return c.JSON(http.StatusBadRequest, map[string]string{"error": "Could not read request body"})
+    }
+    
+    // Log the raw request body
+    log.Printf("[DEBUG] Raw request body: %s", string(body))
+
+    // Restore the body for further processing
+    c.Request().Body = io.NopCloser(bytes.NewBuffer(body))
+
+    // Create a map to manually parse the JSON
+    var requestMap map[string]interface{}
+    if err := json.Unmarshal(body, &requestMap); err != nil {
+        log.Printf("[ERROR] Failed to parse JSON: %v", err)
+        return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid JSON format"})
+    }
+
+    // Log the parsed map
+    log.Printf("[DEBUG] Parsed request map: %+v", requestMap)
+
+    // Bind JSON request
+    req := new(ResetPasswordRequest)
+    if err := c.Bind(req); err != nil {
+        log.Printf("[ERROR] Failed to bind request: %v", err)
+        return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request format"})
+    }
+
+    // Log the bound request
+    log.Printf("[DEBUG] Bound request struct: %+v", req)
+
+    // Extract token and password manually
+    token, ok := requestMap["token"].(string)
+    if !ok {
+        log.Println("[ERROR] Token not found or invalid in request")
+        return c.JSON(http.StatusBadRequest, map[string]string{"error": "Reset token is required"})
+    }
+
+    newPassword, ok := requestMap["new_password"].(string)
+    if !ok {
+        log.Println("[ERROR] New password not found or invalid in request")
+        return c.JSON(http.StatusBadRequest, map[string]string{"error": "New password is required"})
+    }
+
+    // Trim and validate
+    token = strings.TrimSpace(token)
+    newPassword = strings.TrimSpace(newPassword)
+
+    // Validate token and password
+    if token == "" {
+        log.Println("[ERROR] Reset token is missing")
+        return c.JSON(http.StatusBadRequest, map[string]string{"error": "Reset token is required"})
+    }
+    if len(newPassword) < 8 {
+        log.Println("[ERROR] Password is too short")
+        return c.JSON(http.StatusBadRequest, map[string]string{"error": "Password must be at least 8 characters long"})
+    }
+
+    // Begin a transaction
+    tx := db.GetDB().Begin()
+    defer func() {
+        if r := recover(); r != nil {
+            tx.Rollback()
+        }
+    }()
+
+    log.Printf("[DEBUG] Looking up reset token: %s", token[:10])
+
+    var resetToken models.ResetToken
+    err = tx.Where("token = ? AND used = ? AND expires_at > ?", token, false, time.Now()).
+        First(&resetToken).Error
+    if err != nil {
+        log.Printf("[ERROR] Invalid or expired reset token: %v", err)
+        tx.Rollback()
+        return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid or expired reset token"})
+    }
+
+    log.Printf("[DEBUG] Found valid reset token for user ID: %d", resetToken.UserID)
+
+    var user models.User
+    if err := tx.First(&user, resetToken.UserID).Error; err != nil {
+        log.Printf("[ERROR] Failed to find user: %v", err)
+        tx.Rollback()
+        return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Internal server error"})
+    }
+
+    // Hash the new password
+    hashedPassword, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+    if err != nil {
+        log.Printf("[ERROR] Failed to hash password: %v", err)
+        tx.Rollback()
+        return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to process new password"})
+    }
+
+    log.Printf("[DEBUG] Updating password for user ID: %d", user.ID)
+    user.Password = string(hashedPassword)
+    if err := tx.Save(&user).Error; err != nil {
+        log.Printf("[ERROR] Failed to save new password: %v", err)
+        tx.Rollback()
+        return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to update password"})
+    }
+
+    log.Printf("[DEBUG] Marking reset token as used for user ID: %d", user.ID)
+    resetToken.Used = true
+    if err := tx.Save(&resetToken).Error; err != nil {
+        log.Printf("[ERROR] Failed to mark token as used: %v", err)
+        tx.Rollback()
+        return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to invalidate token"})
+    }
+
+    // Commit transaction
+    tx.Commit()
+
+    log.Printf("[INFO] Password reset completed successfully for user ID: %d", user.ID)
+    return c.JSON(http.StatusOK, map[string]string{"message": "Password reset successfully"})
 }
