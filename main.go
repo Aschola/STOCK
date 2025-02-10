@@ -169,14 +169,13 @@ func main() {
 		log.Fatalf("[ERROR] Failed to initialize email config: %v", err)
 	}
 
-	go controllers.CheckAndInsertMissingOrganizations(db.GetDB())
-	go controllers.StartReorderLevelNotification(db.GetDB())
+	//go controllers.CheckAndInsertMissingOrganizations(db.GetDB())
+	//go controllers.StartReorderLevelNotification(db.GetDB())
 
 	e := echo.New()
 
 	e.POST("/send-sms", controllers.SendSmsHandler)
 	e.POST("/mpesa/callback", controllers.HandleMpesaCallback)
-	e.POST("/reset-password", controllers.ResetPassword)
 
 
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{

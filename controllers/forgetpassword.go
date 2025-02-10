@@ -90,7 +90,7 @@ func sendResetPasswordEmail(user *models.User, token string) error {
 		emailConfig.SMTPHost,
 	)
 
-	resetLink := fmt.Sprintf("http://%s/reset-password?token=%s", os.Getenv("BASE_URL"), token)
+	resetLink := fmt.Sprintf("http://%s/forgot-password?token=%s", os.Getenv("BASE_URL"), token)
 	log.Printf("[DEBUG] Generated reset link: %s", resetLink)
 
 	var message strings.Builder
@@ -196,9 +196,8 @@ func ForgotPassword(c echo.Context) error {
 		return c.JSON(500, map[string]string{"error": "Failed to send reset email"})
 	}
 	log.Printf("[INFO] Redirecting user to reset password page for email: %s", email)
-	return c.Redirect(302, "/reset-password")
+	// return c.Redirect(302, "/reset-password")
 
-	//log.Printf("[INFO] Password reset process completed successfully for email: %s", email)
 	return c.JSON(200, map[string]string{"message": "link sent to your email"})
 }
 

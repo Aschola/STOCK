@@ -63,7 +63,7 @@ func SetupRoutes(e *echo.Echo) {
 	e.POST("auditor/logout", controllers.AuditorLogout)
 	e.POST("/forgot-password", controllers.ForgotPassword)
 	//e.POST("/mpesa/callback", controllers.HandleMpesaCallback)
-    // e.POST("/reset-password", controllers.ResetPassword)
+    e.POST("/reset-password", controllers.ResetPassword)
 	
 
 
