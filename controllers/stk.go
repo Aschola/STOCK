@@ -5,6 +5,11 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"gopkg.in/natefinch/lumberjack.v2"
+	"runtime/debug" 
+	//"context"
+    "os"
+	//"logger"
 	"io"
 	"log"
 	"net/http"
@@ -72,6 +77,7 @@ type TransactionRecord struct {
 	UpdatedAt         time.Time `json:"updated_at"`
 	MpesaReceipt      string    `json:"mpesa_receipt"`
 }
+
 
 func (TransactionRecord) TableName() string {
 	return "mpesa_transactions"
@@ -384,7 +390,6 @@ func InitiateSTKPush(organizationID int64, req STKPushRequest) (*STKPushResponse
 	// }
 
 }
-
 // func HandleMpesaCallback(c echo.Context) error {
 // 	log.Printf("callback triggered")
 // 	log.Printf("Request Method: %s, URL: %s", c.Request().Method, c.Request().URL)
@@ -418,12 +423,21 @@ func InitiateSTKPush(organizationID int64, req STKPushRequest) (*STKPushResponse
 // 	stkCallback := callbackResp.Body.StkCallback
 // 	log.Printf("Processing STK callback: %+v", stkCallback)
 
+// 	// Start database transaction
+// 	tx := db.GetDB().Begin()
+// 	defer func() {
+// 		if r := recover(); r != nil {
+// 			tx.Rollback()
+// 		}
+// 	}()
+
 // 	// Find the corresponding transaction
 // 	var transaction TransactionRecord
-// 	result := db.GetDB().Where("merchant_request_id = ? OR checkout_request_id = ?",
+// 	result := tx.Where("merchant_request_id = ? OR checkout_request_id = ?",
 // 		stkCallback.MerchantRequestID, stkCallback.CheckoutRequestID).First(&transaction)
 
 // 	if result.Error != nil {
+// 		tx.Rollback()
 // 		log.Printf("Transaction not found - MerchantRequestID: %s, CheckoutRequestID: %s, Error: %v",
 // 			stkCallback.MerchantRequestID, stkCallback.CheckoutRequestID, result.Error)
 // 		return c.JSON(http.StatusNotFound, map[string]string{
@@ -441,13 +455,35 @@ func InitiateSTKPush(organizationID int64, req STKPushRequest) (*STKPushResponse
 // 		transaction.Status = "FAILED"
 // 		transaction.UpdatedAt = time.Now()
 
-// 		if err := db.GetDB().Save(&transaction).Error; err != nil {
+// 		if err := tx.Save(&transaction).Error; err != nil {
+// 			tx.Rollback()
 // 			log.Printf("Failed to update failed transaction: %v", err)
 // 			return c.JSON(http.StatusInternalServerError, map[string]string{
 // 				"error": "Failed to update transaction",
 // 			})
 // 		}
-// 		log.Printf("Transaction status updated to FAILED: %+v", transaction)
+
+// 		// Update sales status without modifying stock
+// 		var sales []models.Sale
+// 		log.Printf("Fetching sales for transaction_id: %s", transaction.TransactionID)
+// 		if err := tx.Table("sales_transactions").Where("transaction_id = ?", transaction.TransactionID).Find(&sales).Error; err != nil {
+// 			tx.Rollback()
+// 			log.Printf("Error fetching sales: %v", err)
+// 			return c.JSON(http.StatusInternalServerError, map[string]string{
+// 				"error": "Failed to fetch sales",
+// 			})
+// 		}
+
+// 		for _, sale := range sales {
+// 			sale.TransactionStatus = "FAILED"
+// 			if err := tx.Save(&sale).Error; err != nil {
+// 				tx.Rollback()
+// 				log.Printf("Error updating sale status: %v", err)
+// 				return c.JSON(http.StatusInternalServerError, map[string]string{
+// 					"error": "Failed to update sale status",
+// 				})
+// 			}
+// 		}
 
 // 		// Save the callback details
 // 		callback := STKPushResponse{
@@ -456,12 +492,22 @@ func InitiateSTKPush(organizationID int64, req STKPushRequest) (*STKPushResponse
 // 			ResponseCode:        fmt.Sprintf("%d", stkCallback.ResultCode),
 // 			ResponseDescription: stkCallback.ResultDesc,
 // 			CustomerMessage:     "Transaction failed",
+// 			TransactionID:       transaction.TransactionID,
+// 			CallbackReceived:    time.Now(),
 // 		}
 
-// 		if err := db.GetDB().Create(&callback).Error; err != nil {
+// 		if err := tx.Create(&callback).Error; err != nil {
+// 			tx.Rollback()
 // 			log.Printf("Failed to save callback data: %v", err)
 // 			return c.JSON(http.StatusInternalServerError, map[string]string{
 // 				"error": "Failed to save callback data",
+// 			})
+// 		}
+
+// 		if err := tx.Commit().Error; err != nil {
+// 			log.Printf("Failed to commit transaction: %v", err)
+// 			return c.JSON(http.StatusInternalServerError, map[string]string{
+// 				"error": "Failed to commit transaction",
 // 			})
 // 		}
 
@@ -472,7 +518,7 @@ func InitiateSTKPush(organizationID int64, req STKPushRequest) (*STKPushResponse
 // 		})
 // 	}
 
-// 	// If transaction was successful, process normally
+// 	// Process successful transaction
 // 	mpesaReceipt := ""
 // 	amount := 0.0
 // 	log.Println("Processing successful transaction metadata")
@@ -493,14 +539,69 @@ func InitiateSTKPush(organizationID int64, req STKPushRequest) (*STKPushResponse
 // 	transaction.UpdatedAt = time.Now()
 // 	transaction.MpesaReceipt = mpesaReceipt
 
-// 	if err := db.GetDB().Save(&transaction).Error; err != nil {
+// 	if err := tx.Save(&transaction).Error; err != nil {
+// 		tx.Rollback()
 // 		log.Printf("Failed to update completed transaction: %v", err)
 // 		return c.JSON(http.StatusInternalServerError, map[string]string{
 // 			"error": "Failed to update transaction",
 // 		})
 // 	}
-// 	log.Printf("Transaction updated successfully as COMPLETED: %+v", transaction)
 
+// 	// Update sales and stock for successful transaction
+// 	var sales []models.Sale
+// 	log.Printf("Fetching sales for transaction_id: %s", transaction.TransactionID)
+// 	if err := tx.Table("sales_transaction").Where("transaction_id = ?", transaction.TransactionID).Find(&sales).Error; err != nil {
+// 		tx.Rollback()
+// 		log.Printf("Error fetching sales: %v", err)
+// 		return c.JSON(http.StatusInternalServerError, map[string]string{
+// 			"error": "Failed to fetch sales",
+// 		})
+// 	}
+// 	log.Printf("Found %d sales records", len(sales))
+
+// 	// Debug log to see what's in the sales records
+// 	for i, sale := range sales {
+// 		log.Printf("Before update - Sale record %d: %+v", i, sale)
+// 		log.Printf("Before update - Product ID for sale %d: %d", i, sale.ProductID)
+// 	}
+
+// 	for i := range sales {
+// 		// Update by reference instead of value
+// 		sales[i].TransactionStatus = "COMPLETED"
+
+// 		log.Printf("Updating sale with ID: %d, Product ID: %d", sales[i].SaleID, sales[i].ProductID)
+
+// 		if err := tx.Save(&sales[i]).Error; err != nil {
+// 			tx.Rollback()
+// 			log.Printf("Error updating sale status: %v", err)
+// 			return c.JSON(http.StatusInternalServerError, map[string]string{
+// 				"error": "Failed to update sale status",
+// 			})
+// 		}
+
+// 		// Update stock quantity
+// 		var stock models.Stock
+// 		log.Printf("Fetching stock for product_id: %d", sales[i].ProductID)
+// 		if err := tx.First(&stock, "product_id = ?", sales[i].ProductID).Error; err != nil {
+// 			tx.Rollback()
+// 			log.Printf("Error fetching stock: %v", err)
+// 			return c.JSON(http.StatusInternalServerError, map[string]string{
+// 				"error": "Failed to fetch stock",
+// 			})
+// 		}
+
+// 		log.Printf("Current stock quantity: %d", stock.Quantity)
+// 		stock.Quantity -= sales[i].Quantity
+// 		log.Printf("New stock quantity: %d", stock.Quantity)
+
+// 		if err := tx.Save(&stock).Error; err != nil {
+// 			tx.Rollback()
+// 			log.Printf("Error updating stock: %v", err)
+// 			return c.JSON(http.StatusInternalServerError, map[string]string{
+// 				"error": "Failed to update stock",
+// 			})
+// 		}
+// 	}
 // 	// Save the callback details
 // 	callback := STKPushResponse{
 // 		MerchantRequestID:   stkCallback.MerchantRequestID,
@@ -508,116 +609,175 @@ func InitiateSTKPush(organizationID int64, req STKPushRequest) (*STKPushResponse
 // 		ResponseCode:        fmt.Sprintf("%d", stkCallback.ResultCode),
 // 		ResponseDescription: stkCallback.ResultDesc,
 // 		CustomerMessage:     fmt.Sprintf("Receipt: %s, Amount: %.2f", mpesaReceipt, amount),
+// 		TransactionID:       transaction.TransactionID,
+// 		CallbackReceived:    time.Now(),
 // 	}
 
-// 	if err := db.GetDB().Create(&callback).Error; err != nil {
+// 	if err := tx.Create(&callback).Error; err != nil {
+// 		tx.Rollback()
 // 		log.Printf("Failed to save success callback data: %v", err)
 // 		return c.JSON(http.StatusInternalServerError, map[string]string{
 // 			"error": "Failed to save callback data",
 // 		})
 // 	}
-// 	log.Printf("Success callback data saved: %+v", callback)
 
-//		return c.JSON(http.StatusOK, map[string]string{
-//			"message": "Callback processed successfully",
-//		})
-//	}
+// 	if err := tx.Commit().Error; err != nil {
+// 		log.Printf("Failed to commit transaction: %v", err)
+// 		return c.JSON(http.StatusInternalServerError, map[string]string{
+// 			"error": "Failed to commit transaction",
+// 		})
+// 	}
+
+// 	log.Printf("Success callback data saved: %+v", callback)
+// 	return c.JSON(http.StatusOK, map[string]string{
+// 		"message": "Callback processed successfully",
+// 	})
+// }
 func HandleMpesaCallback(c echo.Context) error {
 	log.Printf("callback triggered")
-	log.Printf("Request Method: %s, URL: %s", c.Request().Method, c.Request().URL)
-	log.Printf("Headers: %+v", c.Request().Header)
+	logger := log.New(&lumberjack.Logger{
+		Filename:   "/var/log/mpesa/callbacks.log",
+		MaxSize:    100, // megabytes
+		MaxBackups: 3,
+		MaxAge:     28,   // days
+		Compress:   true,
+	}, "", log.LstdFlags|log.Lshortfile)
+	
+	// Initialize logger with timestamp and caller info
+	logger = log.New(os.Stdout, "[MPESA-CALLBACK] ", log.LstdFlags|log.Lshortfile)
+	
+	// Log initial request details
+	logger.Printf("=== START PROCESSING MPESA CALLBACK ===")
+	logger.Printf("Request Details - Method: %s, URL: %s, RemoteAddr: %s", 
+		c.Request().Method, 
+		c.Request().URL, 
+		c.Request().RemoteAddr)
+	logger.Printf("Request Headers: %+v", c.Request().Header)
 
-	// Read the request body
+	// Read and log request body
 	body, err := io.ReadAll(c.Request().Body)
 	if err != nil {
-		log.Printf("Failed to read request body: %v", err)
+		logger.Printf(" ERROR: Failed to read request body: %v", err)
 		return c.JSON(http.StatusBadRequest, map[string]string{
 			"error": "Failed to read request body",
 		})
 	}
-	log.Printf("Raw callback body: %s", string(body))
+	logger.Printf("📥 Raw callback body: %s", string(body))
 
-	// Restore the request body for further processing
+	// Restore body
 	c.Request().Body = io.NopCloser(bytes.NewBuffer(body))
 
-	// Parse the callback response
+	// Parse callback
 	var callbackResp MpesaCallbackResponse
 	if err := json.Unmarshal(body, &callbackResp); err != nil {
-		log.Printf("Failed to unmarshal callback response: %v", err)
-		log.Printf("Failed body content: %s", string(body))
+		logger.Printf("❌ ERROR: Failed to unmarshal callback: %v", err)
+		logger.Printf("❌ Failed body content: %s", string(body))
 		return c.JSON(http.StatusBadRequest, map[string]string{
 			"error": "Invalid callback format",
 		})
 	}
-	log.Printf("Callback response parsed: %+v", callbackResp)
+	logger.Printf("✅ Successfully parsed callback response")
 
-	// Extract metadata from the callback
+	// Extract and validate callback data
 	stkCallback := callbackResp.Body.StkCallback
-	log.Printf("Processing STK callback: %+v", stkCallback)
+	logger.Printf("📋 Processing STK callback - MerchantRequestID: %s, CheckoutRequestID: %s", 
+		stkCallback.MerchantRequestID, 
+		stkCallback.CheckoutRequestID)
 
-	// Start database transaction
+	// Check for duplicate callback
+	var existingCallback STKPushResponse
+	if err := db.GetDB().Where("merchant_request_id = ?", stkCallback.MerchantRequestID).
+		First(&existingCallback).Error; err == nil {
+		logger.Printf("⚠️ Duplicate callback detected for MerchantRequestID: %s", stkCallback.MerchantRequestID)
+		logger.Printf("⚠️ Previous callback processed at: %v", existingCallback.CallbackReceived)
+		return c.JSON(http.StatusOK, map[string]string{
+			"message": "Callback already processed",
+		})
+	}
+
+	// Start transaction
+	logger.Printf("🔄 Starting database transaction")
 	tx := db.GetDB().Begin()
+	if tx.Error != nil {
+		logger.Printf("❌ ERROR: Failed to begin transaction: %v", tx.Error)
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"error": "Database error",
+		})
+	}
+
 	defer func() {
 		if r := recover(); r != nil {
 			tx.Rollback()
+			logger.Printf("❌ PANIC RECOVERED: %v", r)
+			logger.Printf("❌ Stack trace: %s", debug.Stack())
 		}
 	}()
 
-	// Find the corresponding transaction
+	// Find transaction with lock
+	logger.Printf("🔍 Searching for transaction record...")
 	var transaction TransactionRecord
-	result := tx.Where("merchant_request_id = ? OR checkout_request_id = ?",
-		stkCallback.MerchantRequestID, stkCallback.CheckoutRequestID).First(&transaction)
+	result := tx.Set("gorm:query_option", "FOR UPDATE").
+		Where("merchant_request_id = ? OR checkout_request_id = ?",
+			stkCallback.MerchantRequestID, stkCallback.CheckoutRequestID).
+		First(&transaction)
 
 	if result.Error != nil {
 		tx.Rollback()
-		log.Printf("Transaction not found - MerchantRequestID: %s, CheckoutRequestID: %s, Error: %v",
+		logger.Printf("❌ ERROR: Transaction not found - MID: %s, CID: %s, Error: %v",
 			stkCallback.MerchantRequestID, stkCallback.CheckoutRequestID, result.Error)
 		return c.JSON(http.StatusNotFound, map[string]string{
 			"error": "Transaction not found",
 		})
 	}
-	log.Printf("Found transaction: %+v", transaction)
+	logger.Printf("✅ Found transaction record: %+v", transaction)
 
-	// Check if the transaction failed
+	// Handle failed transaction
 	if stkCallback.ResultCode != 0 {
-		log.Printf("Transaction failed with ResultCode: %d, ResultDesc: %s",
+		logger.Printf("⚠️ Transaction failed with ResultCode: %d, ResultDesc: %s",
 			stkCallback.ResultCode, stkCallback.ResultDesc)
-
-		// Update the transaction as FAILED
+		
+		// Update transaction status
 		transaction.Status = "FAILED"
 		transaction.UpdatedAt = time.Now()
+		logger.Printf("🔄 Updating transaction status to FAILED")
 
 		if err := tx.Save(&transaction).Error; err != nil {
 			tx.Rollback()
-			log.Printf("Failed to update failed transaction: %v", err)
+			logger.Printf("❌ ERROR: Failed to update transaction status: %v", err)
 			return c.JSON(http.StatusInternalServerError, map[string]string{
 				"error": "Failed to update transaction",
 			})
 		}
 
-		// Update sales status without modifying stock
+		// Update sales status
+		logger.Printf("🔄 Updating related sales records...")
 		var sales []models.Sale
-		log.Printf("Fetching sales for transaction_id: %s", transaction.TransactionID)
-		if err := tx.Table("sales_transactions").Where("transaction_id = ?", transaction.TransactionID).Find(&sales).Error; err != nil {
+		if err := tx.Set("gorm:query_option", "FOR UPDATE").
+			Table("sales_transactions").
+			Where("transaction_id = ?", transaction.TransactionID).
+			Find(&sales).Error; err != nil {
 			tx.Rollback()
-			log.Printf("Error fetching sales: %v", err)
+			logger.Printf("❌ ERROR: Failed to fetch sales records: %v", err)
 			return c.JSON(http.StatusInternalServerError, map[string]string{
 				"error": "Failed to fetch sales",
 			})
 		}
+		logger.Printf("📊 Found %d sales records to update", len(sales))
 
-		for _, sale := range sales {
+		for i, sale := range sales {
+			logger.Printf("🔄 Updating sale record %d/%d (ID: %d)", i+1, len(sales), sale.SaleID)
 			sale.TransactionStatus = "FAILED"
 			if err := tx.Save(&sale).Error; err != nil {
 				tx.Rollback()
-				log.Printf("Error updating sale status: %v", err)
+				logger.Printf("❌ ERROR: Failed to update sale status: %v", err)
 				return c.JSON(http.StatusInternalServerError, map[string]string{
 					"error": "Failed to update sale status",
 				})
 			}
 		}
 
-		// Save the callback details
+		// Save callback details
+		logger.Printf("💾 Saving failed callback details")
 		callback := STKPushResponse{
 			MerchantRequestID:   stkCallback.MerchantRequestID,
 			CheckoutRequestID:   stkCallback.CheckoutRequestID,
@@ -630,20 +790,20 @@ func HandleMpesaCallback(c echo.Context) error {
 
 		if err := tx.Create(&callback).Error; err != nil {
 			tx.Rollback()
-			log.Printf("Failed to save callback data: %v", err)
+			logger.Printf("❌ ERROR: Failed to save callback data: %v", err)
 			return c.JSON(http.StatusInternalServerError, map[string]string{
 				"error": "Failed to save callback data",
 			})
 		}
 
 		if err := tx.Commit().Error; err != nil {
-			log.Printf("Failed to commit transaction: %v", err)
+			logger.Printf("❌ ERROR: Failed to commit transaction: %v", err)
 			return c.JSON(http.StatusInternalServerError, map[string]string{
 				"error": "Failed to commit transaction",
 			})
 		}
 
-		log.Println("Failed transaction recorded successfully")
+		logger.Printf("✅ Failed transaction processed successfully")
 		return c.JSON(http.StatusOK, map[string]string{
 			"message": "Transaction failed",
 			"reason":  stkCallback.ResultDesc,
@@ -651,21 +811,35 @@ func HandleMpesaCallback(c echo.Context) error {
 	}
 
 	// Process successful transaction
+	logger.Printf("🔄 Processing successful transaction")
 	mpesaReceipt := ""
 	amount := 0.0
-	log.Println("Processing successful transaction metadata")
-	for _, item := range stkCallback.CallbackMetadata.Item {
+	metadata := stkCallback.CallbackMetadata
+
+	logger.Printf("📋 Processing callback metadata items:")
+	for _, item := range metadata.Item {
+		logger.Printf("  - Item Name: %s, Value: %v", item.Name, item.Value)
 		if item.Name == "MpesaReceiptNumber" {
 			mpesaReceipt = item.Value.(string)
-			log.Printf("Mpesa receipt number found: %s", mpesaReceipt)
+			logger.Printf("✅ Found MPesa receipt number: %s", mpesaReceipt)
 		}
 		if item.Name == "Amount" {
 			amount = item.Value.(float64)
-			log.Printf("Transaction amount found: %.2f", amount)
+			logger.Printf("✅ Found transaction amount: %.2f", amount)
 		}
 	}
 
-	// Update the transaction as COMPLETED
+	// Validate metadata
+	if mpesaReceipt == "" || amount == 0 {
+		tx.Rollback()
+		logger.Printf("❌ ERROR: Invalid metadata - Receipt: %s, Amount: %.2f", mpesaReceipt, amount)
+		return c.JSON(http.StatusBadRequest, map[string]string{
+			"error": "Invalid callback metadata",
+		})
+	}
+
+	// Update transaction
+	logger.Printf("🔄 Updating transaction record with success details")
 	transaction.Status = "COMPLETED"
 	transaction.Amount = amount
 	transaction.UpdatedAt = time.Now()
@@ -673,68 +847,74 @@ func HandleMpesaCallback(c echo.Context) error {
 
 	if err := tx.Save(&transaction).Error; err != nil {
 		tx.Rollback()
-		log.Printf("Failed to update completed transaction: %v", err)
+		logger.Printf("❌ ERROR: Failed to update transaction: %v", err)
 		return c.JSON(http.StatusInternalServerError, map[string]string{
 			"error": "Failed to update transaction",
 		})
 	}
 
-	// Update sales and stock for successful transaction
+	// Update sales and stock
+	logger.Printf("🔄 Updating sales and stock records")
 	var sales []models.Sale
-	log.Printf("Fetching sales for transaction_id: %s", transaction.TransactionID)
-	if err := tx.Table("sales_transactions").Where("transaction_id = ?", transaction.TransactionID).Find(&sales).Error; err != nil {
+	if err := tx.Set("gorm:query_option", "FOR UPDATE").
+		Table("sales_transactions").
+		Where("transaction_id = ?", transaction.TransactionID).
+		Find(&sales).Error; err != nil {
 		tx.Rollback()
-		log.Printf("Error fetching sales: %v", err)
+		logger.Printf("❌ ERROR: Failed to fetch sales: %v", err)
 		return c.JSON(http.StatusInternalServerError, map[string]string{
 			"error": "Failed to fetch sales",
 		})
 	}
-	log.Printf("Found %d sales records", len(sales))
+	logger.Printf("📊 Found %d sales records to process", len(sales))
 
-	// Debug log to see what's in the sales records
 	for i, sale := range sales {
-		log.Printf("Before update - Sale record %d: %+v", i, sale)
-		log.Printf("Before update - Product ID for sale %d: %d", i, sale.ProductID)
-	}
-
-	for i := range sales {
-		// Update by reference instead of value
-		sales[i].TransactionStatus = "COMPLETED"
-
-		log.Printf("Updating sale with ID: %d, Product ID: %d", sales[i].SaleID, sales[i].ProductID)
-
-		if err := tx.Save(&sales[i]).Error; err != nil {
+		logger.Printf("🔄 Processing sale %d/%d (ID: %d, ProductID: %d)", i+1, len(sales), sale.SaleID, sale.ProductID)
+		
+		// Update sale status
+		sale.TransactionStatus = "COMPLETED"
+		if err := tx.Save(&sale).Error; err != nil {
 			tx.Rollback()
-			log.Printf("Error updating sale status: %v", err)
+			logger.Printf("❌ ERROR: Failed to update sale status: %v", err)
 			return c.JSON(http.StatusInternalServerError, map[string]string{
 				"error": "Failed to update sale status",
 			})
 		}
 
-		// Update stock quantity
+		// Update stock
 		var stock models.Stock
-		log.Printf("Fetching stock for product_id: %d", sales[i].ProductID)
-		if err := tx.First(&stock, "product_id = ?", sales[i].ProductID).Error; err != nil {
+		logger.Printf("🔍 Fetching stock for ProductID: %d", sale.ProductID)
+		if err := tx.Set("gorm:query_option", "FOR UPDATE").
+			First(&stock, "product_id = ?", sale.ProductID).Error; err != nil {
 			tx.Rollback()
-			log.Printf("Error fetching stock: %v", err)
+			logger.Printf("❌ ERROR: Failed to fetch stock: %v", err)
 			return c.JSON(http.StatusInternalServerError, map[string]string{
 				"error": "Failed to fetch stock",
 			})
 		}
 
-		log.Printf("Current stock quantity: %d", stock.Quantity)
-		stock.Quantity -= sales[i].Quantity
-		log.Printf("New stock quantity: %d", stock.Quantity)
+		logger.Printf("📊 Current stock quantity: %d, Reducing by: %d", stock.Quantity, sale.Quantity)
+		if stock.Quantity < sale.Quantity {
+			tx.Rollback()
+			logger.Printf("❌ ERROR: Insufficient stock - Required: %d, Available: %d", sale.Quantity, stock.Quantity)
+			return c.JSON(http.StatusConflict, map[string]string{
+				"error": fmt.Sprintf("Insufficient stock for product %d", sale.ProductID),
+			})
+		}
 
+		stock.Quantity -= sale.Quantity
 		if err := tx.Save(&stock).Error; err != nil {
 			tx.Rollback()
-			log.Printf("Error updating stock: %v", err)
+			logger.Printf("❌ ERROR: Failed to update stock: %v", err)
 			return c.JSON(http.StatusInternalServerError, map[string]string{
 				"error": "Failed to update stock",
 			})
 		}
+		logger.Printf("✅ Updated stock quantity to: %d", stock.Quantity)
 	}
-	// Save the callback details
+
+	// Save success callback
+	logger.Printf("💾 Saving successful callback details")
 	callback := STKPushResponse{
 		MerchantRequestID:   stkCallback.MerchantRequestID,
 		CheckoutRequestID:   stkCallback.CheckoutRequestID,
@@ -747,20 +927,22 @@ func HandleMpesaCallback(c echo.Context) error {
 
 	if err := tx.Create(&callback).Error; err != nil {
 		tx.Rollback()
-		log.Printf("Failed to save success callback data: %v", err)
+		logger.Printf("❌ ERROR: Failed to save callback data: %v", err)
 		return c.JSON(http.StatusInternalServerError, map[string]string{
 			"error": "Failed to save callback data",
 		})
 	}
 
 	if err := tx.Commit().Error; err != nil {
-		log.Printf("Failed to commit transaction: %v", err)
+		logger.Printf("❌ ERROR: Failed to commit transaction: %v", err)
 		return c.JSON(http.StatusInternalServerError, map[string]string{
 			"error": "Failed to commit transaction",
 		})
 	}
 
-	log.Printf("Success callback data saved: %+v", callback)
+	logger.Printf("✅ SUCCESS: Callback processed successfully")
+	logger.Printf("=== END PROCESSING MPESA CALLBACK ===")
+	
 	return c.JSON(http.StatusOK, map[string]string{
 		"message": "Callback processed successfully",
 	})
