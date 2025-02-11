@@ -682,7 +682,7 @@ func HandleMpesaCallback(c echo.Context) error {
 	// Update sales and stock for successful transaction
 	var sales []models.Sale
 	log.Printf("Fetching sales for transaction_id: %s", transaction.TransactionID)
-	if err := tx.Table("sales").Where("transaction_id = ?", transaction.TransactionID).Find(&sales).Error; err != nil {
+	if err := tx.Table("sales_transactions").Where("transaction_id = ?", transaction.TransactionID).Find(&sales).Error; err != nil {
 		tx.Rollback()
 		log.Printf("Error fetching sales: %v", err)
 		return c.JSON(http.StatusInternalServerError, map[string]string{

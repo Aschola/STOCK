@@ -4,16 +4,17 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"time"
 
+	"database/sql"
 	"stock/db"
 	"strconv"
-    "database/sql"
-
 
 	"github.com/labstack/echo/v4"
 
-	"gorm.io/gorm"
 	"stock/models"
+
+	"gorm.io/gorm"
 )
 
 // AdminCreateStock handles the creation of a stock item
@@ -310,6 +311,7 @@ func ViewAllStock(c echo.Context) error {
             s.quantity,
             s.buying_price,
             s.selling_price,
+            s.created_at,
             DATE_FORMAT(s.expiry_date, '%Y-%m-%d') as expiry_date,
             p.product_description AS product_description,
             su.name AS supplier_name
@@ -337,13 +339,14 @@ func ViewAllStock(c echo.Context) error {
             quantity          int
             buyingPrice       float64
             sellingPrice      float64
+            created_at        time.Time
             expiryDate        sql.NullString  
             productDescription string
             supplierName      sql.NullString  
         )
 
         err = rows.Scan(&id, &productID, &productName, &quantity, &buyingPrice, 
-            &sellingPrice, &expiryDate, &productDescription, &supplierName)
+            &sellingPrice, &expiryDate, &created_at, &productDescription, &supplierName)
         if err != nil {
             fmt.Printf("Error scanning row: %v\n", err)
             return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Error reading stock data"})
@@ -357,6 +360,7 @@ func ViewAllStock(c echo.Context) error {
             "quantity":            quantity,
             "buying_price":        buyingPrice,
             "selling_price":       sellingPrice,
+            "created_at":          created_at.Format("2006-01-02 15:04:05"),
             "product_description": productDescription,
             "supplier_name":       nil,  
         }
@@ -415,6 +419,7 @@ func ViewStockByID(c echo.Context) error {
             s.buying_price,
             s.selling_price,
             s.expiry_date,
+            s.created_at,
             p.product_description AS product_description,
             su.name AS supplier_name
         FROM stock s
@@ -438,13 +443,14 @@ func ViewStockByID(c echo.Context) error {
         quantity             int
         buyingPrice          float64
         sellingPrice         float64
+        created_at           time.Time
         expiryDate           *string
         productDescription   string
         supplierName         *string  // Supplier name may be null
     )
 
     // Scan the result row
-    err = row.Scan(&idVal, &productID, &productName, &quantity, &buyingPrice, &sellingPrice, &expiryDate, &productDescription, &supplierName)
+    err = row.Scan(&idVal, &productID, &productName, &quantity, &buyingPrice, &sellingPrice, &created_at, &expiryDate, &productDescription, &supplierName)
     if err != nil {
         log.Printf("ViewStockByID - Error scanning row: %v", err)
         return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Error reading stock data"})
@@ -458,6 +464,7 @@ func ViewStockByID(c echo.Context) error {
         "quantity":            quantity,
         "buying_price":        buyingPrice,
         "selling_price":       sellingPrice,
+        "created_at":          created_at.Format("2006-01-02 15:04:05"),
         "expiry_date":         expiryDate,
         "product_description": productDescription,
         "supplier_name":       supplierName,
