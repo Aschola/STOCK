@@ -284,6 +284,195 @@ func DeleteStock(c echo.Context) error {
 
 //     return c.JSON(http.StatusOK, stocks)
 // }
+// func ViewAllStock(c echo.Context) error {
+//     gormDB := db.GetDB()
+
+//     // Set isolation level
+//     err := gormDB.Exec("SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED").Error
+//     if err != nil {
+//         fmt.Printf("Failed to set isolation level: %v\n", err)
+//         return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Database configuration error"})
+//     }
+
+//     organizationID, ok := c.Get("organizationID").(uint)
+//     if !ok {
+//         log.Println("ViewAllStock - Failed to get organizationID from context")
+//         return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
+//     }
+
+//     log.Printf("ViewAllStock - OrganizationID: %d", organizationID)
+
+//     // Modify the query to format the date as YYYYMMDD
+//     query := `
+//         SELECT 
+//             s.id,
+//             s.product_id,
+//             p.product_name AS product_name,
+//             s.quantity,
+//             s.buying_price,
+//             s.selling_price,
+//             s.created_at,
+//             DATE_FORMAT(s.expiry_date, '%Y-%m-%d') as expiry_date,
+//             p.product_description AS product_description,
+//             su.name AS supplier_name
+//         FROM stock s
+//         LEFT JOIN products p ON s.product_id = p.product_id
+//         LEFT JOIN suppliers su ON su.id = s.supplier_id
+//         WHERE p.product_id IS NOT NULL
+//         AND s.organization_id = ?
+//         ORDER BY s.id DESC
+//     `
+
+//     rows, err := gormDB.Raw(query, organizationID).Rows()
+//     if err != nil {
+//         fmt.Printf("Query execution failed: %v\nQuery: %s\n", err, query)
+//         return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to fetch stock"})
+//     }
+//     defer rows.Close()
+
+//     var stocks []map[string]interface{}
+//     for rows.Next() {
+//         var (
+//             id                 uint64
+//             productID          uint64
+//             productName        string
+//             quantity          int
+//             buyingPrice       float64
+//             sellingPrice      float64
+//             created_at        time.Time
+//             expiryDate        sql.NullString  
+//             productDescription string
+//             supplierName      sql.NullString  
+//         )
+
+//         err = rows.Scan(&id, &productID, &productName, &quantity, &buyingPrice, 
+//             &sellingPrice, &expiryDate, &created_at, &productDescription, &supplierName)
+//         if err != nil {
+//             fmt.Printf("Error scanning row: %v\n", err)
+//             return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Error reading stock data"})
+//         }
+
+//         // Create the stock map with proper null handling
+//         stock := map[string]interface{}{
+//             "id":                  id,
+//             "product_id":          productID,
+//             "product_name":        productName,
+//             "quantity":            quantity,
+//             "buying_price":        buyingPrice,
+//             "selling_price":       sellingPrice,
+//             "created_at":          created_at.Format("2006-01-02 15:04:05"),
+//             "product_description": productDescription,
+//             "supplier_name":       nil,  
+//         }
+
+//         // Handle nullable fields
+//         if expiryDate.Valid {
+//             stock["expiry_date"] = expiryDate.String
+//         } else {
+//             stock["expiry_date"] = nil
+//         }
+
+//         if supplierName.Valid {
+//             stock["supplier_name"] = supplierName.String
+//         }
+
+//         stocks = append(stocks, stock)
+//     }
+
+//     return c.JSON(http.StatusOK, stocks)
+// }
+// func ViewStockByID(c echo.Context) error {
+//     log.Println("ViewStockByID - Entry")
+
+//     // Get stock ID from path
+//     id, err := strconv.Atoi(c.Param("id"))
+//     if err != nil {
+//         log.Printf("ViewStockByID - Invalid ID: %v", err)
+//         return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid stock ID"})
+//     }
+
+//     gormDB := db.GetDB()
+
+//     // Ensure the database connection is properly configured to reflect recent changes
+//     err = gormDB.Exec("SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED").Error
+//     if err != nil {
+//         fmt.Printf("Failed to set isolation level: %v\n", err)
+//         return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Database configuration error"})
+//     }
+
+//     // Retrieve organizationID from context
+//     organizationID, ok := c.Get("organizationID").(uint)
+//     if !ok {
+//         log.Println("ViewStockByID - Failed to get organizationID from context")
+//         return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
+//     }
+
+//     log.Printf("ViewStockByID - OrganizationID: %d", organizationID)
+
+//     // SQL Query with LEFT JOIN to include stock item details specific to an organization
+//     query := `
+//         SELECT 
+//             s.id,
+//             s.product_id,
+//             p.product_name AS product_name,
+//             s.quantity,
+//             s.buying_price,
+//             s.selling_price,
+//             s.expiry_date,
+//             s.created_at,
+//             p.product_description AS product_description,
+//             su.name AS supplier_name
+//         FROM stock s
+//         LEFT JOIN products p ON s.product_id = p.product_id
+//         LEFT JOIN suppliers su ON su.id = s.supplier_id
+//         WHERE s.id = ? 
+//         AND s.organization_id = ?  -- Filter by organization_id
+//     `
+
+//     // Execute the query, passing the stock ID and organization ID as parameters
+//     row := gormDB.Raw(query, id, organizationID).Row()
+//     if row == nil {
+//         log.Printf("ViewStockByID - Stock not found for ID: %d", id)
+//         return c.JSON(http.StatusNotFound, echo.Map{"error": "Stock not found"})
+//     }
+
+//     var (
+//         idVal                uint64
+//         productID            uint64
+//         productName          string
+//         quantity             int
+//         buyingPrice          float64
+//         sellingPrice         float64
+//         created_at           time.Time
+//         expiryDate           *string
+//         productDescription   string
+//         supplierName         *string  // Supplier name may be null
+//     )
+
+//     // Scan the result row
+//     err = row.Scan(&idVal, &productID, &productName, &quantity, &buyingPrice, &sellingPrice, &created_at, &expiryDate, &productDescription, &supplierName)
+//     if err != nil {
+//         log.Printf("ViewStockByID - Error scanning row: %v", err)
+//         return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Error reading stock data"})
+//     }
+
+//     // Construct the response for the stock found
+//     stock := map[string]interface{}{
+//         "id":                  idVal,
+//         "product_id":          productID,
+//         "product_name":        productName,
+//         "quantity":            quantity,
+//         "buying_price":        buyingPrice,
+//         "selling_price":       sellingPrice,
+//         "created_at":          created_at.Format("2006-01-02 15:04:05"),
+//         "expiry_date":         expiryDate,
+//         "product_description": productDescription,
+//         "supplier_name":       supplierName,
+//     }
+
+//     log.Println("ViewStockByID - Stock retrieved successfully")
+//     return c.JSON(http.StatusOK, stock)
+// }
 func ViewAllStock(c echo.Context) error {
     gormDB := db.GetDB()
 
@@ -302,7 +491,6 @@ func ViewAllStock(c echo.Context) error {
 
     log.Printf("ViewAllStock - OrganizationID: %d", organizationID)
 
-    // Modify the query to format the date as YYYYMMDD
     query := `
         SELECT 
             s.id,
@@ -340,19 +528,18 @@ func ViewAllStock(c echo.Context) error {
             buyingPrice       float64
             sellingPrice      float64
             created_at        time.Time
-            expiryDate        sql.NullString  
+            expiryDate        sql.NullString
             productDescription string
-            supplierName      sql.NullString  
+            supplierName      sql.NullString
         )
 
         err = rows.Scan(&id, &productID, &productName, &quantity, &buyingPrice, 
-            &sellingPrice, &expiryDate, &created_at, &productDescription, &supplierName)
+            &sellingPrice, &created_at, &expiryDate, &productDescription, &supplierName)
         if err != nil {
             fmt.Printf("Error scanning row: %v\n", err)
             return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Error reading stock data"})
         }
 
-        // Create the stock map with proper null handling
         stock := map[string]interface{}{
             "id":                  id,
             "product_id":          productID,
@@ -362,10 +549,9 @@ func ViewAllStock(c echo.Context) error {
             "selling_price":       sellingPrice,
             "created_at":          created_at.Format("2006-01-02 15:04:05"),
             "product_description": productDescription,
-            "supplier_name":       nil,  
+            "supplier_name":       nil,
         }
 
-        // Handle nullable fields
         if expiryDate.Valid {
             stock["expiry_date"] = expiryDate.String
         } else {
@@ -381,6 +567,7 @@ func ViewAllStock(c echo.Context) error {
 
     return c.JSON(http.StatusOK, stocks)
 }
+
 func ViewStockByID(c echo.Context) error {
     log.Println("ViewStockByID - Entry")
 
@@ -409,7 +596,6 @@ func ViewStockByID(c echo.Context) error {
 
     log.Printf("ViewStockByID - OrganizationID: %d", organizationID)
 
-    // SQL Query with LEFT JOIN to include stock item details specific to an organization
     query := `
         SELECT 
             s.id,
@@ -418,18 +604,17 @@ func ViewStockByID(c echo.Context) error {
             s.quantity,
             s.buying_price,
             s.selling_price,
-            s.expiry_date,
             s.created_at,
+            s.expiry_date,
             p.product_description AS product_description,
             su.name AS supplier_name
         FROM stock s
         LEFT JOIN products p ON s.product_id = p.product_id
         LEFT JOIN suppliers su ON su.id = s.supplier_id
         WHERE s.id = ? 
-        AND s.organization_id = ?  -- Filter by organization_id
+        AND s.organization_id = ?
     `
 
-    // Execute the query, passing the stock ID and organization ID as parameters
     row := gormDB.Raw(query, id, organizationID).Row()
     if row == nil {
         log.Printf("ViewStockByID - Stock not found for ID: %d", id)
@@ -437,26 +622,25 @@ func ViewStockByID(c echo.Context) error {
     }
 
     var (
-        idVal                uint64
-        productID            uint64
-        productName          string
-        quantity             int
-        buyingPrice          float64
-        sellingPrice         float64
-        created_at           time.Time
-        expiryDate           *string
-        productDescription   string
-        supplierName         *string  // Supplier name may be null
+        idVal               uint64
+        productID          uint64
+        productName        string
+        quantity          int
+        buyingPrice       float64
+        sellingPrice      float64
+        created_at        time.Time
+        expiryDate        *string
+        productDescription string
+        supplierName      *string
     )
 
-    // Scan the result row
-    err = row.Scan(&idVal, &productID, &productName, &quantity, &buyingPrice, &sellingPrice, &created_at, &expiryDate, &productDescription, &supplierName)
+    err = row.Scan(&idVal, &productID, &productName, &quantity, &buyingPrice, 
+        &sellingPrice, &created_at, &expiryDate, &productDescription, &supplierName)
     if err != nil {
         log.Printf("ViewStockByID - Error scanning row: %v", err)
         return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Error reading stock data"})
     }
 
-    // Construct the response for the stock found
     stock := map[string]interface{}{
         "id":                  idVal,
         "product_id":          productID,
