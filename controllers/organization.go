@@ -240,15 +240,15 @@ func AdminSignup(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 	}
 
-	// // Validate the input
-	// SignupInput := validators.SignupInput{
-	// 	Username: input.Username,
-	// 	Password: input.Password,
-	// }
-	// if err := validators.ValidateSignupInput(SignupInput); err != nil {
-	// 	log.Printf("AdminSignup - Validation error: %v", err)
-	// 	return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
-	// }
+	// Validate the input
+	SignupInput := validators.SignupInput{
+		//Username: input.Username,
+		Password: input.Password,
+	}
+	if err := validators.ValidateSignupInput(SignupInput); err != nil {
+		log.Printf("AdminSignup - Validation error: %v", err)
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
+	}
 
 	log.Printf("Received JSON: %+v", input)
 
@@ -786,6 +786,11 @@ func AdminLogin(c echo.Context) error {
 	if err := db.GetDB().Where("id = ?", user.OrganizationID).First(&organization).Error; err != nil {
 		log.Printf("Login - Organization lookup error: %v", err)
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not verify organization status"})
+	}
+
+	if !user.IsActive {
+		log.Printf("Login attempt by inactive user: %s", input.Email)
+		return c.JSON(http.StatusForbidden, echo.Map{"error": "Account is inactive. Please contact administrator"})
 	}
 
 	if !organization.IsActive {

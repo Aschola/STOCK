@@ -20,7 +20,7 @@ import (
 
 func SuperAdminLogin(c echo.Context) error {
 	var input struct {
-		Username string `json:"username" binding:"required"`
+		Email string `json:"email" binding:"required"`
 		Password string `json:"password" binding:"required"`
 	}
 
@@ -29,7 +29,7 @@ func SuperAdminLogin(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 	}
 	loginInput := validators.LoginInput{
-		Username: input.Username,
+		//Username: input.Username,
 		Password: input.Password,
 	}
 	if err := validators.ValidateLoginInput(loginInput); err != nil {
@@ -38,14 +38,18 @@ func SuperAdminLogin(c echo.Context) error {
 	}
 
 	var user models.User
-	if err := db.GetDB().Where("username = ?", input.Username).First(&user).Error; err != nil {
+	if err := db.GetDB().Where("email = ?", input.Email).First(&user).Error; err != nil {
 		log.Printf("Where error: %v", err)
-		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Invalid username or password"})
+		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Invalid email or password"})
+	}
+	if !user.IsActive {
+		log.Printf("Login attempt by inactive user: %s", input.Email)
+		return c.JSON(http.StatusForbidden, echo.Map{"error": "Account is inactive. Please contact administrator"})
 	}
 
 	if err := utils.CheckPasswordHash(input.Password, user.Password); err != nil {
 		log.Printf("CheckPasswordHash error: %v", err)
-		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Invalid username or password"})
+		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Invalid email or password"})
 	}
 
 	token, err := utils.GenerateJWT(user.ID, user.RoleName, user.OrganizationID)
@@ -451,14 +455,15 @@ func Login(c echo.Context) error {
 		log.Printf("Login - Where error: %v", err)
 		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Invalid email or password"})
 	}
+	if !user.IsActive {
+		log.Printf("Login attempt by inactive user: %s", user.Email)
+		return c.JSON(http.StatusForbidden, echo.Map{"error": "Account is inactive. Please contact administrator"})
+	}
+
 	var organization models.Organization
 	if err := db.GetDB().Where("id = ?", user.OrganizationID).First(&organization).Error; err != nil {
 		log.Printf("Login - Organization lookup error: %v", err)
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not verify organization status"})
-	}
-	if !user.IsActive {
-		log.Printf("Login - Organization is inactive: %v", user.ID)
-		return c.JSON(http.StatusForbidden, echo.Map{"error": "user inactive"})
 	}
 
 	if !organization.IsActive {
