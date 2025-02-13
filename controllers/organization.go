@@ -816,6 +816,7 @@ func AdminLogin(c echo.Context) error {
 	return c.JSON(http.StatusOK, echo.Map{
 		"user_id": user.ID,
 		"organization": user.OrganizationID,
+		 "user":user.Username,
 		"token": token,
 		"role_name": user.RoleName,
 		"redirectUrl": "/login",

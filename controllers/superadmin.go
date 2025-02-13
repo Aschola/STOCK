@@ -51,22 +51,29 @@ func SuperAdminLogin(c echo.Context) error {
 		log.Printf("CheckPasswordHash error: %v", err)
 		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Invalid email or password"})
 	}
-
 	token, err := utils.GenerateJWT(user.ID, user.RoleName, user.OrganizationID)
-	if err != nil {
-		log.Printf("GenerateJWT error: %v", err)
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not generate token"})
-	}
-	// token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-	// 	"userID":   user.ID,
-	// 	"roleName": user.RoleName,
-	// 	//"organization": user.OrganizationID,
-	// 	"exp":      time.Now().Add(time.Hour * 72).Unix(),
-	// })
+if err != nil {
+	log.Printf("GenerateJWT error: %v", err)
+	return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not generate token"})
+}
+
+return c.JSON(http.StatusOK, echo.Map{
+	"token":    token,
+	"user_id":  user.ID,
+	"username": user.Username,
+	"role":     user.RoleName,
+})
 
 
-	log.Println("Super admin logged in successfully")
-	return c.JSON(http.StatusOK, echo.Map{"token": token})
+	// token, err := utils.GenerateJWT(user.ID, user.RoleName, user.OrganizationID)
+	// if err != nil {
+	// 	log.Printf("GenerateJWT error: %v", err)
+	// 	return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not generate token"})
+	// }
+
+
+	// log.Println("Super admin logged in successfully")
+	// return c.JSON(http.StatusOK, echo.Map{"token": token})
 }
 func SuperAdminLogout(c echo.Context) error {
 	log.Println("Super admin logged out successfully")
@@ -489,6 +496,7 @@ func Login(c echo.Context) error {
 		"user_id": user.ID,
 		"organization": user.OrganizationID,
 		"token": token,
+		"user":user.Username,
 		"role_name": user.RoleName,
 		"redirectUrl": "/login",
 	})
