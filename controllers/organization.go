@@ -241,16 +241,16 @@ func AdminSignup(c echo.Context) error {
 	}
 
 	// Validate the input
-	SignupInput := validators.SignupInput{
-		//Username: input.Username,
-		Password: input.Password,
-	}
-	if err := validators.ValidateSignupInput(SignupInput); err != nil {
-		log.Printf("AdminSignup - Validation error: %v", err)
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
-	}
+	// SignupInput := validators.SignupInput{
+	// 	//Username: input.Username,
+	// 	Password: input.Password,
+	// }
+	// if err := validators.ValidateSignupInput(SignupInput); err != nil {
+	// 	log.Printf("AdminSignup - Validation error: %v", err)
+	// 	return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
+	// }
 
-	log.Printf("Received JSON: %+v", input)
+	// log.Printf("Received JSON: %+v", input)
 
 	// Check if phone number or email already exists
 	var user models.User
