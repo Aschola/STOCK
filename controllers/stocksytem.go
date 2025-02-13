@@ -657,3 +657,85 @@ func ViewStockByID(c echo.Context) error {
     log.Println("ViewStockByID - Stock retrieved successfully")
     return c.JSON(http.StatusOK, stock)
 }
+
+func ViewTotalPurchasedStock(c echo.Context) error {
+    gormDB := db.GetDB()
+
+    // Set isolation level
+    err := gormDB.Exec("SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED").Error
+    if err != nil {
+        fmt.Printf("Failed to set isolation level: %v\n", err)
+        return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Database configuration error"})
+    }
+
+    organizationID, ok := c.Get("organizationID").(uint)
+    if !ok {
+        log.Println("ViewTotalPurchasedStock - Failed to get organizationID from context")
+        return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
+    }
+
+    log.Printf("ViewTotalPurchasedStock - OrganizationID: %d", organizationID)
+
+    query := `
+        SELECT 
+            s.product_id,
+            p.product_name AS product_name,
+            SUM(s.quantity) AS total_purchased,
+            s.buying_price,
+            s.selling_price,
+            p.product_description AS product_description,
+            su.name AS supplier_name
+        FROM stock s
+        LEFT JOIN products p ON s.product_id = p.product_id
+        LEFT JOIN suppliers su ON su.id = s.supplier_id
+        WHERE p.product_id IS NOT NULL
+        AND s.organization_id = ?
+        GROUP BY s.product_id, p.product_name, s.buying_price, s.selling_price, p.product_description, su.name
+        ORDER BY p.product_name ASC
+    `
+
+    rows, err := gormDB.Raw(query, organizationID).Rows()
+    if err != nil {
+        fmt.Printf("Query execution failed: %v\nQuery: %s\n", err, query)
+        return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to fetch total purchased stock"})
+    }
+    defer rows.Close()
+
+    var purchasedStocks []map[string]interface{}
+    for rows.Next() {
+        var (
+            productID          uint64
+            productName        string
+            totalPurchased     int
+            buyingPrice       float64
+            sellingPrice      float64
+            productDescription string
+            supplierName      sql.NullString
+        )
+
+        err = rows.Scan(&productID, &productName, &totalPurchased, &buyingPrice, 
+            &sellingPrice, &productDescription, &supplierName)
+        if err != nil {
+            fmt.Printf("Error scanning row: %v\n", err)
+            return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Error reading purchased stock data"})
+        }
+
+        stock := map[string]interface{}{
+            "product_id":          productID,
+            "product_name":        productName,
+            "total_purchased":     totalPurchased,
+            "buying_price":        buyingPrice,
+            "selling_price":       sellingPrice,
+            "product_description": productDescription,
+            "supplier_name":       nil,
+        }
+
+        if supplierName.Valid {
+            stock["supplier_name"] = supplierName.String
+        }
+
+        purchasedStocks = append(purchasedStocks, stock)
+    }
+
+    return c.JSON(http.StatusOK, purchasedStocks)
+}
