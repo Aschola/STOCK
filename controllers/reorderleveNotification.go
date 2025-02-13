@@ -209,8 +209,8 @@ func CheckStockLevelsAndLog(db *gorm.DB) {
 // StartReorderLevelNotification starts a ticker to check stock levels every 1 hour
 func StartReorderLevelNotification(db *gorm.DB) {
 	// Create a ticker that runs every 1 hour (3600 seconds)
-	//ticker := time.NewTicker(1 * time.Hour)
-	ticker := time.NewTicker(10 * time.Second)
+	ticker := time.NewTicker(1 * time.Hour)
+	//ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
 
 	// Continuously check stock levels every 1 hour
