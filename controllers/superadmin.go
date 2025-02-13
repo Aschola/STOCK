@@ -472,6 +472,10 @@ func Login(c echo.Context) error {
 		log.Printf("Login - Organization lookup error: %v", err)
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not verify organization status"})
 	}
+	if !user.IsActive {
+		log.Printf("Login - Organization is inactive: %v", user.ID)
+		return c.JSON(http.StatusForbidden, echo.Map{"error": "user inactive"})
+	}
 
 	if !organization.IsActive {
 		log.Printf("Login - Organization is inactive: %v", organization.ID)
