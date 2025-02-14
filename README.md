@@ -34,3 +34,4 @@ This is a role based stock system with different users who have different roles
 
    **.env file**
 Ensure you do not push the .env file on git 
+schola
