@@ -146,13 +146,12 @@ import (
 	"stock/db"
 	"stock/routes"
 
-	"github.com/joho/godotenv" // Import .env loader
+	"github.com/joho/godotenv" 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 )
 
 func main() {
-	// Load environment variables from .env file
 	err := godotenv.Load()
 	if err != nil {
 		log.Println("[ERROR] Error loading .env file:", err)
@@ -160,7 +159,6 @@ func main() {
 		log.Println("[INFO] .env file loaded successfully")
 	}
 
-	// Initialize the database
 	db.Init()
 
 	// Initialize email configuration

@@ -739,3 +739,37 @@ func ViewTotalPurchasedStock(c echo.Context) error {
 
     return c.JSON(http.StatusOK, purchasedStocks)
 }
+
+
+// func AddPurchases(c echo.Context) error {
+//     log.Println("Add purcahse entry")
+//     organizationIDRaw := c.Get("organizationID")
+//     if organizationIDRaw == nil {
+//         log.Println("AddPurcahse - organizationID not found in context")
+//         return c.JSON(http.StatusUnauthorized, echo.Map{"error":"unauthorized"})
+//     }
+//     organizationID, ok := organizationIDRaw.(uint)
+//     if !ok {
+//         log.Println("AddPurchases - invalid organizationID")
+//         return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
+//     }
+//     var purchases models.Purchases
+//     if err := c.Bind(&purchases); err != nil {
+//         log.Println("AddPurchases - Bind error: %v", err)
+//         return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
+//     }
+//     var existingpurchases models.Purchases
+//     if err := db.GetDB().
+//     Where("product_id = ? AND organization_id = ? AND deleted_at IS NULL", purchases.ProductID, organizationID).
+//     First(&existingpurchases).Error; err == nil {
+//     log.Printf("AddPurchases - purchases already exists: ProductID %d in OrganizationID %d", purchases.ProductID, organizationID)
+//     return c.JSON(http.StatusConflict, echo.Map{"error": "Stock already exists for this product in the organization"})
+// } else if err != gorm.ErrRecordNotFound {
+//     log.Printf("CreateStock - Error checking existing stock: %v", err)
+//     return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not check for existing stock"})
+
+// }
+
+// }
+
+

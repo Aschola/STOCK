@@ -48,3 +48,23 @@ func (s *Stock) UnmarshalJSON(data []byte) error {
 
 	return nil
 }
+
+type Purchases struct {
+	ID                 uint64     `gorm:"primaryKey;autoIncrement" json:"id"`
+	ProductID          uint64     `gorm:"not null" json:"product_id"`
+	Quantity           int        `gorm:"not null" json:"quantity"`
+	BuyingPrice        float64    `gorm:"not null" json:"buying_price"`
+	SellingPrice       float64    `gorm:"not null" json:"selling_price"`
+	SupplierID         uint       `json:"supplier_id"`
+	OrganizationID     uint       `json:"organization_id"`
+	ExpiryDate         *time.Time `gorm:"type:date" json:"expiry_date,omitempty"`
+	ProductDescription string     `gorm:"type:text" json:"product_description,omitempty"`
+	CreatedBy          uint64     `gorm:"not null" json:"created_by"`
+	CreatedAt          time.Time  `gorm:"autoCreateTime" json:"created_at"`
+	DeletedAt          *time.Time `gorm:"type:timestamp;column:deleted_at" json:"deleted_at,omitempty"`
+	Product            Product    `gorm:"foreignKey:ProductID" json:"product"`
+}
+
+func (Purchases) TableName() string {
+	return "purchases" 
+}

@@ -61,3 +61,4 @@ type Suppliers struct {
 func (Suppliers) TableName() string {
 	return "suppliers"
 }
+
