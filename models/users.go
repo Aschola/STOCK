@@ -8,7 +8,8 @@ import (
 
 type User struct {
 	ID             uint           `json:"id" gorm:"primaryKey"`
-	Username       string         `json:"username" gorm:"unique"`
+	// Username       string         `json:"username"`
+	Username       string `gorm:"not null" json:"username"`
 	Email          string         `json:"email"`
 	Password       string         `json:"password"`
 	FullName       string         `json:"full_name"`

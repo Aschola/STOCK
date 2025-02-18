@@ -7,9 +7,8 @@ import (
 	"fmt"
 	"gopkg.in/natefinch/lumberjack.v2"
 	"runtime/debug" 
-	//"context"
+	"github.com/joho/godotenv"
     "os"
-	//"logger"
 	"io"
 	"log"
 	"net/http"
@@ -33,7 +32,8 @@ type MPesaSettings struct {
 	BusinessShortCode int64  `json:"business_short_code"`
 	PassKey           string `json:"pass_key"`
 	Password          string `json:"password"`
-	CallbackURL       string `json:"callback_url"`
+	CallbackURL       string `json:"-" gorm:"-"` 
+	// CallbackURL       string `json:"callback_url"`
 	Environment       string `json:"environment"`
 }
 
@@ -154,47 +154,58 @@ func HandleSTKPush(c echo.Context) error {
 	return c.JSON(http.StatusOK, response)
 }
 
-// loadMPesaCredentials fetches MPesa credentials for the given organization
+
 func loadMPesaCredentials(organizationID int64) (MPesaSettings, error) {
-	var creds MPesaSettings
+    var creds MPesaSettings
 
-	// Debug: Print the SQL query
-	query := db.GetDB().Where("organization_id = ?", organizationID)
-	log.Printf("SQL Query: %v", query.Statement.SQL.String())
+    // Debug: Print the SQL query
+    query := db.GetDB().Where("organization_id = ?", organizationID)
+    log.Printf("SQL Query: %v", query.Statement.SQL.String())
 
-	err := query.First(&creds).Error
-	if err != nil {
-		log.Printf("Error fetching MPesa credentials from DB: %v", err)
-		return creds, fmt.Errorf("could not find credentials for organization ID %d: %v", organizationID, err)
-	}
+    err := query.First(&creds).Error
+    if err != nil {
+        log.Printf("Error fetching MPesa credentials from DB: %v", err)
+        return creds, fmt.Errorf("could not find credentials for organization ID %d: %v", organizationID, err)
+    }
 
-	// Debug: Log all credential fields
-	log.Printf("Retrieved credentials from database: %+v", creds)
+    // Debug: Log all credential fields
+    log.Printf("Retrieved credentials from database: %+v", creds)
 
-	// Validate required fields
-	if creds.ConsumerKey == "" {
-		return creds, fmt.Errorf("consumer key is missing")
-	}
-	if creds.ConsumerSecret == "" {
-		return creds, fmt.Errorf("consumer secret is missing")
-	}
-	if creds.BusinessShortCode == 0 {
-		return creds, fmt.Errorf("business short code is missing")
-	}
-	if creds.PassKey == "" {
-		return creds, fmt.Errorf("pass key is missing")
-	}
-	if creds.CallbackURL == "" {
-		return creds, fmt.Errorf("callback URL is missing")
-	}
+    // Validate required fields
+    if creds.ConsumerKey == "" {
+        return creds, fmt.Errorf("consumer key is missing")
+    }
+    if creds.ConsumerSecret == "" {
+        return creds, fmt.Errorf("consumer secret is missing")
+    }
+    if creds.BusinessShortCode == 0 {
+        return creds, fmt.Errorf("business short code is missing")
+    }
+    if creds.PassKey == "" {
+        return creds, fmt.Errorf("pass key is missing")
+    }
 
-	return creds, nil
+    // Fetch CallbackURL from environment variable
+    err = godotenv.Load() 
+	log.Printf("MPESA_CALLBACK_URL loaded")
+    if err != nil {
+        log.Printf("Error loading .env file: %v", err)
+        return creds, fmt.Errorf("could not load environment variables")
+    }
+
+    creds.CallbackURL = os.Getenv("MPESA_CALLBACK_URL")
+    if creds.CallbackURL == "" {
+		log.Printf("Mpesa callback: %v", creds)
+        return creds, fmt.Errorf("callback URL is missing from environment variables")
+    }
+
+    return creds, nil
 }
 
 // getAccessToken generates an OAuth access token
 func getAccessToken(creds MPesaSettings) (string, error) {
 	authURL := "https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials"
-	//authURL := "https:api.safaricom.co.ke/mpesa/stkpush/v1/processrequest"
+	// authURL := "https:api.safaricom.co.ke/mpesa/stkpush/v1/processrequest"
 
 	auth := base64.StdEncoding.EncodeToString([]byte(creds.ConsumerKey + ":" + creds.ConsumerSecret))
 
@@ -289,6 +300,8 @@ func InitiateSTKPush(organizationID int64, req STKPushRequest) (*STKPushResponse
 	password := generatePassword(fmt.Sprintf("%d", creds.BusinessShortCode), creds.PassKey, timestamp)
 
 	stkURL := "https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest"
+	// stkURL := "https:api.safaricom.co.ke/mpesa/stkpush/v1/processrequest"
+
 	log.Printf("Using STK Push URL: %s", stkURL)
 
 	// Format phone number
@@ -382,257 +395,9 @@ func InitiateSTKPush(organizationID int64, req STKPushRequest) (*STKPushResponse
 
 	log.Printf("Successfully saved transaction record with ID: %d", record.ID)
 	return &stkResponse, nil
-	// result, err := InitiateSTKPush(int64(organizationID), stkRequest)
-	// //result, err := InitiateSTKPush(int64(totalSellingPrice), stkRequest)
-	// if err != nil {
-	// 	log.Printf("[ERROR] Mpesa STK Push failed: %v", err)
-	// 	return echo.NewHTTPError(http.StatusInternalServerError, "Error initiating Mpesa payment")
-	// }
-
+	
 }
-// func HandleMpesaCallback(c echo.Context) error {
-// 	log.Printf("callback triggered")
-// 	log.Printf("Request Method: %s, URL: %s", c.Request().Method, c.Request().URL)
-// 	log.Printf("Headers: %+v", c.Request().Header)
 
-// 	// Read the request body
-// 	body, err := io.ReadAll(c.Request().Body)
-// 	if err != nil {
-// 		log.Printf("Failed to read request body: %v", err)
-// 		return c.JSON(http.StatusBadRequest, map[string]string{
-// 			"error": "Failed to read request body",
-// 		})
-// 	}
-// 	log.Printf("Raw callback body: %s", string(body))
-
-// 	// Restore the request body for further processing
-// 	c.Request().Body = io.NopCloser(bytes.NewBuffer(body))
-
-// 	// Parse the callback response
-// 	var callbackResp MpesaCallbackResponse
-// 	if err := json.Unmarshal(body, &callbackResp); err != nil {
-// 		log.Printf("Failed to unmarshal callback response: %v", err)
-// 		log.Printf("Failed body content: %s", string(body))
-// 		return c.JSON(http.StatusBadRequest, map[string]string{
-// 			"error": "Invalid callback format",
-// 		})
-// 	}
-// 	log.Printf("Callback response parsed: %+v", callbackResp)
-
-// 	// Extract metadata from the callback
-// 	stkCallback := callbackResp.Body.StkCallback
-// 	log.Printf("Processing STK callback: %+v", stkCallback)
-
-// 	// Start database transaction
-// 	tx := db.GetDB().Begin()
-// 	defer func() {
-// 		if r := recover(); r != nil {
-// 			tx.Rollback()
-// 		}
-// 	}()
-
-// 	// Find the corresponding transaction
-// 	var transaction TransactionRecord
-// 	result := tx.Where("merchant_request_id = ? OR checkout_request_id = ?",
-// 		stkCallback.MerchantRequestID, stkCallback.CheckoutRequestID).First(&transaction)
-
-// 	if result.Error != nil {
-// 		tx.Rollback()
-// 		log.Printf("Transaction not found - MerchantRequestID: %s, CheckoutRequestID: %s, Error: %v",
-// 			stkCallback.MerchantRequestID, stkCallback.CheckoutRequestID, result.Error)
-// 		return c.JSON(http.StatusNotFound, map[string]string{
-// 			"error": "Transaction not found",
-// 		})
-// 	}
-// 	log.Printf("Found transaction: %+v", transaction)
-
-// 	// Check if the transaction failed
-// 	if stkCallback.ResultCode != 0 {
-// 		log.Printf("Transaction failed with ResultCode: %d, ResultDesc: %s",
-// 			stkCallback.ResultCode, stkCallback.ResultDesc)
-
-// 		// Update the transaction as FAILED
-// 		transaction.Status = "FAILED"
-// 		transaction.UpdatedAt = time.Now()
-
-// 		if err := tx.Save(&transaction).Error; err != nil {
-// 			tx.Rollback()
-// 			log.Printf("Failed to update failed transaction: %v", err)
-// 			return c.JSON(http.StatusInternalServerError, map[string]string{
-// 				"error": "Failed to update transaction",
-// 			})
-// 		}
-
-// 		// Update sales status without modifying stock
-// 		var sales []models.Sale
-// 		log.Printf("Fetching sales for transaction_id: %s", transaction.TransactionID)
-// 		if err := tx.Table("sales_transactions").Where("transaction_id = ?", transaction.TransactionID).Find(&sales).Error; err != nil {
-// 			tx.Rollback()
-// 			log.Printf("Error fetching sales: %v", err)
-// 			return c.JSON(http.StatusInternalServerError, map[string]string{
-// 				"error": "Failed to fetch sales",
-// 			})
-// 		}
-
-// 		for _, sale := range sales {
-// 			sale.TransactionStatus = "FAILED"
-// 			if err := tx.Save(&sale).Error; err != nil {
-// 				tx.Rollback()
-// 				log.Printf("Error updating sale status: %v", err)
-// 				return c.JSON(http.StatusInternalServerError, map[string]string{
-// 					"error": "Failed to update sale status",
-// 				})
-// 			}
-// 		}
-
-// 		// Save the callback details
-// 		callback := STKPushResponse{
-// 			MerchantRequestID:   stkCallback.MerchantRequestID,
-// 			CheckoutRequestID:   stkCallback.CheckoutRequestID,
-// 			ResponseCode:        fmt.Sprintf("%d", stkCallback.ResultCode),
-// 			ResponseDescription: stkCallback.ResultDesc,
-// 			CustomerMessage:     "Transaction failed",
-// 			TransactionID:       transaction.TransactionID,
-// 			CallbackReceived:    time.Now(),
-// 		}
-
-// 		if err := tx.Create(&callback).Error; err != nil {
-// 			tx.Rollback()
-// 			log.Printf("Failed to save callback data: %v", err)
-// 			return c.JSON(http.StatusInternalServerError, map[string]string{
-// 				"error": "Failed to save callback data",
-// 			})
-// 		}
-
-// 		if err := tx.Commit().Error; err != nil {
-// 			log.Printf("Failed to commit transaction: %v", err)
-// 			return c.JSON(http.StatusInternalServerError, map[string]string{
-// 				"error": "Failed to commit transaction",
-// 			})
-// 		}
-
-// 		log.Println("Failed transaction recorded successfully")
-// 		return c.JSON(http.StatusOK, map[string]string{
-// 			"message": "Transaction failed",
-// 			"reason":  stkCallback.ResultDesc,
-// 		})
-// 	}
-
-// 	// Process successful transaction
-// 	mpesaReceipt := ""
-// 	amount := 0.0
-// 	log.Println("Processing successful transaction metadata")
-// 	for _, item := range stkCallback.CallbackMetadata.Item {
-// 		if item.Name == "MpesaReceiptNumber" {
-// 			mpesaReceipt = item.Value.(string)
-// 			log.Printf("Mpesa receipt number found: %s", mpesaReceipt)
-// 		}
-// 		if item.Name == "Amount" {
-// 			amount = item.Value.(float64)
-// 			log.Printf("Transaction amount found: %.2f", amount)
-// 		}
-// 	}
-
-// 	// Update the transaction as COMPLETED
-// 	transaction.Status = "COMPLETED"
-// 	transaction.Amount = amount
-// 	transaction.UpdatedAt = time.Now()
-// 	transaction.MpesaReceipt = mpesaReceipt
-
-// 	if err := tx.Save(&transaction).Error; err != nil {
-// 		tx.Rollback()
-// 		log.Printf("Failed to update completed transaction: %v", err)
-// 		return c.JSON(http.StatusInternalServerError, map[string]string{
-// 			"error": "Failed to update transaction",
-// 		})
-// 	}
-
-// 	// Update sales and stock for successful transaction
-// 	var sales []models.Sale
-// 	log.Printf("Fetching sales for transaction_id: %s", transaction.TransactionID)
-// 	if err := tx.Table("sales_transaction").Where("transaction_id = ?", transaction.TransactionID).Find(&sales).Error; err != nil {
-// 		tx.Rollback()
-// 		log.Printf("Error fetching sales: %v", err)
-// 		return c.JSON(http.StatusInternalServerError, map[string]string{
-// 			"error": "Failed to fetch sales",
-// 		})
-// 	}
-// 	log.Printf("Found %d sales records", len(sales))
-
-// 	// Debug log to see what's in the sales records
-// 	for i, sale := range sales {
-// 		log.Printf("Before update - Sale record %d: %+v", i, sale)
-// 		log.Printf("Before update - Product ID for sale %d: %d", i, sale.ProductID)
-// 	}
-
-// 	for i := range sales {
-// 		// Update by reference instead of value
-// 		sales[i].TransactionStatus = "COMPLETED"
-
-// 		log.Printf("Updating sale with ID: %d, Product ID: %d", sales[i].SaleID, sales[i].ProductID)
-
-// 		if err := tx.Save(&sales[i]).Error; err != nil {
-// 			tx.Rollback()
-// 			log.Printf("Error updating sale status: %v", err)
-// 			return c.JSON(http.StatusInternalServerError, map[string]string{
-// 				"error": "Failed to update sale status",
-// 			})
-// 		}
-
-// 		// Update stock quantity
-// 		var stock models.Stock
-// 		log.Printf("Fetching stock for product_id: %d", sales[i].ProductID)
-// 		if err := tx.First(&stock, "product_id = ?", sales[i].ProductID).Error; err != nil {
-// 			tx.Rollback()
-// 			log.Printf("Error fetching stock: %v", err)
-// 			return c.JSON(http.StatusInternalServerError, map[string]string{
-// 				"error": "Failed to fetch stock",
-// 			})
-// 		}
-
-// 		log.Printf("Current stock quantity: %d", stock.Quantity)
-// 		stock.Quantity -= sales[i].Quantity
-// 		log.Printf("New stock quantity: %d", stock.Quantity)
-
-// 		if err := tx.Save(&stock).Error; err != nil {
-// 			tx.Rollback()
-// 			log.Printf("Error updating stock: %v", err)
-// 			return c.JSON(http.StatusInternalServerError, map[string]string{
-// 				"error": "Failed to update stock",
-// 			})
-// 		}
-// 	}
-// 	// Save the callback details
-// 	callback := STKPushResponse{
-// 		MerchantRequestID:   stkCallback.MerchantRequestID,
-// 		CheckoutRequestID:   stkCallback.CheckoutRequestID,
-// 		ResponseCode:        fmt.Sprintf("%d", stkCallback.ResultCode),
-// 		ResponseDescription: stkCallback.ResultDesc,
-// 		CustomerMessage:     fmt.Sprintf("Receipt: %s, Amount: %.2f", mpesaReceipt, amount),
-// 		TransactionID:       transaction.TransactionID,
-// 		CallbackReceived:    time.Now(),
-// 	}
-
-// 	if err := tx.Create(&callback).Error; err != nil {
-// 		tx.Rollback()
-// 		log.Printf("Failed to save success callback data: %v", err)
-// 		return c.JSON(http.StatusInternalServerError, map[string]string{
-// 			"error": "Failed to save callback data",
-// 		})
-// 	}
-
-// 	if err := tx.Commit().Error; err != nil {
-// 		log.Printf("Failed to commit transaction: %v", err)
-// 		return c.JSON(http.StatusInternalServerError, map[string]string{
-// 			"error": "Failed to commit transaction",
-// 		})
-// 	}
-
-// 	log.Printf("Success callback data saved: %+v", callback)
-// 	return c.JSON(http.StatusOK, map[string]string{
-// 		"message": "Callback processed successfully",
-// 	})
-// }
 func HandleMpesaCallback(c echo.Context) error {
 	log.Printf("callback triggered")
 	logger := log.New(&lumberjack.Logger{
