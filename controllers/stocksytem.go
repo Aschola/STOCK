@@ -164,6 +164,7 @@ func ViewAllStock(c echo.Context) error {
             s.product_id,
             p.product_name AS product_name,
             s.quantity,
+            s.original_quantity,
             s.buying_price,
             s.selling_price,
             s.created_at,
@@ -193,6 +194,7 @@ func ViewAllStock(c echo.Context) error {
             productID          uint64
             productName        string
             quantity          int
+            OriginalQuantity  int64
             buyingPrice       float64
             sellingPrice      float64
             created_at        time.Time
@@ -202,7 +204,7 @@ func ViewAllStock(c echo.Context) error {
             supplierName      sql.NullString
         )
 
-        err = rows.Scan(&id, &productID, &productName, &quantity, &buyingPrice, 
+        err = rows.Scan(&id, &productID, &productName, &quantity, &OriginalQuantity, &buyingPrice, 
             &sellingPrice, &created_at, &username, &expiryDate, &productDescription, &supplierName)
         if err != nil {
             fmt.Printf("Error scanning row: %v\n", err)
@@ -214,6 +216,7 @@ func ViewAllStock(c echo.Context) error {
             "product_id":          productID,
             "product_name":        productName,
             "quantity":            quantity,
+            "original_quantity":   OriginalQuantity,
             "buying_price":        buyingPrice,
             "selling_price":       sellingPrice,
             "created_at":          created_at.Format("2006-01-02 15:04:05"),
@@ -272,6 +275,7 @@ func ViewStockByID(c echo.Context) error {
             s.product_id,
             p.product_name AS product_name,
             s.quantity,
+            s.original_quantity,
             s.buying_price,
             s.selling_price,
             s.created_at,
@@ -297,6 +301,7 @@ func ViewStockByID(c echo.Context) error {
         productID          uint64
         productName        string
         quantity          int
+        OriginalQuantity  int64
         buyingPrice       float64
         sellingPrice      float64
         created_at        time.Time
@@ -306,7 +311,7 @@ func ViewStockByID(c echo.Context) error {
         supplierName      *string
     )
 
-    err = row.Scan(&idVal, &productID, &productName, &quantity, &buyingPrice, 
+    err = row.Scan(&idVal, &productID, &productName, &quantity, &OriginalQuantity, &buyingPrice, 
         &sellingPrice, &created_at, &expiryDate, &username, &productDescription, &supplierName)
     if err != nil {
         log.Printf("ViewStockByID - Error scanning row: %v", err)
@@ -318,6 +323,7 @@ func ViewStockByID(c echo.Context) error {
         "product_id":          productID,
         "product_name":        productName,
         "quantity":            quantity,
+        "original_quantity":   OriginalQuantity,
         "buying_price":        buyingPrice,
         "selling_price":       sellingPrice,
         "created_at":          created_at.Format("2006-01-02 15:04:05"),

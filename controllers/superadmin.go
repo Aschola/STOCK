@@ -27,14 +27,14 @@ func SuperAdminLogin(c echo.Context) error {
 		log.Printf("Bind error: %v", err)
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 	}
-	loginInput := validators.LoginInput{
-		//Username: input.Username,
-		Password: input.Password,
-	}
-	if err := validators.ValidateLoginInput(loginInput); err != nil {
-		log.Printf("Validation error: %v", err)
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
-	}
+	// loginInput := validators.LoginInput{
+	// 	//Username: input.Username,
+	// 	Password: input.Password,
+	// }
+	// if err := validators.ValidateLoginInput(loginInput); err != nil {
+	// 	log.Printf("Validation error: %v", err)
+	// 	return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
+	// }
 
 	var user models.User
 	if err := db.GetDB().Where("email = ?", input.Email).First(&user).Error; err != nil {
@@ -483,7 +483,7 @@ func Login(c echo.Context) error {
 
 	if err := utils.CheckPasswordHash(loginData.Password, user.Password); err != nil {
 		log.Printf("Login - CheckPasswordHash error: %v", err)
-		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Invalid username or password"})
+		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Invalid email or password"})
 	}
 
 	token, err := utils.GenerateJWT(user.ID, user.RoleName, user.OrganizationID)

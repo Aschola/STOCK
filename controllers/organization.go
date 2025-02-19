@@ -147,90 +147,7 @@ func AdminLogout(c echo.Context) error {
 	return c.JSON(http.StatusOK, echo.Map{"message": "Successfully logged out"})
 }
 
-// func AdminSignup(c echo.Context) error {
-// 	var input models.User
 
-// 	// Bind the input JSON to the User struct
-// 	if err := c.Bind(&input); err != nil {
-// 		log.Printf("Bind error: %v", err)
-// 		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
-// 	}
-
-// 	// Validate the input
-// 	SignupInput := validators.SignupInput{
-// 		Username: input.Username,
-// 		Password: input.Password,
-// 	}
-// 	if err := validators.ValidateSignupInput(SignupInput); err != nil {
-// 		log.Printf("AdminSignup - Validation error: %v", err)
-// 		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
-// 	}
-
-// 	log.Printf("Received JSON: %+v", input)
-
-// 	// Check if username or email already exists
-// 	var user models.User
-// 	if err := db.GetDB().Where("phone_number = ?", input.Phonenumber).First(&user).Error; err == nil {
-// 		return c.JSON(http.StatusConflict, echo.Map{"error": "Phonenumber already exists"})
-// 	}
-// 	if err := db.GetDB().Where("email = ?", input.Email).First(&user).Error; err == nil {
-// 		return c.JSON(http.StatusConflict, echo.Map{"error": "Email already exists"})
-// 	}
-
-// 	// Hash the password
-// 	hashedPassword, err := utils.HashPassword(input.Password)
-// 	if err != nil {
-// 		log.Printf("HashPassword error: %v", err)
-// 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not hash password"})
-// 	}
-// 	input.Password = hashedPassword
-
-// 	// Check if the organization already exists by name
-// 	var organization models.Organization
-// 	if err := db.GetDB().Where("name = ?", input.Organization).First(&organization).Error; err != nil {
-// 		if errors.Is(err, gorm.ErrRecordNotFound) {
-// 			// Create the organization if not found
-// 			organization = models.Organization{
-// 				Name:  input.Organization,
-// 				Email: input.Email,
-// 			}
-// 			if err := db.GetDB().Create(&organization).Error; err != nil {
-// 				log.Printf("Organization creation error: %v", err)
-// 				return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not create organization"})
-// 			}
-// 		} else {
-// 			log.Printf("Organization query error: %v", err)
-// 			return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Error checking organization"})
-// 		}
-// 	}
-
-// 	// Set organization ID for the user
-// 	input.OrganizationID = organization.ID
-// 	input.RoleName = "Admin"
-// 	input.IsActive = true
-
-// 	// Create the user
-// 	if err := db.GetDB().Create(&input).Error; err != nil {
-// 		log.Printf("User creation error: %v", err)
-// 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
-// 	}
-
-// 	// Generate JWT token
-// 	token, err := utils.GenerateJWT(input.ID, input.RoleName, input.OrganizationID)
-// 	if err != nil {
-// 		log.Printf("GenerateJWT error: %v", err)
-// 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not generate token"})
-// 	}
-
-//		log.Println("Admin signed up successfully")
-//		return c.JSON(http.StatusOK, echo.Map{
-//			"message":         "Admin signed up successfully",
-//			"token":           token,
-//			"user_id":         input.ID,
-//			"role_name":       input.RoleName,
-//			"organization_id": input.OrganizationID,
-//		})
-//	}
 func AdminSignup(c echo.Context) error {
 	var input models.User
 
@@ -263,7 +180,6 @@ func AdminSignup(c echo.Context) error {
 		}
 	}
 
-	// Hash the password
 	hashedPassword, err := utils.HashPassword(input.Password)
 	if err != nil {
 		log.Printf("HashPassword error: %v", err)
@@ -275,7 +191,7 @@ func AdminSignup(c echo.Context) error {
 	var organization models.Organization
 	if err := db.GetDB().Where("name = ?", input.Organization).First(&organization).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			// Create the organization if not found
+
 			organization = models.Organization{
 				Name:  input.Organization,
 				Email: input.Email,
@@ -306,6 +222,11 @@ func AdminSignup(c echo.Context) error {
 	if err != nil {
 		log.Printf("GenerateJWT error: %v", err)
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not generate token"})
+	}
+	err = sendSignupNotification(input.Username, input.Email, strconv.FormatInt(input.Phonenumber, 10), input.Organization)
+	// err = sendSignupNotification(input.Email, input.Phonenumber, input.Organization)
+	if err != nil {
+		log.Printf("Email notification error: %v", err)
 	}
 
 	log.Println("Admin signed up successfully")

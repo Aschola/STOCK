@@ -111,4 +111,5 @@ type CompanySetting struct {
 	Telephone      string  `gorm:"not null"`
 	OrganizationID uint    `gorm:"index"`
 	KraPin         *string `json:"kra_pin"`
+	Email   	string  `json:"email"`
 }

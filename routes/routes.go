@@ -158,6 +158,7 @@ func SetupRoutes(e *echo.Echo) {
 	organization.GET("/viewallstock", controllers.ViewAllStock)
 	organization.GET("/viewstock/:id", controllers.ViewStockByID)
 	organization.GET("/viewpurchases", controllers.ViewTotalPurchasedStock)
+	organization.POST("/addpurchases", controllers.AddPurchases)
 	organization.POST("/mpesa/stkpush", controllers.HandleSTKPush)
 	organization.GET("/transactions", controllers.GetAllTransactions)
 	organization.PUT("/changepassword", controllers.ChangePassword)
