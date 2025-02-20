@@ -3,6 +3,8 @@ package models
 import (
 	//"strings"
 	"time"
+	"gorm.io/gorm"   
+	
 )
 
 type CategoriesOnly struct {
@@ -112,4 +114,10 @@ type CompanySetting struct {
 	OrganizationID uint    `gorm:"index"`
 	KraPin         *string `json:"kra_pin"`
 	Email   	string  `json:"email"`
+}
+type TotalSales struct {
+    gorm.Model
+	OrganizationID    uint      `json:"organization_id"` 
+    TotalSellingPrice float64   `json:"total_selling_price"`
+    Date              time.Time  `json:"date"`
 }

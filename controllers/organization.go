@@ -159,11 +159,7 @@ func AdminSignup(c echo.Context) error {
 
 	// Validate the input
 	SignupInput := validators.SignupInput{
-<<<<<<< HEAD
-		//Username: input.Username,
-=======
 		Username: input.Username,
->>>>>>> 96e5e9ee3fe80ab1eda48a928690970c454b3bfd
 		Password: input.Password,
 	}
 	if err := validators.ValidateSignupInput(SignupInput); err != nil {
