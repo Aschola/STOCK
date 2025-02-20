@@ -140,6 +140,106 @@ func DeleteStock(c echo.Context) error {
 }
 
 
+// func ViewAllStock(c echo.Context) error {
+//     gormDB := db.GetDB()
+
+//     // Set isolation level
+//     err := gormDB.Exec("SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED").Error
+//     if err != nil {
+//         fmt.Printf("Failed to set isolation level: %v\n", err)
+//         return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Database configuration error"})
+//     }
+
+//     organizationID, ok := c.Get("organizationID").(uint)
+//     if !ok {
+//         log.Println("ViewAllStock - Failed to get organizationID from context")
+//         return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
+//     }
+
+//     log.Printf("ViewAllStock - OrganizationID: %d", organizationID)
+
+//     query := `
+//         SELECT 
+//             s.id,
+//             s.product_id,
+//             p.product_name AS product_name,
+//             s.quantity,
+//             s.original_quantity,
+//             s.buying_price,
+//             s.selling_price,
+//             s.created_at,
+//             s.username,
+//             DATE_FORMAT(s.expiry_date, '%Y-%m-%d') as expiry_date,
+//             p.product_description AS product_description,
+//             su.name AS supplier_name
+//         FROM stock s
+//         LEFT JOIN products p ON s.product_id = p.product_id
+//         LEFT JOIN suppliers su ON su.id = s.supplier_id
+//         WHERE p.product_id IS NOT NULL
+//         AND s.organization_id = ?
+//         ORDER BY s.id DESC
+//     `
+
+//     rows, err := gormDB.Raw(query, organizationID).Rows()
+//     if err != nil {
+//         fmt.Printf("Query execution failed: %v\nQuery: %s\n", err, query)
+//         return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to fetch stock"})
+//     }
+//     defer rows.Close()
+
+//     var stocks []map[string]interface{}
+//     for rows.Next() {
+//         var (
+//             id                 uint64
+//             productID          uint64
+//             productName        string
+//             quantity          int
+//             OriginalQuantity  int64
+//             buyingPrice       float64
+//             sellingPrice      float64
+//             created_at        time.Time
+//             username          string
+//             expiryDate        sql.NullString
+//             productDescription string
+//             supplierName      sql.NullString
+//         )
+
+//         err = rows.Scan(&id, &productID, &productName, &quantity, &OriginalQuantity, &buyingPrice, 
+//             &sellingPrice, &created_at, &username, &expiryDate, &productDescription, &supplierName)
+//         if err != nil {
+//             fmt.Printf("Error scanning row: %v\n", err)
+//             return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Error reading stock data"})
+//         }
+
+//         stock := map[string]interface{}{
+//             "id":                  id,
+//             "product_id":          productID,
+//             "product_name":        productName,
+//             "quantity":            quantity,
+//             "original_quantity":   OriginalQuantity,
+//             "buying_price":        buyingPrice,
+//             "selling_price":       sellingPrice,
+//             "created_at":          created_at.Format("2006-01-02 15:04:05"),
+//             "username":             username,
+//             "product_description": productDescription,
+//             "supplier_name":       nil,
+//         }
+
+//         if expiryDate.Valid {
+//             stock["expiry_date"] = expiryDate.String
+//         } else {
+//             stock["expiry_date"] = nil
+//         }
+
+//         if supplierName.Valid {
+//             stock["supplier_name"] = supplierName.String
+//         }
+
+//         stocks = append(stocks, stock)
+//     }
+
+//     return c.JSON(http.StatusOK, stocks)
+// }
 func ViewAllStock(c echo.Context) error {
     gormDB := db.GetDB()
 
@@ -164,7 +264,7 @@ func ViewAllStock(c echo.Context) error {
             s.product_id,
             p.product_name AS product_name,
             s.quantity,
-            s.original_quantity,
+            COALESCE(s.original_quantity, 0) as original_quantity,  # Added COALESCE here
             s.buying_price,
             s.selling_price,
             s.created_at,
@@ -190,21 +290,21 @@ func ViewAllStock(c echo.Context) error {
     var stocks []map[string]interface{}
     for rows.Next() {
         var (
-            id                 uint64
-            productID          uint64
-            productName        string
-            quantity          int
-            OriginalQuantity  int64
-            buyingPrice       float64
-            sellingPrice      float64
-            created_at        time.Time
-            username          string
-            expiryDate        sql.NullString
+            id                uint64
+            productID        uint64
+            productName      string
+            quantity         int
+            originalQuantity int64  // Changed to int64 since COALESCE handles NULL
+            buyingPrice     float64
+            sellingPrice    float64
+            created_at      time.Time
+            username        string
+            expiryDate      sql.NullString
             productDescription string
-            supplierName      sql.NullString
+            supplierName    sql.NullString
         )
 
-        err = rows.Scan(&id, &productID, &productName, &quantity, &OriginalQuantity, &buyingPrice, 
+        err = rows.Scan(&id, &productID, &productName, &quantity, &originalQuantity, &buyingPrice,
             &sellingPrice, &created_at, &username, &expiryDate, &productDescription, &supplierName)
         if err != nil {
             fmt.Printf("Error scanning row: %v\n", err)
@@ -216,11 +316,11 @@ func ViewAllStock(c echo.Context) error {
             "product_id":          productID,
             "product_name":        productName,
             "quantity":            quantity,
-            "original_quantity":   OriginalQuantity,
+            "original_quantity":   originalQuantity,
             "buying_price":        buyingPrice,
             "selling_price":       sellingPrice,
             "created_at":          created_at.Format("2006-01-02 15:04:05"),
-            "username":             username,
+            "username":            username,
             "product_description": productDescription,
             "supplier_name":       nil,
         }
@@ -275,7 +375,7 @@ func ViewStockByID(c echo.Context) error {
             s.product_id,
             p.product_name AS product_name,
             s.quantity,
-            s.original_quantity,
+            COALESCE(s.original_quantity, 0) as original_quantity,
             s.buying_price,
             s.selling_price,
             s.created_at,
@@ -297,21 +397,21 @@ func ViewStockByID(c echo.Context) error {
     }
 
     var (
-        idVal               uint64
-        productID          uint64
-        productName        string
-        quantity          int
-        OriginalQuantity  int64
-        buyingPrice       float64
-        sellingPrice      float64
-        created_at        time.Time
-        expiryDate        *string
-        username           string
+        idVal              uint64
+        productID         uint64
+        productName       string
+        quantity         int
+        originalQuantity int64  // Changed to lowercase for consistency
+        buyingPrice      float64
+        sellingPrice     float64
+        created_at       time.Time
+        expiryDate       *string
+        username         string
         productDescription string
-        supplierName      *string
+        supplierName     *string
     )
 
-    err = row.Scan(&idVal, &productID, &productName, &quantity, &OriginalQuantity, &buyingPrice, 
+    err = row.Scan(&idVal, &productID, &productName, &quantity, &originalQuantity, &buyingPrice, 
         &sellingPrice, &created_at, &expiryDate, &username, &productDescription, &supplierName)
     if err != nil {
         log.Printf("ViewStockByID - Error scanning row: %v", err)
@@ -323,7 +423,7 @@ func ViewStockByID(c echo.Context) error {
         "product_id":          productID,
         "product_name":        productName,
         "quantity":            quantity,
-        "original_quantity":   OriginalQuantity,
+        "original_quantity":   originalQuantity,
         "buying_price":        buyingPrice,
         "selling_price":       sellingPrice,
         "created_at":          created_at.Format("2006-01-02 15:04:05"),
@@ -336,7 +436,6 @@ func ViewStockByID(c echo.Context) error {
     log.Println("ViewStockByID - Stock retrieved successfully")
     return c.JSON(http.StatusOK, stock)
 }
-
 // func ViewTotalPurchasedStock(c echo.Context) error {
 //     gormDB := db.GetDB()
 

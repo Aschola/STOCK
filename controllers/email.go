@@ -203,7 +203,7 @@ func sendSignupNotification(username, email, phone, Organization string) error {
 
     // Email details
     to := "support@infinitytechafrica.com"
-    subject := "New STOCK Client Registeration."
+    subject := "New STOCK Client Registration."
 
     body := fmt.Sprintf("New STOCK Client Registered with below details:\n \nUsername %s\nEmail: %s\nPhone: %s\nOrganization: %s", username, email, phone, Organization)
 
