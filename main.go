@@ -35,7 +35,7 @@
 // 		AllowMethods: []string{echo.GET, echo.POST, echo.PUT, echo.DELETE},
 // 		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
 // 	}))
-	
+
 // 	// Middleware for body size limit
 // 	e.Use(middleware.BodyLimit("2M"))
 
@@ -56,7 +56,6 @@
 
 // 	log.Fatal(e.Start(":" + port))
 // }
-
 
 // package main
 
@@ -146,13 +145,12 @@ import (
 	"stock/db"
 	"stock/routes"
 
-	"github.com/joho/godotenv" // Import .env loader
+	"github.com/joho/godotenv"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 )
 
 func main() {
-	// Load environment variables from .env file
 	err := godotenv.Load()
 	if err != nil {
 		log.Println("[ERROR] Error loading .env file:", err)
@@ -160,7 +158,6 @@ func main() {
 		log.Println("[INFO] .env file loaded successfully")
 	}
 
-	// Initialize the database
 	db.Init()
 
 	// Initialize email configuration
@@ -169,14 +166,13 @@ func main() {
 		log.Fatalf("[ERROR] Failed to initialize email config: %v", err)
 	}
 
-	go controllers.CheckAndInsertMissingOrganizations(db.GetDB())
+	//go controllers.CheckAndInsertMissingOrganizations(db.GetDB())
 	go controllers.StartReorderLevelNotification(db.GetDB())
 
 	e := echo.New()
 
 	e.POST("/send-sms", controllers.SendSmsHandler)
 	e.POST("/mpesa/callback", controllers.HandleMpesaCallback)
-
 
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{"*"},

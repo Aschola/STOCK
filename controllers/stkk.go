@@ -178,8 +178,8 @@ func loadMPesaCredentialss(organizationID int64) (MPesaSettingss, error) {
 
 // getAccessToken generates an OAuth access token
 func getAccessTokens(creds MPesaSettingss) (string, error) {
-	authURL := "https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials"
-	//authURL := "https:api.safaricom.co.ke/mpesa/stkpush/v1/processrequest"
+	//authURL := "https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials"
+	authURL := "https:api.safaricom.co.ke/mpesa/stkpush/v1/processrequest"
 
 
 	auth := base64.StdEncoding.EncodeToString([]byte(creds.ConsumerKey + ":" + creds.ConsumerSecret))
@@ -277,7 +277,9 @@ func InitiateSTKPushs(organizationID int64, req STKPushRequests) (*STKPushRespon
 	}
 
 	// Create STK push request
-	stkPushURL := "https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest"
+	// stkPushURL := "https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest"
+	stkPushURL := "https:api.safaricom.co.ke/mpesa/stkpush/v1/processrequest"
+
 	httpReq, err := http.NewRequest("POST", stkPushURL, bytes.NewBuffer(jsonPayload))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %v", err)

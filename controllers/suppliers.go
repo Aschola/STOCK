@@ -12,6 +12,65 @@ import (
 )
 
 // CreateSupplier handles the creation of a new supplier
+// func AddSupplier(c echo.Context) error {
+//     log.Println("CreateSupplier - Entry")
+
+//     // Retrieve the organization ID from the context
+//     organizationIDRaw := c.Get("organizationID")
+//     if organizationIDRaw == nil {
+//         log.Println("CreateSupplier - organizationID not found in context")
+//         return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
+//     }
+
+//     organizationID, ok := organizationIDRaw.(uint)
+//     if !ok {
+//         log.Println("CreateSupplier - Invalid organizationID")
+//         return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
+//     }
+
+//     // Bind the incoming request body to the supplier struct
+//     var supplier models.Suppliers
+//     if err := c.Bind(&supplier); err != nil {
+//         log.Printf("CreateSupplier - Bind error: %v", err)
+//         return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
+//     }
+
+//     // Check if the supplier already exists (based on a unique field like 'name' or 'contact')
+//     var existingSupplier models.Suppliers
+//     if err := db.GetDB().Where("name = ? AND organization_id = ?", supplier.Name, organizationID).First(&existingSupplier).Error; err == nil {
+//         log.Printf("CreateSupplier - Supplier with name %s already exists in organization %d", supplier.Name, organizationID)
+//         return c.JSON(http.StatusConflict, echo.Map{"error": "Supplier already exists"})
+//     }
+
+//     // Retrieve userID from the context
+//     userIDRaw := c.Get("userID")
+//     if userIDRaw == nil {
+//         log.Println("CreateSupplier - userID not found in context")
+//         return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
+//     }
+
+//     userID, ok := userIDRaw.(uint)
+//     if !ok {
+//         log.Println("CreateSupplier - Invalid userID")
+//         return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
+//     }
+
+//     // Automatically link the supplier with the current user's organization
+//     supplier.OrganizationID = organizationID
+//     supplier.CreatedBy = userID // Set the user who created the supplier
+
+//     log.Printf("CreateSupplier - New supplier data: %+v", supplier)
+
+//     // Save the new supplier to the database
+//     if err := db.GetDB().Create(&supplier).Error; err != nil {
+//         log.Printf("CreateSupplier - Create error: %v", err)
+//         return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
+//     }
+
+//     log.Println("CreateSupplier - Supplier created successfully")
+//     log.Println("CreateSupplier - Exit")
+//     return c.JSON(http.StatusCreated, supplier)
+// }
 func AddSupplier(c echo.Context) error {
     log.Println("CreateSupplier - Entry")
 
@@ -35,11 +94,18 @@ func AddSupplier(c echo.Context) error {
         return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
     }
 
-    // Check if the supplier already exists (based on a unique field like 'name' or 'contact')
+    // Check if the supplier already exists by name
     var existingSupplier models.Suppliers
     if err := db.GetDB().Where("name = ? AND organization_id = ?", supplier.Name, organizationID).First(&existingSupplier).Error; err == nil {
         log.Printf("CreateSupplier - Supplier with name %s already exists in organization %d", supplier.Name, organizationID)
         return c.JSON(http.StatusConflict, echo.Map{"error": "Supplier already exists"})
+    }
+
+    // Check if the phone number already exists
+    var existingPhone models.Suppliers
+    if err := db.GetDB().Where("phone_number = ? AND organization_id = ?", supplier.Phonenumber, organizationID).First(&existingPhone).Error; err == nil {
+        log.Printf("CreateSupplier - Supplier with phone number %s already exists in organization %d", supplier.Phonenumber, organizationID)
+        return c.JSON(http.StatusConflict, echo.Map{"error": "Phone number already exists"})
     }
 
     // Retrieve userID from the context
@@ -57,7 +123,7 @@ func AddSupplier(c echo.Context) error {
 
     // Automatically link the supplier with the current user's organization
     supplier.OrganizationID = organizationID
-    supplier.CreatedBy = userID // Set the user who created the supplier
+    supplier.CreatedBy = userID
 
     log.Printf("CreateSupplier - New supplier data: %+v", supplier)
 
@@ -71,7 +137,6 @@ func AddSupplier(c echo.Context) error {
     log.Println("CreateSupplier - Exit")
     return c.JSON(http.StatusCreated, supplier)
 }
-
 // UpdateSupplier handles updating an existing supplier
 func EditSupplier(c echo.Context) error {
     log.Println("UpdateSupplier - Entry")
@@ -349,7 +414,8 @@ func GetAllSuppliers(c echo.Context) error {
             s.company_name,
             s.address,
             s.created_at,
-            s.deleted_at
+            s.deleted_at,
+            s.description
         FROM suppliers s
         LEFT JOIN stock st ON st.supplier_id = s.id
         WHERE s.organization_id = ? AND s.deleted_at IS NULL
@@ -375,6 +441,7 @@ func GetAllSuppliers(c echo.Context) error {
             address       *string
             createdAt     *string
             deletedAt     *string
+            description   *string
         )
 
         if err := rows.Scan(
@@ -386,6 +453,7 @@ func GetAllSuppliers(c echo.Context) error {
             &address,
             &createdAt,
             &deletedAt,
+            &description,
         ); err != nil {
             log.Printf("GetAllSuppliers - Row scan error: %v", err)
             return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Error scanning suppliers data"})
@@ -400,6 +468,7 @@ func GetAllSuppliers(c echo.Context) error {
             "address":         nilStringToEmpty(address),
             "created_at":      createdAt,
             "deleted_at":      deletedAt,
+            "description":     nilStringToEmpty(description),
         }
 
         suppliers = append(suppliers, supplier)
@@ -439,7 +508,8 @@ func GetSupplier(c echo.Context) error {
             s.company_name,
             s.address,
             s.created_at,
-            s.deleted_at
+            s.deleted_at,
+            s.description
         FROM suppliers s
         WHERE s.id = ? AND s.organization_id = ? AND s.deleted_at IS NULL
     `
@@ -462,6 +532,7 @@ func GetSupplier(c echo.Context) error {
             address     *string
             createdAt   *string
             deletedAt   *string
+            description *string
         )
 
         if err := rows.Scan(
@@ -473,6 +544,7 @@ func GetSupplier(c echo.Context) error {
             &address,
             &createdAt,
             &deletedAt,
+            &description,
         ); err != nil {
             log.Printf("GetSupplier - Row scan error: %v", err)
             return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Error scanning supplier data"})
@@ -487,6 +559,7 @@ func GetSupplier(c echo.Context) error {
             "address":         nilStringToEmpty(address),
             "created_at":      createdAt,
             "deleted_at":      deletedAt,
+            "description":     nilStringToEmpty(description),
         }
 
         supplierDetails = append(supplierDetails, supplier)
