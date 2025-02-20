@@ -91,3 +91,11 @@ type CompanySetting struct {
 	OrganizationID uint    `gorm:"index"`   
 	KraPin         *string `json:"kra_pin"` 
 }
+
+
+type TotalSales struct {
+	ID                uint      `gorm:"primaryKey"`
+	 OrganizationID   uint      `json:"organization_id"`
+	TotalSellingPrice float64  `gorm:"not null"`
+	Date              time.Time `gorm:"autoCreateTime"`
+}
