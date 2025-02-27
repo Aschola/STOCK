@@ -10,10 +10,12 @@ type Stock struct {
 	ID                 uint64     `gorm:"primaryKey;autoIncrement" json:"id"`
 	ProductID          uint64     `gorm:"not null" json:"product_id"`
 	Quantity           int        `gorm:"not null" json:"quantity"`
+	Username           string `gorm:"not null" json:"username"`
 	BuyingPrice        float64    `gorm:"not null" json:"buying_price"`
 	SellingPrice       float64    `gorm:"not null" json:"selling_price"`
 	SupplierID         uint       `json:"supplier_id"`
 	OrganizationID     uint       `json:"organization_id"`
+	OriginalQuantity int `json:"original_quantity"`
 	ExpiryDate         *time.Time `gorm:"type:date" json:"expiry_date,omitempty"`
 	ProductDescription string     `gorm:"type:text" json:"product_description,omitempty"`
 	CreatedBy          uint64     `gorm:"not null" json:"created_by"`
@@ -23,7 +25,7 @@ type Stock struct {
 }
 
 func (Stock) TableName() string {
-	return "stock" // Explicitly set the table name to "stock"
+	return "stock" 
 }
 func (s *Stock) UnmarshalJSON(data []byte) error {
 	type Alias Stock
@@ -48,3 +50,5 @@ func (s *Stock) UnmarshalJSON(data []byte) error {
 
 	return nil
 }
+
+

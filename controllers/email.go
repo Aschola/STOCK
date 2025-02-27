@@ -5,6 +5,9 @@ import (
 	"encoding/base64"
 	"fmt"
 	"log"
+	"gopkg.in/gomail.v2"
+	"strconv"
+	"errors"
 	//"net/http"
 	"net/smtp"
 	"os"
@@ -173,43 +176,52 @@ func HandleSendActivationEmail(c echo.Context) error {
 	fmt.Println("[DEBUG] Activation email process completed for User ID:", user.ID)
 	return c.JSON(200, map[string]string{"message": "Activation email sent successfully"})
 }
-// func ActivateAccount(c echo.Context) error {
-// 	token := c.QueryParam("token")
-// 	fmt.Println("[DEBUG] Activating account with token:", token)
 
-// 	var activationToken models.ActivationToken
-// 	if err := db.GetDB().Where("token = ? AND used = ? AND expires_at > ?", token, false, time.Now()).First(&activationToken).Error; err != nil {
-// 		fmt.Println("[ERROR] Invalid or expired token:", err)
-// 		return c.JSON(400, map[string]string{"error": "Invalid or expired token"})
-// 	}
+func sendSignupNotification(username, email, phone, Organization string) error {	
+    // Load SMTP configuration from .env
+    smtpHost := os.Getenv("SMTP_HOST")
+    smtpPort := os.Getenv("SMTP_PORT")
+    fromEmail := os.Getenv("FROM_EMAIL")
+    smtpPass := os.Getenv("SMTP_PASSWORD")
 
-// 	// Get user
-// 	var user models.User
-// 	if err := db.GetDB().First(&user, activationToken.UserID).Error; err != nil {
-// 		fmt.Println("[ERROR] User not found for activation:", err)
-// 		return c.JSON(404, map[string]string{"error": "User not found"})
-// 	}
+    // Log the configuration (matching your debug logs)
+    log.Printf("[DEBUG] SMTP Host: %s", smtpHost)
+    log.Printf("[DEBUG] SMTP Port: %s", smtpPort)
+    log.Printf("[DEBUG] From Email: %s", fromEmail)
 
-// 	// Update user status
-// 	fmt.Println("[DEBUG] Activating user account:", user.ID)
-// 	user.IsActive = true
-// 	if err := db.GetDB().Save(&user).Error; err != nil {
-// 		fmt.Println("[ERROR] Failed to activate user:", err)
-// 		return c.JSON(500, map[string]string{"error": "Failed to activate account"})
-// 	}
+    // Validate SMTP configuration
+    if smtpHost == "" || smtpPort == "" || fromEmail == "" || smtpPass == "" {
+        log.Println("[ERROR] SMTP configuration missing in .env file")
+        return errors.New("SMTP configuration missing")
+    }
 
-// 	// Mark token as used
-// 	fmt.Println("[DEBUG] Marking token as used for User ID:", user.ID)
-// 	activationToken.Used = true
-// 	if err := db.GetDB().Save(&activationToken).Error; err != nil {
-// 		fmt.Println("[ERROR] Failed to update token status:", err)
-// 		return c.JSON(500, map[string]string{"error": "Failed to update token status"})
-// 	}
+    port, err := strconv.Atoi(smtpPort)
+    if err != nil {
+        log.Printf("[ERROR] Invalid SMTP port: %v", err)
+        return err
+    }
 
-// 	fmt.Println("[DEBUG] Account activated successfully for User ID:", user.ID)
-// 	return c.JSON(200, map[string]string{"message": "Account activated successfully"})
-// 	loginURL := os.Getenv(fmt.Sprintf("%s_LOGIN_URL", strings.Title(user.RoleName)))
-// 	return c.Redirect(http.StatusFound, fmt.Sprintf("%s?activated=true", loginURL))
-// 	//return c.Redirect(http.StatusFound, "/login?activated=true")
+    // Email details
+    to := "support@infinitytechafrica.com"
+    subject := "New STOCK Client Registration."
 
-// }
+    body := fmt.Sprintf("New STOCK Client Registered with below details:\n \nUsername %s\nEmail: %s\nPhone: %s\nOrganization: %s", username, email, phone, Organization)
+
+    // Configure email
+    m := gomail.NewMessage()
+    m.SetHeader("From", fromEmail)
+    m.SetHeader("To", to)
+    m.SetHeader("Subject", subject)
+    m.SetBody("text/plain", body)
+
+    d := gomail.NewDialer(smtpHost, port, fromEmail, smtpPass)
+
+    // Send email
+    if err := d.DialAndSend(m); err != nil {
+        log.Printf("[ERROR] Failed to send email: %v", err)
+        return err
+    }
+
+    log.Println("[INFO] Signup notification email sent successfully")
+    return nil
+}

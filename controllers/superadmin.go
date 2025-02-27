@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt"
-	// "gorm.io/gorm"
 
 	"stock/db"
 	"stock/models"
@@ -20,7 +19,7 @@ import (
 
 func SuperAdminLogin(c echo.Context) error {
 	var input struct {
-		Username string `json:"username" binding:"required"`
+		Email string `json:"email" binding:"required"`
 		Password string `json:"password" binding:"required"`
 	}
 
@@ -28,41 +27,52 @@ func SuperAdminLogin(c echo.Context) error {
 		log.Printf("Bind error: %v", err)
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 	}
-	loginInput := validators.LoginInput{
-		Username: input.Username,
-		Password: input.Password,
-	}
-	if err := validators.ValidateLoginInput(loginInput); err != nil {
-		log.Printf("Validation error: %v", err)
-		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
-	}
+	// loginInput := validators.LoginInput{
+	// 	//Username: input.Username,
+	// 	Password: input.Password,
+	// }
+	// if err := validators.ValidateLoginInput(loginInput); err != nil {
+	// 	log.Printf("Validation error: %v", err)
+	// 	return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
+	// }
 
 	var user models.User
-	if err := db.GetDB().Where("username = ?", input.Username).First(&user).Error; err != nil {
+	if err := db.GetDB().Where("email = ?", input.Email).First(&user).Error; err != nil {
 		log.Printf("Where error: %v", err)
-		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Invalid username or password"})
+		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Invalid email or password"})
+	}
+	if !user.IsActive {
+		log.Printf("Login attempt by inactive user: %s", input.Email)
+		return c.JSON(http.StatusForbidden, echo.Map{"error": "Account is inactive. Please contact administrator"})
 	}
 
 	if err := utils.CheckPasswordHash(input.Password, user.Password); err != nil {
 		log.Printf("CheckPasswordHash error: %v", err)
-		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Invalid username or password"})
+		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Invalid email or password"})
 	}
-
 	token, err := utils.GenerateJWT(user.ID, user.RoleName, user.OrganizationID)
-	if err != nil {
-		log.Printf("GenerateJWT error: %v", err)
-		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not generate token"})
-	}
-	// token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-	// 	"userID":   user.ID,
-	// 	"roleName": user.RoleName,
-	// 	//"organization": user.OrganizationID,
-	// 	"exp":      time.Now().Add(time.Hour * 72).Unix(),
-	// })
+if err != nil {
+	log.Printf("GenerateJWT error: %v", err)
+	return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not generate token"})
+}
+
+return c.JSON(http.StatusOK, echo.Map{
+	"token":    token,
+	"user_id":  user.ID,
+	"username": user.Username,
+	"role":     user.RoleName,
+})
 
 
-	log.Println("Super admin logged in successfully")
-	return c.JSON(http.StatusOK, echo.Map{"token": token})
+	// token, err := utils.GenerateJWT(user.ID, user.RoleName, user.OrganizationID)
+	// if err != nil {
+	// 	log.Printf("GenerateJWT error: %v", err)
+	// 	return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not generate token"})
+	// }
+
+
+	// log.Println("Super admin logged in successfully")
+	// return c.JSON(http.StatusOK, echo.Map{"token": token})
 }
 func SuperAdminLogout(c echo.Context) error {
 	log.Println("Super admin logged out successfully")
@@ -451,6 +461,11 @@ func Login(c echo.Context) error {
 		log.Printf("Login - Where error: %v", err)
 		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Invalid email or password"})
 	}
+	if !user.IsActive {
+		log.Printf("Login attempt by inactive user: %s", user.Email)
+		return c.JSON(http.StatusForbidden, echo.Map{"error": "Account is inactive. Please contact administrator"})
+	}
+
 	var organization models.Organization
 	if err := db.GetDB().Where("id = ?", user.OrganizationID).First(&organization).Error; err != nil {
 		log.Printf("Login - Organization lookup error: %v", err)
@@ -468,7 +483,7 @@ func Login(c echo.Context) error {
 
 	if err := utils.CheckPasswordHash(loginData.Password, user.Password); err != nil {
 		log.Printf("Login - CheckPasswordHash error: %v", err)
-		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Invalid username or password"})
+		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Invalid email or password"})
 	}
 
 	token, err := utils.GenerateJWT(user.ID, user.RoleName, user.OrganizationID)
@@ -484,6 +499,7 @@ func Login(c echo.Context) error {
 		"user_id": user.ID,
 		"organization": user.OrganizationID,
 		"token": token,
+		"user":user.Username,
 		"role_name": user.RoleName,
 		"redirectUrl": "/login",
 	})

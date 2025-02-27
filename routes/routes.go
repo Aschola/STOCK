@@ -184,11 +184,17 @@ func SetupRoutes(e *echo.Echo) {
 	organization.POST("/sell", controllers.SellProduct)
 
 	//organization.GET("/cash/salesbyuser_id/:user_id", controllers.GetSalesByUser)
-	organization.GET("/sales/reports_by_date_and_by_sales_ids/:date", controllers.GetSalesByDate)
+	//organization.GET("/sales/reports_by_date_and_by_sales_ids/:date", controllers.GetSalesByDate)
 	organization.GET("/cash/sales", controllers.GetAllSales)
+	//organization.POST("/sales/total", controllers.GetTotalSalesByDateRange)
+	organization.POST("/total-sales", controllers.PostTotalSales)
+	organization.GET("/total-sales", controllers.GetAllTotalSales)
 
-	organization.GET("/sales/user/:user_id", controllers.GetSalesByUserID)
-	organization.GET("/sales/username/:username", controllers.GetSalesByUsername)
+
+	
+
+	//organization.GET("/sales/user/:user_id", controllers.GetSalesByUserID)
+	//organization.GET("/sales/username/:username", controllers.GetSalesByUsername)
 
 	organization.GET("/company/settings", controllers.GetCompanySettings)
 	organization.PUT("/company/settings", controllers.UpdateCompanySettings)

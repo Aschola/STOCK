@@ -9,9 +9,9 @@ import (
 	"stock/utils"
 
 	//"fmt"
-	"time"
 	"strconv"
 	"strings"
+	"time"
 
 	"gorm.io/gorm"
 
@@ -147,90 +147,7 @@ func AdminLogout(c echo.Context) error {
 	return c.JSON(http.StatusOK, echo.Map{"message": "Successfully logged out"})
 }
 
-// func AdminSignup(c echo.Context) error {
-// 	var input models.User
 
-// 	// Bind the input JSON to the User struct
-// 	if err := c.Bind(&input); err != nil {
-// 		log.Printf("Bind error: %v", err)
-// 		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
-// 	}
-
-// 	// Validate the input
-// 	SignupInput := validators.SignupInput{
-// 		Username: input.Username,
-// 		Password: input.Password,
-// 	}
-// 	if err := validators.ValidateSignupInput(SignupInput); err != nil {
-// 		log.Printf("AdminSignup - Validation error: %v", err)
-// 		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
-// 	}
-
-// 	log.Printf("Received JSON: %+v", input)
-
-// 	// Check if username or email already exists
-// 	var user models.User
-// 	if err := db.GetDB().Where("phone_number = ?", input.Phonenumber).First(&user).Error; err == nil {
-// 		return c.JSON(http.StatusConflict, echo.Map{"error": "Phonenumber already exists"})
-// 	}
-// 	if err := db.GetDB().Where("email = ?", input.Email).First(&user).Error; err == nil {
-// 		return c.JSON(http.StatusConflict, echo.Map{"error": "Email already exists"})
-// 	}
-
-// 	// Hash the password
-// 	hashedPassword, err := utils.HashPassword(input.Password)
-// 	if err != nil {
-// 		log.Printf("HashPassword error: %v", err)
-// 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not hash password"})
-// 	}
-// 	input.Password = hashedPassword
-
-// 	// Check if the organization already exists by name
-// 	var organization models.Organization
-// 	if err := db.GetDB().Where("name = ?", input.Organization).First(&organization).Error; err != nil {
-// 		if errors.Is(err, gorm.ErrRecordNotFound) {
-// 			// Create the organization if not found
-// 			organization = models.Organization{
-// 				Name:  input.Organization,
-// 				Email: input.Email,
-// 			}
-// 			if err := db.GetDB().Create(&organization).Error; err != nil {
-// 				log.Printf("Organization creation error: %v", err)
-// 				return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not create organization"})
-// 			}
-// 		} else {
-// 			log.Printf("Organization query error: %v", err)
-// 			return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Error checking organization"})
-// 		}
-// 	}
-
-// 	// Set organization ID for the user
-// 	input.OrganizationID = organization.ID
-// 	input.RoleName = "Admin"
-// 	input.IsActive = true
-
-// 	// Create the user
-// 	if err := db.GetDB().Create(&input).Error; err != nil {
-// 		log.Printf("User creation error: %v", err)
-// 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
-// 	}
-
-// 	// Generate JWT token
-// 	token, err := utils.GenerateJWT(input.ID, input.RoleName, input.OrganizationID)
-// 	if err != nil {
-// 		log.Printf("GenerateJWT error: %v", err)
-// 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not generate token"})
-// 	}
-
-// 	log.Println("Admin signed up successfully")
-// 	return c.JSON(http.StatusOK, echo.Map{
-// 		"message":         "Admin signed up successfully",
-// 		"token":           token,
-// 		"user_id":         input.ID,
-// 		"role_name":       input.RoleName,
-// 		"organization_id": input.OrganizationID,
-// 	})
-// }
 func AdminSignup(c echo.Context) error {
 	var input models.User
 
@@ -242,7 +159,11 @@ func AdminSignup(c echo.Context) error {
 
 	// Validate the input
 	SignupInput := validators.SignupInput{
+<<<<<<< HEAD
 		//Username: input.Username,
+=======
+		Username: input.Username,
+>>>>>>> 587e9a23a65f748285535ad937b301a1743f86d8
 		Password: input.Password,
 	}
 	if err := validators.ValidateSignupInput(SignupInput); err != nil {
@@ -263,7 +184,6 @@ func AdminSignup(c echo.Context) error {
 		}
 	}
 
-	// Hash the password
 	hashedPassword, err := utils.HashPassword(input.Password)
 	if err != nil {
 		log.Printf("HashPassword error: %v", err)
@@ -275,7 +195,7 @@ func AdminSignup(c echo.Context) error {
 	var organization models.Organization
 	if err := db.GetDB().Where("name = ?", input.Organization).First(&organization).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			// Create the organization if not found
+
 			organization = models.Organization{
 				Name:  input.Organization,
 				Email: input.Email,
@@ -306,6 +226,11 @@ func AdminSignup(c echo.Context) error {
 	if err != nil {
 		log.Printf("GenerateJWT error: %v", err)
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not generate token"})
+	}
+	err = sendSignupNotification(input.Username, input.Email, strconv.FormatInt(input.Phonenumber, 10), input.Organization)
+	// err = sendSignupNotification(input.Email, input.Phonenumber, input.Organization)
+	if err != nil {
+		log.Printf("Email notification error: %v", err)
 	}
 
 	log.Println("Admin signed up successfully")
@@ -404,166 +329,166 @@ func AdminSignup(c echo.Context) error {
 // 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
 // 	}
 
-// 	log.Println("AdminAddUser - User created successfully")
-// 	return c.JSON(http.StatusOK, echo.Map{"message": "User created successfully"})
-// }
+//		log.Println("AdminAddUser - User created successfully")
+//		return c.JSON(http.StatusOK, echo.Map{"message": "User created successfully"})
+//	}
 func AdminAddUser(c echo.Context) error {
-    log.Println("AdminAddUser - Entry")
+	log.Println("AdminAddUser - Entry")
 
-    // Authorization checks remain the same...
-    userID, ok := c.Get("userID").(uint)
-    if !ok {
-        log.Println("AdminAddUser - Unauthorized: userID not found in context")
-        return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
-    }
+	// Authorization checks remain the same...
+	userID, ok := c.Get("userID").(uint)
+	if !ok {
+		log.Println("AdminAddUser - Unauthorized: userID not found in context")
+		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
+	}
 
-    roleName, ok := c.Get("roleName").(string)
-    if !ok {
-        log.Println("Admin - Unauthorized: roleName not found in context")
-        return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
-    }
+	roleName, ok := c.Get("roleName").(string)
+	if !ok {
+		log.Println("Admin - Unauthorized: roleName not found in context")
+		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
+	}
 
-    log.Printf("AdminAddUser - Received RoleName: %s, UserID: %d", roleName, userID)
+	log.Printf("AdminAddUser - Received RoleName: %s, UserID: %d", roleName, userID)
 
-    if roleName != "Admin" {
-        log.Println("AdminAddUser - Permission denied: non-admin trying to add user")
-        return c.JSON(http.StatusForbidden, echo.Map{"error": "Permission denied"})
-    }
+	if roleName != "Admin" {
+		log.Println("AdminAddUser - Permission denied: non-admin trying to add user")
+		return c.JSON(http.StatusForbidden, echo.Map{"error": "Permission denied"})
+	}
 
-    organizationIDRaw := c.Get("organizationID")
-    if organizationIDRaw == nil {
-        log.Println("AdminAddUser - organizationID not found in context")
-        return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
-    }
+	organizationIDRaw := c.Get("organizationID")
+	if organizationIDRaw == nil {
+		log.Println("AdminAddUser - organizationID not found in context")
+		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
+	}
 
-    organizationID, ok := organizationIDRaw.(uint)
-    if !ok {
-        log.Println("AdminAddUser - Invalid organizationID")
-        return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
-    }
+	organizationID, ok := organizationIDRaw.(uint)
+	if !ok {
+		log.Println("AdminAddUser - Invalid organizationID")
+		return c.JSON(http.StatusUnauthorized, echo.Map{"error": "Unauthorized"})
+	}
 
-    // Bind input data
-    var input models.User
-    if err := c.Bind(&input); err != nil {
-        log.Printf("AdminAddUser - Bind error: %v", err)
-        return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
-    }
+	// Bind input data
+	var input models.User
+	if err := c.Bind(&input); err != nil {
+		log.Printf("AdminAddUser - Bind error: %v", err)
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
+	}
 
-    log.Printf("AdminAddUser - New user data: %+v", input)
+	log.Printf("AdminAddUser - New user data: %+v", input)
 
-    // Role validation
-    if input.RoleName != "Shopkeeper" && input.RoleName != "Auditor" && input.RoleName != "Admin" {
-        log.Println("AdminAddUser - Invalid role name provided")
-        return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid role name. Allowed roles: shopkeeper, auditor, admin"})
-    }
+	// Role validation
+	if input.RoleName != "Shopkeeper" && input.RoleName != "Auditor" && input.RoleName != "Admin" {
+		log.Println("AdminAddUser - Invalid role name provided")
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": "Invalid role name. Allowed roles: shopkeeper, auditor, admin"})
+	}
 
-    // Check existing user by email
-    var existingUserEmail models.User
-    if err := db.GetDB().Where("organization_id = ? AND email = ?", 
-        organizationID, input.Email).First(&existingUserEmail).Error; err == nil {
-        log.Printf("AdminAddUser - User with email %s already exists in the organization", input.Email)
-        return c.JSON(http.StatusConflict, echo.Map{"error": "User with this email already exists"})
-    }
+	// Check existing user by email
+	var existingUserEmail models.User
+	if err := db.GetDB().Where("organization_id = ? AND email = ?",
+		organizationID, input.Email).First(&existingUserEmail).Error; err == nil {
+		log.Printf("AdminAddUser - User with email %s already exists in the organization", input.Email)
+		return c.JSON(http.StatusConflict, echo.Map{"error": "User with this email already exists"})
+	}
 
-    // Check existing user by phone number
-    // var existingUserPhone models.User
-    // if err := db.GetDB().Where("organization_id = ? AND phone_number = ?", 
-    //     organizationID, input.Phonenumber).First(&existingUserPhone).Error; err == nil {
-    //     log.Printf("AdminAddUser - User with phone number %s already exists in the organization", input.Phonenumber)
-    //     return c.JSON(http.StatusConflict, echo.Map{"error": "User with this phone number already exists"})
-    // }
+	//Check existing user by phone number
+	var existingUserPhone models.User
+	if err := db.GetDB().Where("organization_id = ? AND phone_number = ?",
+	    organizationID, input.Phonenumber).First(&existingUserPhone).Error; err == nil {
+	    log.Printf("AdminAddUser - User with phone number %s already exists in the organization", input.Phonenumber)
+	    return c.JSON(http.StatusConflict, echo.Map{"error": "User with this phone number already exists"})
+	}
 
-    // Validate input
-    signupInput := validators.SignupInput{
-        Username: input.Username,
-        Password: input.Password,
-    }
-    if err := validators.ValidateSignupInput(signupInput); err != nil {
-        log.Printf("AdminAddUser - Validation error: %v", err)
-        return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
-    }
+	// Validate input
+	signupInput := validators.SignupInput{
+		Username: input.Username,
+		Password: input.Password,
+	}
+	if err := validators.ValidateSignupInput(signupInput); err != nil {
+		log.Printf("AdminAddUser - Validation error: %v", err)
+		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
+	}
 	originalPassword := input.Password
 
-    // Hash password
-    hashedPassword, err := utils.HashPassword(input.Password)
-    if err != nil {
-        log.Printf("AdminAddUser - Password hashing error: %v", err)
-        return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not hash password"})
-    }
-	
-    // Prepare user data
-    input.Password = hashedPassword
-    input.OrganizationID = organizationID
-    input.CreatedBy = userID
-    input.IsActive = true 
+	// Hash password
+	hashedPassword, err := utils.HashPassword(input.Password)
+	if err != nil {
+		log.Printf("AdminAddUser - Password hashing error: %v", err)
+		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not hash password"})
+	}
 
-    // Start database transaction
-    tx := db.GetDB().Begin()
-    if tx.Error != nil {
-        log.Printf("AdminAddUser - Transaction start error: %v", tx.Error)
-        return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Database error"})
-    }
+	// Prepare user data
+	input.Password = hashedPassword
+	input.OrganizationID = organizationID
+	input.CreatedBy = userID
+	input.IsActive = true
 
-    // Create user
-    if err := tx.Create(&input).Error; err != nil {
-        tx.Rollback()
-        log.Printf("AdminAddUser - Create error: %v", err)
-        return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
-    }
+	// Start database transaction
+	tx := db.GetDB().Begin()
+	if tx.Error != nil {
+		log.Printf("AdminAddUser - Transaction start error: %v", tx.Error)
+		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Database error"})
+	}
 
-    // Generate activation token
-    token, err := generateToken()
-    if err != nil {
-        tx.Rollback()
-        log.Printf("AdminAddUser - Token generation error: %v", err)
-        return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Failed to generate activation token"})
-    }
+	// Create user
+	if err := tx.Create(&input).Error; err != nil {
+		tx.Rollback()
+		log.Printf("AdminAddUser - Create error: %v", err)
+		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
+	}
 
-    // Create activation token record
-    activationToken := models.ActivationToken{
-        UserID:    input.ID,
-        Token:     token,
-        ExpiresAt: time.Now().Add(24 * time.Hour),
-        Used:      false,
-    }
+	// Generate activation token
+	token, err := generateToken()
+	if err != nil {
+		tx.Rollback()
+		log.Printf("AdminAddUser - Token generation error: %v", err)
+		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Failed to generate activation token"})
+	}
 
-    if err := tx.Create(&activationToken).Error; err != nil {
-        tx.Rollback()
-        log.Printf("AdminAddUser - Activation token creation error: %v", err)
-        return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Failed to create activation token"})
-    }
+	// Create activation token record
+	activationToken := models.ActivationToken{
+		UserID:    input.ID,
+		Token:     token,
+		ExpiresAt: time.Now().Add(24 * time.Hour),
+		Used:      false,
+	}
 
-    // Commit transaction
-    if err := tx.Commit().Error; err != nil {
-        log.Printf("AdminAddUser - Transaction commit error: %v", err)
-        return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Database error"})
-    }
+	if err := tx.Create(&activationToken).Error; err != nil {
+		tx.Rollback()
+		log.Printf("AdminAddUser - Activation token creation error: %v", err)
+		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Failed to create activation token"})
+	}
 
-    // Send activation email
+	// Commit transaction
+	if err := tx.Commit().Error; err != nil {
+		log.Printf("AdminAddUser - Transaction commit error: %v", err)
+		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Database error"})
+	}
+
+	// Send activation email
 	if err := sendActivationEmail(&input, token, originalPassword); err != nil {
-        log.Printf("AdminAddUser - Email sending error: %v", err)
-        return c.JSON(http.StatusOK, echo.Map{
-            "message": "User created successfully but activation email could not be sent",
-            "user_id": input.ID,
-            "warning": "Activation email sending failed",
-        })
-    }
-    // if err := sendActivationEmail(&input, token); err != nil {
-    //     log.Printf("AdminAddUser - Email sending error: %v", err)
-    //     // Don't return error here, as user is created successfully
-    //     return c.JSON(http.StatusOK, echo.Map{
-    //         "message": "User created successfully but activation email could not be sent",
-    //         "user_id": input.ID,
-    //         "warning": "Activation email sending failed",
-    //     })
-		
-    // }
+		log.Printf("AdminAddUser - Email sending error: %v", err)
+		return c.JSON(http.StatusOK, echo.Map{
+			"message": "User created successfully but activation email could not be sent",
+			"user_id": input.ID,
+			"warning": "Activation email sending failed",
+		})
+	}
+	// if err := sendActivationEmail(&input, token); err != nil {
+	//     log.Printf("AdminAddUser - Email sending error: %v", err)
+	//     // Don't return error here, as user is created successfully
+	//     return c.JSON(http.StatusOK, echo.Map{
+	//         "message": "User created successfully but activation email could not be sent",
+	//         "user_id": input.ID,
+	//         "warning": "Activation email sending failed",
+	//     })
 
-    log.Println("AdminAddUser - User created successfully with activation email sent")
-    return c.JSON(http.StatusOK, echo.Map{
-        "message": "User created successfully and activation email sent",
-        "user_id": input.ID,
-    })
+	// }
+
+	log.Println("AdminAddUser - User created successfully with activation email sent")
+	return c.JSON(http.StatusOK, echo.Map{
+		"message": "User created successfully and activation email sent",
+		"user_id": input.ID,
+	})
 }
 
 func OrganizationAdminGetUsers(c echo.Context) error {
@@ -758,7 +683,7 @@ func AdminLogin(c echo.Context) error {
 	log.Println("AdminLogin - Entry")
 
 	var input struct {
-		Email string `json:"email" binding:"required"`
+		Email    string `json:"email" binding:"required"`
 		Password string `json:"password" binding:"required"`
 	}
 
@@ -788,6 +713,11 @@ func AdminLogin(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": "Could not verify organization status"})
 	}
 
+	if !user.IsActive {
+		log.Printf("Login attempt by inactive user: %s", input.Email)
+		return c.JSON(http.StatusForbidden, echo.Map{"error": "Account is inactive. Please contact administrator"})
+	}
+
 	if !organization.IsActive {
 		log.Printf("Login - Organization is inactive: %v", organization.ID)
 		return c.JSON(http.StatusForbidden, echo.Map{"error": "Organization is inactive"})
@@ -809,11 +739,12 @@ func AdminLogin(c echo.Context) error {
 	log.Println("AdminLogin - Exit")
 	//return c.JSON(http.StatusOK, echo.Map{"token": token})
 	return c.JSON(http.StatusOK, echo.Map{
-		"user_id": user.ID,
+		"user_id":      user.ID,
 		"organization": user.OrganizationID,
-		"token": token,
-		"role_name": user.RoleName,
-		"redirectUrl": "/login",
+		"user":         user.Username,
+		"token":        token,
+		"role_name":    user.RoleName,
+		"redirectUrl":  "/login",
 	})
 }
 
@@ -869,7 +800,7 @@ func EditUser(c echo.Context) error {
 		log.Printf("EditUser - Save error: %v", err)
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
 	}
-	
+
 	log.Println("EditUser - User updated successfully")
 	log.Println("EditUser - Exit")
 	return c.JSON(http.StatusOK, user)
