@@ -204,8 +204,8 @@ func loadMPesaCredentials(organizationID int64) (MPesaSettings, error) {
 
 // getAccessToken generates an OAuth access token
 func getAccessToken(creds MPesaSettings) (string, error) {
-	authURL := "https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials"
-	// authURL := "https:api.safaricom.co.ke/mpesa/stkpush/v1/processrequest"
+	// authURL := "https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials"
+	authURL := "https://api.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials"
 
 	auth := base64.StdEncoding.EncodeToString([]byte(creds.ConsumerKey + ":" + creds.ConsumerSecret))
 
@@ -264,7 +264,18 @@ func generatePassword(shortCode, passKey, timestamp string) string {
 
 // InitiateSTKPush handles the STK push request
 func InitiateSTKPush(organizationID int64, req STKPushRequest) (*STKPushResponse, error) {
+	
 	log.Printf("Starting STK Push for organization %d with request: %+v", organizationID, req)
+	logger := log.New(&lumberjack.Logger{
+		Filename:   "/var/www/STOCK/logs/callbacks.log",
+		MaxSize:    100, 
+		MaxBackups: 3,
+		MaxAge:     28,   
+		Compress:   true,
+	}, "", log.LstdFlags|log.Lshortfile)
+	
+	logger = log.New(os.Stdout, "[Initiate stkpush] ", log.LstdFlags|log.Lshortfile)
+
 
 	creds, err := loadMPesaCredentials(organizationID)
 	if err != nil {
@@ -273,23 +284,25 @@ func InitiateSTKPush(organizationID int64, req STKPushRequest) (*STKPushResponse
 	}
 
 	// Debug: Log credentials (excluding sensitive data)
-	log.Printf("Using credentials: BusinessShortCode=%s, Environment=%s, CallbackURL=%s",
+	logger.Printf("Using credentials: BusinessShortCode=%s, Environment=%s, CallbackURL=%s",
 		creds.BusinessShortCode, creds.Environment, creds.CallbackURL)
 
 	//Generate transaction ID if not provided
 	if req.TransactionID == "" {
 		req.TransactionID = generateTransactionID()
-		log.Printf("Generated transaction ID: %s", req.TransactionID)
+		logger.Printf("Generated transaction ID: %s", req.TransactionID)
 	}
 
 	token, err := getAccessToken(creds)
+	
 	if err != nil {
 		log.Printf("Failed to get access token: %v", err)
 		return nil, fmt.Errorf("failed to get access token: %v", err)
 	}
 
 	if token != "" {
-		log.Printf("Successfully obtained access token: %s", maskString(token))
+		logger.Printf("Successfully obtained access token: %s", maskString(token))
+		
 	} else {
 		log.Printf("Warning: Received empty access token")
 		return nil, fmt.Errorf("received empty access token")
@@ -299,15 +312,15 @@ func InitiateSTKPush(organizationID int64, req STKPushRequest) (*STKPushResponse
 	timestamp := time.Now().Format("20060102150405")
 	password := generatePassword(fmt.Sprintf("%d", creds.BusinessShortCode), creds.PassKey, timestamp)
 
-	stkURL := "https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest"
-	// stkURL := "https:api.safaricom.co.ke/mpesa/stkpush/v1/processrequest"
+	// stkURL := "https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest"
+	stkURL := "https://api.safaricom.co.ke/mpesa/stkpush/v1/processrequest"
 
 	log.Printf("Using STK Push URL: %s", stkURL)
 
 	// Format phone number
 	//phoneNumber := formatPhoneNumber(req.PhoneNumber)
 	phoneNumber := formatPhoneNumber(strconv.FormatInt(req.PhoneNumber, 10))
-	log.Printf("Formatted phone number: %s", phoneNumber)
+	logger.Printf("Formatted phone number: %s", phoneNumber)
 
 	requestBody := map[string]interface{}{
 		"BusinessShortCode": creds.BusinessShortCode,
@@ -322,7 +335,7 @@ func InitiateSTKPush(organizationID int64, req STKPushRequest) (*STKPushResponse
 		"AccountReference":  req.TransactionID,
 		"TransactionDesc":   fmt.Sprintf("Payment %s", req.TransactionID),
 	}
-	log.Printf("request body: %v", requestBody)
+	logger.Printf("request body: %v", requestBody)
 
 	jsonBody, err := json.Marshal(requestBody)
 	if err != nil {
@@ -335,7 +348,7 @@ func InitiateSTKPush(organizationID int64, req STKPushRequest) (*STKPushResponse
 	json.Unmarshal(jsonBody, &logBody)
 	logBody["Password"] = "REDACTED"
 	logBodyBytes, _ := json.Marshal(logBody)
-	log.Printf("STK Push request body: %s", string(logBodyBytes))
+	logger.Printf("STK Push request body: %s", string(logBodyBytes))
 
 	// Make HTTP request
 	httpReq, err := http.NewRequest("POST", stkURL, bytes.NewBuffer(jsonBody))
@@ -362,8 +375,8 @@ func InitiateSTKPush(organizationID int64, req STKPushRequest) (*STKPushResponse
 		return nil, err
 	}
 
-	log.Printf("Raw response from Safaricom: %s", string(rawBody))
-	log.Printf("Response status code: %d", resp.StatusCode)
+	logger.Printf("Raw response from Safaricom: %s", string(rawBody))
+	logger.Printf("Response status code: %d", resp.StatusCode)
 
 	// Try to decode the response
 	var stkResponse STKPushResponse
@@ -393,7 +406,7 @@ func InitiateSTKPush(organizationID int64, req STKPushRequest) (*STKPushResponse
 		return nil, fmt.Errorf("failed to save transaction record: %v", err)
 	}
 
-	log.Printf("Successfully saved transaction record with ID: %d", record.ID)
+	logger.Printf("Successfully saved transaction record with ID: %d", record.ID)
 	return &stkResponse, nil
 	
 }
@@ -401,10 +414,10 @@ func InitiateSTKPush(organizationID int64, req STKPushRequest) (*STKPushResponse
 func HandleMpesaCallback(c echo.Context) error {
 	log.Printf("callback triggered")
 	logger := log.New(&lumberjack.Logger{
-		Filename:   "/var/log/mpesa/callbacks.log",
-		MaxSize:    100, // megabytes
+		Filename:   "/var/www/STOCK/logs/callbacks.log",
+		MaxSize:    100, 
 		MaxBackups: 3,
-		MaxAge:     28,   // days
+		MaxAge:     28,   
 		Compress:   true,
 	}, "", log.LstdFlags|log.Lshortfile)
 	
