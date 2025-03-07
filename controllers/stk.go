@@ -316,7 +316,6 @@ func InitiateSTKPush(organizationID int64, req STKPushRequest) (*STKPushResponse
 	stkURL := "https://api.safaricom.co.ke/mpesa/stkpush/v1/processrequest"
 
 	log.Printf("Using STK Push URL: %s", stkURL)
-
 	// Format phone number
 	//phoneNumber := formatPhoneNumber(req.PhoneNumber)
 	phoneNumber := formatPhoneNumber(strconv.FormatInt(req.PhoneNumber, 10))
@@ -332,7 +331,7 @@ func InitiateSTKPush(organizationID int64, req STKPushRequest) (*STKPushResponse
 		"PartyB":            creds.BusinessShortCode,
 		"PhoneNumber":       phoneNumber,
 		"CallBackURL":       creds.CallbackURL,
-		"AccountReference":  req.TransactionID,
+		"AccountReference":  "PATNER COMMUNICATION",
 		"TransactionDesc":   fmt.Sprintf("Payment %s", req.TransactionID),
 	}
 	logger.Printf("request body: %v", requestBody)
