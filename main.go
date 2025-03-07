@@ -171,6 +171,14 @@ func main() {
 	// Start background processes
 	go controllers.StartReorderLevelNotification(db.GetDB())
 	go controllers.StartDailySalesSummary(db.GetDB()) // Add this line
+
+
+	// **Call SendSMS() Here**
+	go func() {
+		if err := controllers.SendSMS(); err != nil {
+			log.Println("[ERROR] Failed to send SMS:", err)
+		}
+	}()
 	
 
 	// Initialize Echo server
@@ -199,3 +207,4 @@ func main() {
 	log.Println("[INFO] Server starting on port", port)
 	e.Start(":" + port)
 }
+
