@@ -1,14 +1,15 @@
+
 package controllers
 
 import (
 	"log"
 	"net/http"
 	"stock/models"
-	//"strconv"
 	"time"
 
 	"github.com/labstack/echo/v4"
 	"fmt"
+	//"github.com/jinzhu/gorm"
 )
 
 // Define the Product struct outside the function to reuse it later
@@ -23,24 +24,27 @@ type Product struct {
 	CategoryName      string  `json:"category_name"`
 }
 
-// Helper function to handle database connection errors
+// Helper function to handle database connection errors with logging
 func handleDBError(c echo.Context, err error, message string) error {
 	log.Printf("[ERROR] %s: %v", message, err)
 	return echo.NewHTTPError(http.StatusInternalServerError, message)
 }
 
+// GetAllSales fetches all sales records and groups them by sale ID with enhanced logging and error handling
 func GetAllSales(c echo.Context) error {
 	log.Println("[INFO] Received request to fetch all sales records.")
 
 	// Retrieve organizationID from context
 	organizationID, err := getOrganizationID(c)
 	if err != nil {
-		return err
+		log.Printf("[ERROR] Failed to retrieve organization ID: %v", err)
+		return echo.NewHTTPError(http.StatusBadRequest, "Failed to retrieve organization ID")
 	}
 
 	// Database connection
 	db := getDB()
 	if db == nil {
+		log.Printf("[ERROR] Failed to connect to the database")
 		return handleDBError(c, nil, "Failed to connect to the database")
 	}
 
@@ -57,11 +61,13 @@ func GetAllSales(c echo.Context) error {
 
 	// Execute the query
 	if err := query.Find(&sales).Error; err != nil {
+		log.Printf("[ERROR] Error fetching sales records: %v", err)
 		return handleDBError(c, err, "Error fetching sales records")
 	}
 
 	// Check if no sales were found
 	if len(sales) == 0 {
+		log.Println("[INFO] No sales records found")
 		return echo.NewHTTPError(http.StatusNotFound, "No sales records found")
 	}
 
@@ -113,50 +119,69 @@ func GetAllSales(c echo.Context) error {
 		response = append(response, saleData)
 	}
 
+	// Log successful response
+	log.Printf("[INFO] Successfully retrieved and formatted %d sales records", len(response))
+
 	// Return the formatted response
 	return c.JSON(http.StatusOK, response)
 }
 
-
-
-
+// PostTotalSales posts the total sales with comprehensive logs and error handling
 func PostTotalSales(c echo.Context) error {
-    organizationID, err := getOrganizationID(c)
-    if err != nil {
-        return err
-    }
+	log.Println("[INFO] Received request to post total sales.")
 
-    var request struct {
-        TotalSellingPrice float64 `json:"total_selling_price"`
-    }
+	// Retrieve organizationID from context
+	organizationID, err := getOrganizationID(c)
+	if err != nil {
+		log.Printf("[ERROR] Failed to retrieve organization ID: %v", err)
+		return echo.NewHTTPError(http.StatusBadRequest, "Failed to retrieve organization ID")
+	}
 
-    if err := c.Bind(&request); err != nil {
-        return echo.NewHTTPError(http.StatusBadRequest, "Invalid request payload")
-    }
+	// Bind the request data to a struct
+	var request struct {
+		TotalSellingPrice float64 `json:"total_selling_price"`
+	}
 
-    db := getDB()
-    if db == nil {
-        return handleDBError(c, nil, "Failed to connect to the database")
-    }
+	if err := c.Bind(&request); err != nil {
+		log.Printf("[ERROR] Invalid request payload: %v", err)
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid request payload")
+	}
 
-    totalSale := models.TotalSales{
-        OrganizationID:    organizationID,
-        TotalSellingPrice: request.TotalSellingPrice,
-        Date:             time.Now(),
-    }
+	// Database connection
+	db := getDB()
+	if db == nil {
+		log.Printf("[ERROR] Failed to connect to the database")
+		return handleDBError(c, nil, "Failed to connect to the database")
+	}
 
-    if err := db.Create(&totalSale).Error; err != nil {
-        return handleDBError(c, err, "Failed to insert total sales")
-    }
+	// Create the total sale entry
+	totalSale := models.TotalSales{
+		OrganizationID:    organizationID,
+		TotalSellingPrice: request.TotalSellingPrice,
+		Date:              time.Now(),
+	}
 
-    return c.JSON(http.StatusCreated, totalSale)
+	// Insert the total sale record into the database
+	if err := db.Create(&totalSale).Error; err != nil {
+		log.Printf("[ERROR] Failed to insert total sales: %v", err)
+		return handleDBError(c, err, "Failed to insert total sales")
+	}
+
+	log.Printf("[INFO] Successfully inserted total sales: %+v", totalSale)
+
+	// Return the created total sale record
+	return c.JSON(http.StatusCreated, totalSale)
 }
 
+// GetAllTotalSales fetches all total sales records with enhanced logging and error handling
 func GetAllTotalSales(c echo.Context) error {
+	log.Println("[INFO] Received request to fetch total sales records.")
+
 	// Get organization ID from context
 	organizationID, err := getOrganizationID(c)
 	if err != nil {
-		return err
+		log.Printf("[ERROR] Failed to retrieve organization ID: %v", err)
+		return echo.NewHTTPError(http.StatusBadRequest, "Failed to retrieve organization ID")
 	}
 
 	// Get current month and year
@@ -175,6 +200,7 @@ func GetAllTotalSales(c echo.Context) error {
 	// Database connection
 	db := getDB()
 	if db == nil {
+		log.Printf("[ERROR] Failed to connect to the database")
 		return handleDBError(c, nil, "Failed to connect to the database")
 	}
 
@@ -182,14 +208,32 @@ func GetAllTotalSales(c echo.Context) error {
 	var totalSales []models.TotalSales
 	if err := db.Where("organization_id = ? AND MONTH(date) = ? AND YEAR(date) = ?", organizationID, month, year).
 		Find(&totalSales).Error; err != nil {
+		log.Printf("[ERROR] Error fetching total sales: %v", err)
 		return handleDBError(c, err, "Error fetching total sales")
 	}
 
+	// // Check if no data found
+	// if len(totalSales) == 0 {
+	// 	log.Printf("[INFO] No sales found for this month: %s, year: %s", month, year)
+	// 	return echo.NewHTTPError(http.StatusNotFound, "No sales found for this month")
+	// }
+
+
 	// Check if no data found
-	if len(totalSales) == 0 {
-		return echo.NewHTTPError(http.StatusNotFound, "No sales found for this month")
-	}
+if len(totalSales) == 0 {
+    log.Printf("[INFO] No sales found for this month: %s, year: %s", month, year)
+    // Return a 200 OK status with a message indicating no sales found
+    return c.JSON(http.StatusOK, map[string]interface{}{
+        "message": "No sales found for this month",
+        "month":   month,
+        "year":    year,
+        "totalSales": []models.TotalSales{}, // Optionally return an empty array if you'd like
+    })
+}
 
 	// Return response
+	log.Printf("[INFO] Successfully retrieved %d total sales records for month: %s, year: %s", len(totalSales), month, year)
 	return c.JSON(http.StatusOK, totalSales)
 }
+
+

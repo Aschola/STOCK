@@ -151,6 +151,7 @@ import (
 )
 
 func main() {
+	// Load environment variables
 	err := godotenv.Load()
 	if err != nil {
 		log.Println("[ERROR] Error loading .env file:", err)
@@ -158,6 +159,7 @@ func main() {
 		log.Println("[INFO] .env file loaded successfully")
 	}
 
+	// Initialize database
 	db.Init()
 
 	// Initialize email configuration
@@ -166,14 +168,19 @@ func main() {
 		log.Fatalf("[ERROR] Failed to initialize email config: %v", err)
 	}
 
-	//go controllers.CheckAndInsertMissingOrganizations(db.GetDB())
+	// Start background processes
 	go controllers.StartReorderLevelNotification(db.GetDB())
+	go controllers.StartDailySalesSummary(db.GetDB()) // Add this line
+	
 
+	// Initialize Echo server
 	e := echo.New()
 
+	// Define routes
 	e.POST("/send-sms", controllers.SendSmsHandler)
 	e.POST("/mpesa/callback", controllers.HandleMpesaCallback)
 
+	// Enable CORS
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{"*"},
 		AllowMethods: []string{echo.GET, echo.POST, echo.PUT, echo.DELETE},
