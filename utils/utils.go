@@ -46,7 +46,7 @@ func ParseToken(tokenString string) (*jwt.Token, error) {
 // GenerateJWT generates a JWT token with userID and roleID
 func GenerateJWT(userID, roleID uint) (string, error) {
 	log.Printf("Generating JWT for userID: %d, roleID: %d", userID, roleID)
-	expirationTime := time.Now().Add(24 * time.Hour)
+	expirationTime := time.Now().Add(365* 24 * time.Hour)
 	claims := &Claims{
 		UserID: userID,
 		RoleID: roleID,
