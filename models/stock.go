@@ -27,6 +27,7 @@ type Stock struct {
 func (Stock) TableName() string {
 	return "stock" 
 }
+
 func (s *Stock) UnmarshalJSON(data []byte) error {
 	type Alias Stock
 	aux := &struct {

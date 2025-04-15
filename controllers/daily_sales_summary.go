@@ -13,7 +13,8 @@ import (
 func StartDailySalesSummary(db *gorm.DB) {
 	go func() {
 		for {
-			now := time.Now()
+
+			 now := time.Now().AddDate(0, 0, -1) 
 			// Schedule the next execution at midnight before the next day starts
 			nextRun := time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, now.Location()) 
 
