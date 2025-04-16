@@ -189,14 +189,6 @@ func GetAllTotalSales(c echo.Context) error {
 	month := c.QueryParam("month")
 	year := c.QueryParam("year")
 
-	// Use current month and year if not provided
-	if month == "" {
-		month = fmt.Sprintf("%02d", int(now.Month()))
-	}
-	if year == "" {
-		year = fmt.Sprintf("%d", now.Year())
-	}
-
 	// Database connection
 	db := getDB()
 	if db == nil {
@@ -204,36 +196,49 @@ func GetAllTotalSales(c echo.Context) error {
 		return handleDBError(c, nil, "Failed to connect to the database")
 	}
 
-	// Retrieve sales for the given month and year
 	var totalSales []models.TotalSales
-	if err := db.Where("organization_id = ? AND MONTH(date) = ? AND YEAR(date) = ?", organizationID, month, year).
-		Find(&totalSales).Error; err != nil {
-		log.Printf("[ERROR] Error fetching total sales: %v", err)
-		return handleDBError(c, err, "Error fetching total sales")
+
+	if month == "" && year == "" {
+		// If no month/year provided, default to last 30 days
+		startDate := now.AddDate(0, 0, -30)
+		log.Printf("[INFO] No month/year provided. Defaulting to last 30 days from %s", startDate.Format("2006-01-02"))
+
+		if err := db.Where("organization_id = ? AND date BETWEEN ? AND ?", organizationID, startDate, now).
+			Find(&totalSales).Error; err != nil {
+			log.Printf("[ERROR] Error fetching total sales for last 30 days: %v", err)
+			return handleDBError(c, err, "Error fetching total sales")
+		}
+	} else {
+		// Use provided month and year
+		if month == "" {
+			month = fmt.Sprintf("%02d", int(now.Month()))
+		}
+		if year == "" {
+			year = fmt.Sprintf("%d", now.Year())
+		}
+
+		if err := db.Where("organization_id = ? AND MONTH(date) = ? AND YEAR(date) = ?", organizationID, month, year).
+			Find(&totalSales).Error; err != nil {
+			log.Printf("[ERROR] Error fetching total sales: %v", err)
+			return handleDBError(c, err, "Error fetching total sales")
+		}
 	}
 
-	// // Check if no data found
-	// if len(totalSales) == 0 {
-	// 	log.Printf("[INFO] No sales found for this month: %s, year: %s", month, year)
-	// 	return echo.NewHTTPError(http.StatusNotFound, "No sales found for this month")
-	// }
-
-
-	// Check if no data found
-if len(totalSales) == 0 {
-    log.Printf("[INFO] No sales found for this month: %s, year: %s", month, year)
-    // Return a 200 OK status with a message indicating no sales found
-    return c.JSON(http.StatusOK, map[string]interface{}{
-        "message": "No sales found for this month",
-        "month":   month,
-        "year":    year,
-        "totalSales": []models.TotalSales{}, // Optionally return an empty array if you'd like
-    })
-}
+	// If no data found
+	if len(totalSales) == 0 {
+		log.Printf("[INFO] No sales found for the selected period")
+		return c.JSON(http.StatusOK, map[string]interface{}{
+			"message":     "No sales found for the selected period",
+			"month":       month,
+			"year":        year,
+			"totalSales":  []models.TotalSales{},
+		})
+	}
 
 	// Return response
-	log.Printf("[INFO] Successfully retrieved %d total sales records for month: %s, year: %s", len(totalSales), month, year)
+	log.Printf("[INFO] Successfully retrieved %d total sales records", len(totalSales))
 	return c.JSON(http.StatusOK, totalSales)
 }
+
 
 
