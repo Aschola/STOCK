@@ -89,28 +89,70 @@ func EditStock(c echo.Context) error {
 	id := c.Param("id")
 	log.Printf("EditStock - Entry with ID: %s", id)
 
-	var stock models.Stock
-	if err := db.GetDB().First(&stock, id).Error; err != nil {
+	var oldStock models.Stock
+	if err := db.GetDB().First(&oldStock, id).Error; err != nil {
 		log.Printf("EditStock - First error: %v", err)
 		return c.JSON(http.StatusNotFound, echo.Map{"error": "Stock not found"})
 	}
 
-	log.Printf("EditStock - Current stock details: %+v", stock)
+	// Store original values before binding new data
+	oldQuantity := oldStock.Quantity
+	oldOriginalQuantity := oldStock.OriginalQuantity
+	
+	log.Printf("EditStock - Current stock details: %+v", oldStock)
 
-	if err := c.Bind(&stock); err != nil {
+	// Bind new values to the existing stock
+	if err := c.Bind(&oldStock); err != nil {
 		log.Printf("EditStock - Bind error: %v", err)
 		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
 	}
 
-	if err := db.GetDB().Save(&stock).Error; err != nil {
+	// Calculate quantity difference
+	quantityDifference := oldStock.Quantity - oldQuantity
+	
+	if quantityDifference > 0 {
+		// Update OriginalQuantity to include the new stock
+		oldStock.OriginalQuantity = oldOriginalQuantity + quantityDifference
+		log.Printf("EditStock - Updated OriginalQuantity from %d to %d", 
+			oldOriginalQuantity, oldStock.OriginalQuantity)
+	}
+
+	// Save the updated stock with modified OriginalQuantity
+	if err := db.GetDB().Save(&oldStock).Error; err != nil {
 		log.Printf("EditStock - Save error: %v", err)
 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
 	}
 
 	log.Println("EditStock - Stock updated successfully")
 	log.Println("EditStock - Exit")
-	return c.JSON(http.StatusOK, stock)
+	return c.JSON(http.StatusOK, oldStock)
 }
+// func EditStock(c echo.Context) error {
+// 	id := c.Param("id")
+// 	log.Printf("EditStock - Entry with ID: %s", id)
+
+// 	var stock models.Stock
+// 	if err := db.GetDB().First(&stock, id).Error; err != nil {
+// 		log.Printf("EditStock - First error: %v", err)
+// 		return c.JSON(http.StatusNotFound, echo.Map{"error": "Stock not found"})
+// 	}
+
+// 	log.Printf("EditStock - Current stock details: %+v", stock)
+
+// 	if err := c.Bind(&stock); err != nil {
+// 		log.Printf("EditStock - Bind error: %v", err)
+// 		return c.JSON(http.StatusBadRequest, echo.Map{"error": err.Error()})
+// 	}
+
+// 	if err := db.GetDB().Save(&stock).Error; err != nil {
+// 		log.Printf("EditStock - Save error: %v", err)
+// 		return c.JSON(http.StatusInternalServerError, echo.Map{"error": err.Error()})
+// 	}
+
+// 	log.Println("EditStock - Stock updated successfully")
+// 	log.Println("EditStock - Exit")
+// 	return c.JSON(http.StatusOK, stock)
+// }
 
 
 // AdminDeleteStock handles permanent deletion of a stock item
