@@ -170,7 +170,7 @@ func main() {
 
 	// Start background processes
 	go controllers.StartReorderLevelNotification(db.GetDB())
-	go controllers.StartDailySalesSummary(db.GetDB()) // Add this line
+	go controllers.StartDailySalesSummary(db.GetDB()) 
 
 
 	// **Call SendSMS() Here**

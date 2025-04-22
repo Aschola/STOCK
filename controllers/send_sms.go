@@ -18,11 +18,11 @@ type SMSPayload struct {
 // SendSMS sends an SMS using an external API
 func SendSMS() error {
 	url := "http://44.239.52.145:8889/api/messaging/sendsms"
-	apiToken := "eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiIzODYiLCJvaWQiOjM4NiwidWlkIjoiNDViMWYzODAtZGQwOC00MzgxLWIxYzktNTEzMzE1ZWM3NjE5IiwiYXBpZCI6MTk4LCJpYXQiOjE3MzM5MDA4ODIsImV4cCI6MjA3MzkwMDg4Mn0.c9_nG1KOkqK2rDYJYIOMN3NCtbV7lNBAq6TlRtnVx3ty1WfApS2qNH2agMHH_OT-l8hPC_mwr-P9ztWHIeccwg"
+	apiToken := "eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiIzOTYiLCJvaWQiOjM5NiwidWlkIjoiNTUxZjdiMGEtZmJkZC00M2E5LTlmZDYtYzljMjgwZmVjNjdiIiwiYXBpZCI6MjE0LCJpYXQiOjE3NDUzMDYxMDEsImV4cCI6MjA4NTMwNjEwMX0.HF8NY1PYr3qBKczryhnszmsw01N_NPzf5HrQjjnnjUCI1epuJRRgB-YuqkhkvFGftS6cXFbBmVvRIYzsJFttYw"
 
 	payload := SMSPayload{
 		From:    "SMSAfrica",
-		To:      "254740385892",
+		To:      "254740075580",
 		Message: "Test SMS",
 		RefID:   "09wiwu088e",
 	}
