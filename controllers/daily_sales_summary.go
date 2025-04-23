@@ -5,6 +5,8 @@ import (
 	"log"
 	"time"
 	"stock/models"
+	"github.com/google/uuid"
+	"sync"
 
 	"gorm.io/gorm"
 )
@@ -120,118 +122,206 @@ import (
 
 // 	return nil
 // }
+var (
+	schedulerRunning sync.Once
+	schedulerID      = uuid.New().String() // Generate unique ID for this instance
+)
 
 
 func StartDailySalesSummary(db *gorm.DB) {
-	log.Printf("[SCHEDULER_INIT] [%s] Starting daily sales summary scheduler\n", time.Now().Format("2006-01-02 15:04:05"))
+	schedulerRunning.Do(func() {
+		log.Printf("[SCHEDULER_INIT] [%s] Starting daily sales summary scheduler (ID: %s)\n", 
+			time.Now().Format("2006-01-02 15:04:05"), schedulerID)
 
-	go func() {
-		log.Printf("[GOROUTINE_START] [%s] Daily sales summary goroutine has started successfully\n", time.Now().Format("2006-01-02 15:04:05"))
+		go func() {
+			log.Printf("[GOROUTINE_START] [%s] Daily sales summary goroutine has started successfully (ID: %s)\n", 
+				time.Now().Format("2006-01-02 15:04:05"), schedulerID)
 
-		for {
-			now := time.Now()
-			nextRun := time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, now.Location())
-			sleepDuration := time.Until(nextRun)
+			for {
+				// Calculate next run time (midnight)
+				now := time.Now()
+				nextRun := time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, now.Location())
+				sleepDuration := time.Until(nextRun)
 
-			log.Printf("[SCHEDULE_INFO] [%s] Next daily sales summary scheduled for: %s (sleeping for %s)\n",
-				now.Format("2006-01-02 15:04:05"), nextRun.Format("2006-01-02 15:04:05"), sleepDuration)
+				log.Printf("[SCHEDULE_INFO] [%s] Next daily sales summary scheduled for: %s (sleeping for %s)\n",
+					now.Format("2006-01-02 15:04:05"), 
+					nextRun.Format("2006-01-02 15:04:05"), 
+					sleepDuration)
 
-			time.Sleep(sleepDuration)
+				// Sleep until the next scheduled time
+				time.Sleep(sleepDuration)
 
-			execTime := time.Now()
-			summaryDate := execTime.AddDate(0, 0, -1)
+				// Get execution time and calculate the date to summarize (previous day)
+				execTime := time.Now()
+				summaryDate := execTime.AddDate(0, 0, -1)
 
-			log.Printf("[EXECUTING] [%s] Running sales summary for: %s\n",
-				execTime.Format("2006-01-02 15:04:05"), summaryDate.Format("2006-01-02"))
+				log.Printf("[EXECUTING] [%s] Running sales summary for: %s (ID: %s)\n",
+					execTime.Format("2006-01-02 15:04:05"), 
+					summaryDate.Format("2006-01-02"),
+					schedulerID)
 
-			if err := SummarizeDailySales(db, summaryDate); err != nil {
-				log.Printf("[ERROR] [%s] Summary failed: %v\n", execTime.Format("2006-01-02 15:04:05"), err)
-			} else {
-				log.Printf("[SUCCESS] [%s] Summary completed for: %s\n",
-					execTime.Format("2006-01-02 15:04:05"), summaryDate.Format("2006-01-02"))
+				// Execute the summary process
+				if err := SummarizeDailySales(db, summaryDate); err != nil {
+					log.Printf("[ERROR] [%s] Summary failed: %v (ID: %s)\n", 
+						execTime.Format("2006-01-02 15:04:05"), 
+						err,
+						schedulerID)
+				} else {
+					log.Printf("[SUCCESS] [%s] Summary completed for: %s (ID: %s)\n",
+						execTime.Format("2006-01-02 15:04:05"), 
+						summaryDate.Format("2006-01-02"),
+						schedulerID)
+				}
 			}
-		}
-	}()
+		}()
 
-	log.Printf("[SCHEDULER_READY] [%s] Scheduler is now running\n", time.Now().Format("2006-01-02 15:04:05"))
+		log.Printf("[SCHEDULER_READY] [%s] Scheduler is now running (ID: %s)\n", 
+			time.Now().Format("2006-01-02 15:04:05"), 
+			schedulerID)
+	})
 }
 
+// SummarizeDailySales aggregates and updates daily sales for each organization.
 func SummarizeDailySales(db *gorm.DB, summaryDate time.Time) error {
 	startTime := time.Now()
 	summaryDateStr := summaryDate.Format("2006-01-02")
-	log.Printf("[SUMMARY_STARTED] [%s] Starting summary for: %s\n", startTime.Format("2006-01-02 15:04:05"), summaryDateStr)
+	
+	log.Printf("[SUMMARY_STARTED] [%s] Starting summary for: %s\n", 
+		startTime.Format("2006-01-02 15:04:05"), 
+		summaryDateStr)
+
+	// Check if this summary has already been processed
+	var processCount int64
+	db.Table("process_logs").
+		Where("process_name = ? AND DATE(processed_date) = DATE(?)", "daily_sales_summary", summaryDate).
+		Count(&processCount)
+
+	if processCount > 0 {
+		log.Printf("[ALREADY_PROCESSED] [%s] Summary for %s was already processed. Skipping.\n", 
+			time.Now().Format("2006-01-02 15:04:05"), 
+			summaryDateStr)
+		return nil
+	}
 
 	var salesData []struct {
 		TotalSellingPrice float64
 		OrganizationID    uint
 	}
 
-	startOfDay := summaryDate
-	endOfDay := summaryDate.AddDate(0, 0, 1)
-
+	// Query sales data for the summary date using DATE function to ensure consistency
 	err := db.Model(&models.Sale{}).
 		Select("SUM(total_selling_price) as total_selling_price, organizations_id as organization_id").
-		Where("date >= ? AND date < ?", startOfDay, endOfDay).
+		Where("DATE(date) = DATE(?)", summaryDate).
 		Group("organizations_id").
 		Scan(&salesData).Error
 
 	if err != nil {
-		log.Printf("[DB_ERROR] [%s] Failed to fetch sales: %v\n", time.Now().Format("2006-01-02 15:04:05"), err)
+		log.Printf("[DB_ERROR] [%s] Failed to fetch sales: %v\n", 
+			time.Now().Format("2006-01-02 15:04:05"), 
+			err)
 		return fmt.Errorf("fetch error: %w", err)
 	}
 
 	if len(salesData) == 0 {
-		log.Printf("[NO_DATA] [%s] No sales found for: %s\n", time.Now().Format("2006-01-02 15:04:05"), summaryDateStr)
+		log.Printf("[NO_DATA] [%s] No sales found for: %s\n", 
+			time.Now().Format("2006-01-02 15:04:05"), 
+			summaryDateStr)
 		return nil
 	}
 
 	for i, sale := range salesData {
 		log.Printf("[PROCESSING] [%s] Org %d/%d - ID: %d\n",
-			time.Now().Format("2006-01-02 15:04:05"), i+1, len(salesData), sale.OrganizationID)
+			time.Now().Format("2006-01-02 15:04:05"), 
+			i+1, 
+			len(salesData), 
+			sale.OrganizationID)
+		
+		// Use a transaction to ensure atomicity
+		err := db.Transaction(func(tx *gorm.DB) error {
+			var existing models.TotalSales
 
-		var existing models.TotalSales
+			// Check if a record already exists for this organization on this date
+			// Use FOR UPDATE to lock the row if it exists
+			result := tx.Set("gorm:query_option", "FOR UPDATE").
+				Where("organization_id = ? AND DATE(date) = DATE(?)", 
+					sale.OrganizationID, summaryDate).
+				First(&existing)
 
-		result := db.Where("organization_id = ? AND date >= ? AND date < ?", sale.OrganizationID, startOfDay, endOfDay).First(&existing)
+			if result.Error != nil && result.Error != gorm.ErrRecordNotFound {
+				return result.Error
+			}
 
-		if result.Error != nil && result.Error != gorm.ErrRecordNotFound {
-			log.Printf("[DB_CHECK_ERR] [%s] Org %d: %v\n", time.Now().Format("2006-01-02 15:04:05"), sale.OrganizationID, result.Error)
+			if result.RowsAffected == 0 {
+				// Insert new record
+				log.Printf("[INSERT] [%s] New record for Org %d: %.2f\n",
+					time.Now().Format("2006-01-02 15:04:05"), 
+					sale.OrganizationID, 
+					sale.TotalSellingPrice)
+
+				newTotal := models.TotalSales{
+					TotalSellingPrice: sale.TotalSellingPrice,
+					OrganizationID:    sale.OrganizationID,
+					Date:              summaryDate,
+				}
+
+				if err := tx.Create(&newTotal).Error; err != nil {
+					return err
+				}
+				
+				log.Printf("[INSERT_OK] [%s] Org %d inserted successfully\n", 
+					time.Now().Format("2006-01-02 15:04:05"), 
+					sale.OrganizationID)
+			} else {
+				// Update existing record
+				log.Printf("[UPDATE] [%s] Updating Org %d: %.2f\n",
+					time.Now().Format("2006-01-02 15:04:05"), 
+					sale.OrganizationID, 
+					sale.TotalSellingPrice)
+
+				if err := tx.Model(&existing).Update("total_selling_price", sale.TotalSellingPrice).Error; err != nil {
+					return err
+				}
+				
+				log.Printf("[UPDATE_OK] [%s] Org %d updated successfully\n", 
+					time.Now().Format("2006-01-02 15:04:05"), 
+					sale.OrganizationID)
+			}
+			
+			return nil
+		})
+
+		if err != nil {
+			log.Printf("[TRANSACTION_ERR] [%s] Failed for Org %d: %v\n", 
+				time.Now().Format("2006-01-02 15:04:05"), 
+				sale.OrganizationID, 
+				err)
+			// Continue with other organizations even if one fails
 			continue
 		}
+	}
 
-		if result.RowsAffected == 0 {
-			log.Printf("[INSERT] [%s] New record for Org %d: %.2f\n",
-				time.Now().Format("2006-01-02 15:04:05"), sale.OrganizationID, sale.TotalSellingPrice)
-
-			newTotal := models.TotalSales{
-				TotalSellingPrice: sale.TotalSellingPrice,
-				OrganizationID:    sale.OrganizationID,
-				Date:              summaryDate,
-			}
-
-			if err := db.Create(&newTotal).Error; err != nil {
-				log.Printf("[INSERT_ERR] [%s] Org %d: %v\n", time.Now().Format("2006-01-02 15:04:05"), sale.OrganizationID, err)
-			} else {
-				log.Printf("[INSERT_OK] [%s] Org %d inserted successfully\n", time.Now().Format("2006-01-02 15:04:05"), sale.OrganizationID)
-			}
-		} else {
-			log.Printf("[UPDATE] [%s] Updating Org %d: %.2f\n",
-				time.Now().Format("2006-01-02 15:04:05"), sale.OrganizationID, sale.TotalSellingPrice)
-
-			err := db.Model(&models.TotalSales{}).
-				Where("organization_id = ? AND date >= ? AND date < ?", sale.OrganizationID, startOfDay, endOfDay).
-				Update("total_selling_price", sale.TotalSellingPrice).Error
-
-			if err != nil {
-				log.Printf("[UPDATE_ERR] [%s] Org %d: %v\n", time.Now().Format("2006-01-02 15:04:05"), sale.OrganizationID, err)
-			} else {
-				log.Printf("[UPDATE_OK] [%s] Org %d updated successfully\n", time.Now().Format("2006-01-02 15:04:05"), sale.OrganizationID)
-			}
-		}
+	// Record that we processed this date
+	processLog := struct {
+		ProcessName   string
+		ProcessedDate time.Time
+		CompletedAt   time.Time
+	}{
+		ProcessName:   "daily_sales_summary",
+		ProcessedDate: summaryDate,
+		CompletedAt:   time.Now(),
+	}
+	
+	if err := db.Table("process_logs").Create(&processLog).Error; err != nil {
+		log.Printf("[LOG_ERROR] [%s] Failed to record process completion: %v\n", 
+			time.Now().Format("2006-01-02 15:04:05"), 
+			err)
 	}
 
 	duration := time.Since(startTime)
 	log.Printf("[SUMMARY_DONE] [%s] Summary for %s finished in %s\n",
-		time.Now().Format("2006-01-02 15:04:05"), summaryDateStr, duration)
+		time.Now().Format("2006-01-02 15:04:05"), 
+		summaryDateStr, 
+		duration)
 
 	return nil
 }
