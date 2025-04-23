@@ -122,202 +122,116 @@ import (
 // }
 
 
-
-
-
 func StartDailySalesSummary(db *gorm.DB) {
-	// Log when the function is first called
 	log.Printf("[SCHEDULER_INIT] [%s] Starting daily sales summary scheduler\n", time.Now().Format("2006-01-02 15:04:05"))
 
 	go func() {
-		// Log when the goroutine starts
 		log.Printf("[GOROUTINE_START] [%s] Daily sales summary goroutine has started successfully\n", time.Now().Format("2006-01-02 15:04:05"))
 
 		for {
-			// Use current time for scheduling calculations
 			now := time.Now()
-			log.Printf("[SCHEDULE_CALC] [%s] Calculating next midnight run time\n", now.Format("2006-01-02 15:04:05"))
-
-			// Schedule the next execution at midnight
 			nextRun := time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, now.Location())
-			
 			sleepDuration := time.Until(nextRun)
-			log.Printf("[SCHEDULE_INFO] [%s] Next daily sales summary scheduled for: %s (sleeping for %s)\n", 
-				now.Format("2006-01-02 15:04:05"), 
-				nextRun.Format("2006-01-02 15:04:05"),
-				sleepDuration.String())
 
-			// Log every hour until midnight to confirm the goroutine is still alive
-			remainingHours := int(sleepDuration.Hours()) + 1
-			for i := 0; i < remainingHours; i++ {
-				// Calculate how long to sleep for this interval
-				// Either sleep for 1 hour, or the remaining time if less than 1 hour
-				var intervalSleep time.Duration
-				if sleepDuration > time.Hour {
-					intervalSleep = time.Hour
-				} else {
-					intervalSleep = sleepDuration
-				}
-				
-				// Sleep for the calculated interval
-				time.Sleep(intervalSleep)
-				
-				// Update remaining sleep duration
-				sleepDuration = time.Until(nextRun)
-				
-				// Log that we're still waiting
-				if sleepDuration > 0 {
-					log.Printf("[WAITING] [%s] Still waiting for scheduled time. %s remaining until execution at %s\n", 
-						time.Now().Format("2006-01-02 15:04:05"), 
-						sleepDuration.String(),
-						nextRun.Format("2006-01-02 15:04:05"))
-				}
-			}
+			log.Printf("[SCHEDULE_INFO] [%s] Next daily sales summary scheduled for: %s (sleeping for %s)\n",
+				now.Format("2006-01-02 15:04:05"), nextRun.Format("2006-01-02 15:04:05"), sleepDuration)
 
-			// After the sleep loop, we should be very close to midnight
-			remainingSeconds := time.Until(nextRun)
-			if remainingSeconds > 0 {
-				log.Printf("[FINAL_WAIT] [%s] Final wait of %s before execution\n", 
-					time.Now().Format("2006-01-02 15:04:05"), 
-					remainingSeconds.String())
-				time.Sleep(remainingSeconds)
-			}
+			time.Sleep(sleepDuration)
 
-			// Log that we're about to execute
 			execTime := time.Now()
-			log.Printf("[EXECUTING] [%s] Time to execute daily sales summary\n", execTime.Format("2006-01-02 15:04:05"))
-
-			// Calculate the date to summarize (previous day)
 			summaryDate := execTime.AddDate(0, 0, -1)
-			log.Printf("[DATE_INFO] [%s] Will summarize sales for date: %s\n", 
-				execTime.Format("2006-01-02 15:04:05"),
-				summaryDate.Format("2006-01-02"))
 
-			// Execute the summary process for the day that just ended
+			log.Printf("[EXECUTING] [%s] Running sales summary for: %s\n",
+				execTime.Format("2006-01-02 15:04:05"), summaryDate.Format("2006-01-02"))
+
 			if err := SummarizeDailySales(db, summaryDate); err != nil {
-				log.Printf("[ERROR] [%s] Failed to summarize daily sales: %v\n", 
-					time.Now().Format("2006-01-02 15:04:05"), err)
+				log.Printf("[ERROR] [%s] Summary failed: %v\n", execTime.Format("2006-01-02 15:04:05"), err)
 			} else {
-				log.Printf("[SUCCESS] [%s] Daily sales summary completed successfully\n", 
-					time.Now().Format("2006-01-02 15:04:05"))
+				log.Printf("[SUCCESS] [%s] Summary completed for: %s\n",
+					execTime.Format("2006-01-02 15:04:05"), summaryDate.Format("2006-01-02"))
 			}
-			
-			// Log that we're starting the next cycle
-			log.Printf("[CYCLE_COMPLETE] [%s] Daily summary cycle complete, starting next cycle\n", 
-				time.Now().Format("2006-01-02 15:04:05"))
 		}
 	}()
 
-	// Log that the scheduler has been initiated
-	log.Printf("[SCHEDULER_READY] [%s] Daily sales summary scheduler initiated successfully\n", 
-		time.Now().Format("2006-01-02 15:04:05"))
+	log.Printf("[SCHEDULER_READY] [%s] Scheduler is now running\n", time.Now().Format("2006-01-02 15:04:05"))
 }
 
-// SummarizeDailySales aggregates and updates daily sales for each organization.
 func SummarizeDailySales(db *gorm.DB, summaryDate time.Time) error {
 	startTime := time.Now()
 	summaryDateStr := summaryDate.Format("2006-01-02")
-	
-	log.Printf("[SUMMARY_STARTED] [%s] Starting sales summary for date: %s\n", 
-		startTime.Format("2006-01-02 15:04:05"), summaryDateStr)
+	log.Printf("[SUMMARY_STARTED] [%s] Starting summary for: %s\n", startTime.Format("2006-01-02 15:04:05"), summaryDateStr)
 
 	var salesData []struct {
 		TotalSellingPrice float64
 		OrganizationID    uint
 	}
 
-	// Log that we're about to query the database
-	log.Printf("[DB_QUERY] [%s] Querying database for sales on date: %s\n", 
-		time.Now().Format("2006-01-02 15:04:05"), summaryDateStr)
+	startOfDay := summaryDate
+	endOfDay := summaryDate.AddDate(0, 0, 1)
 
-	// Fetch total selling price per organization for the specified date
 	err := db.Model(&models.Sale{}).
 		Select("SUM(total_selling_price) as total_selling_price, organizations_id as organization_id").
-		Where("DATE(date) = ?", summaryDateStr).
+		Where("date >= ? AND date < ?", startOfDay, endOfDay).
 		Group("organizations_id").
 		Scan(&salesData).Error
 
-	// Error handling for query execution
 	if err != nil {
-		log.Printf("[DB_ERROR] [%s] Error retrieving sales data for %s: %v\n", 
-			time.Now().Format("2006-01-02 15:04:05"), summaryDateStr, err)
-		return fmt.Errorf("error calculating total sales: %w", err)
+		log.Printf("[DB_ERROR] [%s] Failed to fetch sales: %v\n", time.Now().Format("2006-01-02 15:04:05"), err)
+		return fmt.Errorf("fetch error: %w", err)
 	}
 
-	// Log the result of the query
-	log.Printf("[DB_RESULT] [%s] Found %d organization sales records for date: %s\n", 
-		time.Now().Format("2006-01-02 15:04:05"), len(salesData), summaryDateStr)
-
-	// No sales data found, log and exit gracefully
 	if len(salesData) == 0 {
-		log.Printf("[NO_DATA] [%s] No sales data found for %s. Skipping summary.\n", 
-			time.Now().Format("2006-01-02 15:04:05"), summaryDateStr)
+		log.Printf("[NO_DATA] [%s] No sales found for: %s\n", time.Now().Format("2006-01-02 15:04:05"), summaryDateStr)
 		return nil
 	}
 
-	// Process sales data for each organization
 	for i, sale := range salesData {
-		log.Printf("[PROCESSING] [%s] Processing organization %d of %d (OrgID: %d)\n", 
+		log.Printf("[PROCESSING] [%s] Org %d/%d - ID: %d\n",
 			time.Now().Format("2006-01-02 15:04:05"), i+1, len(salesData), sale.OrganizationID)
-		
-		var existingRecord models.TotalSales
 
-		// Check if a record already exists for this organization for this date
-		log.Printf("[DB_CHECK] [%s] Checking for existing record for OrgID %d on %s\n", 
-			time.Now().Format("2006-01-02 15:04:05"), sale.OrganizationID, summaryDateStr)
-			
-		result := db.Where("organization_id = ? AND DATE(date) = ?", sale.OrganizationID, summaryDateStr).
-			First(&existingRecord)
+		var existing models.TotalSales
+
+		result := db.Where("organization_id = ? AND date >= ? AND date < ?", sale.OrganizationID, startOfDay, endOfDay).First(&existing)
 
 		if result.Error != nil && result.Error != gorm.ErrRecordNotFound {
-			// Log unexpected database errors
-			log.Printf("[DB_ERROR] [%s] Database error checking existing record for OrgID %d on %s: %v\n",
-				time.Now().Format("2006-01-02 15:04:05"), sale.OrganizationID, summaryDateStr, result.Error)
-			continue // Skip this iteration to avoid further failures
+			log.Printf("[DB_CHECK_ERR] [%s] Org %d: %v\n", time.Now().Format("2006-01-02 15:04:05"), sale.OrganizationID, result.Error)
+			continue
 		}
 
 		if result.RowsAffected == 0 {
-			// Insert new record - use the summary date for the record
-			log.Printf("[INSERT_PREP] [%s] Preparing to insert new record for OrgID %d with amount %.2f for date %s\n",
-				time.Now().Format("2006-01-02 15:04:05"), sale.OrganizationID, sale.TotalSellingPrice, summaryDateStr)
-				
-			totalSale := models.TotalSales{
+			log.Printf("[INSERT] [%s] New record for Org %d: %.2f\n",
+				time.Now().Format("2006-01-02 15:04:05"), sale.OrganizationID, sale.TotalSellingPrice)
+
+			newTotal := models.TotalSales{
 				TotalSellingPrice: sale.TotalSellingPrice,
 				OrganizationID:    sale.OrganizationID,
-				Date:              summaryDate, // This is the date passed in (previous day)
+				Date:              summaryDate,
 			}
 
-			if err := db.Create(&totalSale).Error; err != nil {
-				log.Printf("[INSERT_ERROR] [%s] Failed to insert total sales for OrgID %d on %s: %v\n",
-					time.Now().Format("2006-01-02 15:04:05"), sale.OrganizationID, summaryDateStr, err)
+			if err := db.Create(&newTotal).Error; err != nil {
+				log.Printf("[INSERT_ERR] [%s] Org %d: %v\n", time.Now().Format("2006-01-02 15:04:05"), sale.OrganizationID, err)
 			} else {
-				log.Printf("[INSERT_SUCCESS] [%s] Inserted total sales for OrgID %d: Amount %.2f for %s\n",
-					time.Now().Format("2006-01-02 15:04:05"), sale.OrganizationID, sale.TotalSellingPrice, summaryDateStr)
+				log.Printf("[INSERT_OK] [%s] Org %d inserted successfully\n", time.Now().Format("2006-01-02 15:04:05"), sale.OrganizationID)
 			}
 		} else {
-			// Update existing record
-			log.Printf("[UPDATE_PREP] [%s] Preparing to update existing record for OrgID %d with new amount %.2f for date %s\n",
-				time.Now().Format("2006-01-02 15:04:05"), sale.OrganizationID, sale.TotalSellingPrice, summaryDateStr)
-				
+			log.Printf("[UPDATE] [%s] Updating Org %d: %.2f\n",
+				time.Now().Format("2006-01-02 15:04:05"), sale.OrganizationID, sale.TotalSellingPrice)
+
 			err := db.Model(&models.TotalSales{}).
-				Where("organization_id = ? AND DATE(date) = ?", sale.OrganizationID, summaryDateStr).
+				Where("organization_id = ? AND date >= ? AND date < ?", sale.OrganizationID, startOfDay, endOfDay).
 				Update("total_selling_price", sale.TotalSellingPrice).Error
 
 			if err != nil {
-				log.Printf("[UPDATE_ERROR] [%s] Failed to update total sales for OrgID %d on %s: %v\n",
-					time.Now().Format("2006-01-02 15:04:05"), sale.OrganizationID, summaryDateStr, err)
+				log.Printf("[UPDATE_ERR] [%s] Org %d: %v\n", time.Now().Format("2006-01-02 15:04:05"), sale.OrganizationID, err)
 			} else {
-				log.Printf("[UPDATE_SUCCESS] [%s] Updated total sales for OrgID %d: Amount %.2f for %s\n",
-					time.Now().Format("2006-01-02 15:04:05"), sale.OrganizationID, sale.TotalSellingPrice, summaryDateStr)
+				log.Printf("[UPDATE_OK] [%s] Org %d updated successfully\n", time.Now().Format("2006-01-02 15:04:05"), sale.OrganizationID)
 			}
 		}
 	}
 
-	endTime := time.Now()
-	duration := endTime.Sub(startTime)
-	
-	log.Printf("[SUMMARY_COMPLETE] [%s] Daily sales summary process completed successfully for %s (took %s)\n",
-		endTime.Format("2006-01-02 15:04:05"), summaryDateStr, duration.String())
+	duration := time.Since(startTime)
+	log.Printf("[SUMMARY_DONE] [%s] Summary for %s finished in %s\n",
+		time.Now().Format("2006-01-02 15:04:05"), summaryDateStr, duration)
 
 	return nil
 }
