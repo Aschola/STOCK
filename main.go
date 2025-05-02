@@ -170,7 +170,7 @@ func main() {
 
 	// Start background processes
 	go controllers.StartReorderLevelNotification(db.GetDB())
-	go controllers.StartDailySalesSummary(db.GetDB()) 
+	go controllers.StartDailySalesSummary(db.GetDB()) // Add this line
 
 
 	// **Call SendSMS() Here**
@@ -185,7 +185,7 @@ func main() {
 	e := echo.New()
 
 	// Define routes
-	e.POST("/send-sms", controllers.SendSmsHandler)
+	//e.POST("/send-sms", controllers.SendSmsHandler)
 	e.POST("/mpesa/callback", controllers.HandleMpesaCallback)
 
 	// Enable CORS
@@ -202,7 +202,7 @@ func main() {
 	// Start server
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "8080"
+		port = "8081"
 	}
 	log.Println("[INFO] Server starting on port", port)
 	e.Start(":" + port)
