@@ -197,9 +197,6 @@ func SetupRoutes(e *echo.Echo) {
 	organization.GET("/company/settings", controllers.GetCompanySettings)
 	organization.PUT("/company/settings", controllers.UpdateCompanySettings)
 
-	paymentsGroup := e.Group("/payment")
-	paymentsGroup.POST("/callback", controllers.HandlePaymentCallback)
-
 
 
 }
