@@ -103,7 +103,7 @@ type SalePayload struct {
 // SaleItem represents an individual item in the sale
 type SaleItem struct {
 	ProductID    int `json:"product_id"`
-	QuantitySold int `json:"quantity"`
+	QuantitySold int `json:"quantity_sold"`
 	UnitPrice   float64 `json:"unit_price"`
 	Name		string  `json:"name"`
 
