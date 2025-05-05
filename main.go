@@ -200,6 +200,7 @@ func main() {
 	routes.SetupRoutes(e)
 
 	// Start server
+	// http.HandleFunc("/generate-receipt", HandleGenerateReceipt)
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8081"

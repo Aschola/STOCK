@@ -4,11 +4,14 @@ import (
 	"stock/controllers"
 	"stock/middlewares"
 	"stock/models"
+	
 
 	"github.com/labstack/echo/v4"
 )
 
-// RegisterRoutes initializes all the routes for the Echo server
+// RegisterRoutes initializes all the routes for the Echo server}
+
+
 func RegisterRoutes(e *echo.Echo) {
 
 	//e.POST("/send-sms", controllers.SendSmsHandler)
@@ -196,6 +199,7 @@ func SetupRoutes(e *echo.Echo) {
 
 	organization.GET("/company/settings", controllers.GetCompanySettings)
 	organization.PUT("/company/settings", controllers.UpdateCompanySettings)
+	organization.POST("/print", controllers.HandlePrintReceipt)
 
 
 

@@ -97,12 +97,16 @@ type SalePayload struct {
 	Items        []SaleItem `json:"items"`
 	PaymentMode  string     `json:"payment_mode"`
 	PhoneNumber  int64      `json:"phone_number"`
+	UserName    string     `json:"username"`
 }
 
 // SaleItem represents an individual item in the sale
 type SaleItem struct {
 	ProductID    int `json:"product_id"`
-	QuantitySold int `json:"quantity_sold"`
+	QuantitySold int `json:"quantity"`
+	UnitPrice   float64 `json:"unit_price"`
+	Name		string  `json:"name"`
+
 }
 
 // Define the CompanySetting struct to match the 'company_settings' table
