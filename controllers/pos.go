@@ -321,7 +321,6 @@ func HandlePrintReceipt(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]string{"message": "Receipt successfully printed"})
 }
 
-// GenerateReceipt function that handles both single and multiple items
 func GenerateReceipt(sale models.SalePayload, company models.CompanySetting) ([]byte, error) {
 	var buffer bytes.Buffer
 	ESC := "\x1b"
@@ -352,7 +351,6 @@ func GenerateReceipt(sale models.SalePayload, company models.CompanySetting) ([]
 	buffer.WriteString("Item             Qty   Price   Total\n")
 	buffer.WriteString("------------------------------------------\n")
 
-	// Calculate totals
 	var totalAmount float64 = 0
 	
 	// Handle no items scenario
