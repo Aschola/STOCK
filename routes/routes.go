@@ -199,7 +199,7 @@ func SetupRoutes(e *echo.Echo) {
 
 	organization.GET("/company/settings", controllers.GetCompanySettings)
 	organization.PUT("/company/settings", controllers.UpdateCompanySettings)
-	organization.POST("/print", controllers.HandlePrintReceipt)
+	organization.GET("/print", controllers.HandlePrintReceipt)
 
 
 
