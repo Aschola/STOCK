@@ -8,6 +8,8 @@ COPY . ./
 
 RUN go mod download
 
+RUN apt-get update && apt-get install -y cups
+
 RUN go build -o /stock
 
 EXPOSE 80
