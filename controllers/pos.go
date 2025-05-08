@@ -6,76 +6,49 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"os/exec" 
+	"os/exec"
+	"runtime"
 	"strings"
 	"time"
 
-	//"stock/db"
 	"stock/models"
 
 	"github.com/labstack/echo/v4"
 	"log"
 )
 
-// Updated PrintReceipt function with Linux compatibility for thermal printer
-func PrintReceipt(sale models.SalePayload, company models.CompanySetting) error {
-	// First, log the sale items for debugging
-	log.Printf("[DEBUG] PrintReceipt called with %d items", len(sale.Items))
-	for i, item := range sale.Items {
-		log.Printf("[DEBUG] Item %d: Name: %s, Qty: %d, Price: %.2f", 
-			i, item.Name, item.QuantitySold, item.UnitPrice)
-	}
-
-	// Generate ESC/POS receipt for thermal printer
-	receiptBytes, err := GenerateESCPOSReceipt(sale, company)
-	if err != nil {
-		log.Printf("Error generating receipt: %v", err)
-		return err
-	}
-
-	// Save human-readable preview
-	readable := generateReadableReceipt(sale, company)
-	if err := os.WriteFile("receipt_preview.txt", []byte(readable), 0644); err != nil {
-		log.Printf("[ERROR] Could not write human-readable receipt: %v", err)
-	} else {
-		log.Println("Saved human-readable receipt to receipt_preview.txt")
-	}
-
-	// ===== LINUX PRINTING APPROACH =====
-	
-	// Option 1: Print to Linux USB printer directly
-	devicePath := "/dev/usb/lp0" // Common path for USB printers on Linux
-	err = PrintToLinuxUsbPrinter(devicePath, receiptBytes)
-	if err != nil {
-		log.Printf("[ERROR] Failed to print to Linux USB printer %s: %v", devicePath, err)
-		
-		// Try alternative device paths if the first one fails
-		alternatePaths := []string{"/dev/usb/lp1", "/dev/usb/lp2", "/dev/lp0", "/dev/lp1"}
-		for _, path := range alternatePaths {
-			log.Printf("[INFO] Trying alternative printer path: %s", path)
-			err = PrintToLinuxUsbPrinter(path, receiptBytes)
-			if err == nil {
-				log.Printf("[INFO] Successfully printed using device path: %s", path)
-				return nil
-			}
-		}
-		
-		// If all direct paths fail, try using CUPS
-		log.Printf("[INFO] Direct printing failed, trying CUPS printing system")
-		printerName := "CN811-UB" // Use your actual printer name in CUPS
-		err = PrintWithCups(printerName, receiptBytes)
-		if err != nil {
-			log.Printf("[ERROR] CUPS printing also failed: %v", err)
-			return err
-		}
-	}
-
-	log.Println("Receipt successfully printed to thermal printer")
-	return nil
+// PrinterInterface defines the interface for different OS printer implementations
+type PrinterInterface interface {
+	Print(data []byte, printerName string) error
+	ListPrinters() ([]string, error)
 }
 
-// PrintToLinuxUsbPrinter sends raw bytes directly to a Linux USB printer device
-func PrintToLinuxUsbPrinter(devicePath string, data []byte) error {
+// Printer factory function to get the appropriate printer for the current OS
+func GetPrinterSystem() PrinterInterface {
+	switch runtime.GOOS {
+	case "windows":
+		return &WindowsPrinter{}
+	case "darwin":
+		return &MacOSPrinter{}
+	default: // linux and others
+		return &LinuxPrinter{}
+	}
+}
+
+// LinuxPrinter implements PrinterInterface for Linux systems
+type LinuxPrinter struct{}
+
+func (p *LinuxPrinter) Print(data []byte, printerName string) error {
+	// Try direct USB printing first
+	if strings.HasPrefix(printerName, "/dev/") {
+		return p.printToDeviceFile(printerName, data)
+	}
+	
+	// Fall back to CUPS
+	return p.printWithCups(printerName, data)
+}
+
+func (p *LinuxPrinter) printToDeviceFile(devicePath string, data []byte) error {
 	// Check if device exists
 	_, err := os.Stat(devicePath)
 	if err != nil {
@@ -101,8 +74,7 @@ func PrintToLinuxUsbPrinter(devicePath string, data []byte) error {
 	return nil
 }
 
-// PrintWithCups uses the CUPS printing system via lp command
-func PrintWithCups(printerName string, data []byte) error {
+func (p *LinuxPrinter) printWithCups(printerName string, data []byte) error {
 	// Create a temporary file with the receipt data
 	tmpFile, err := os.CreateTemp("", "receipt-*.bin")
 	if err != nil {
@@ -126,6 +98,215 @@ func PrintWithCups(printerName string, data []byte) error {
 		return fmt.Errorf("CUPS printing failed: %v, output: %s", err, string(output))
 	}
 
+	return nil
+}
+
+func (p *LinuxPrinter) ListPrinters() ([]string, error) {
+	var devices []string
+	
+	// Check common USB printer paths
+	paths := []string{
+		"/dev/usb/lp0", 
+		"/dev/usb/lp1", 
+		"/dev/usb/lp2", 
+		"/dev/lp0", 
+		"/dev/lp1",
+	}
+	
+	for _, path := range paths {
+		if _, err := os.Stat(path); err == nil {
+			devices = append(devices, path)
+		}
+	}
+	
+	// Also try to get CUPS printers
+	cmd := exec.Command("lpstat", "-p")
+	output, err := cmd.Output()
+	if err == nil {
+		lines := strings.Split(string(output), "\n")
+		for _, line := range lines {
+			if strings.HasPrefix(line, "printer ") {
+				// Extract printer name
+				parts := strings.Fields(line)
+				if len(parts) >= 2 {
+					devices = append(devices, parts[1])
+				}
+			}
+		}
+	}
+	
+	return devices, nil
+}
+
+// WindowsPrinter implements PrinterInterface for Windows systems
+type WindowsPrinter struct{}
+
+func (p *WindowsPrinter) Print(data []byte, printerName string) error {
+	// Create a temporary file with the receipt data
+	tmpFile, err := os.CreateTemp("", "receipt-*.bin")
+	if err != nil {
+		return fmt.Errorf("failed to create temp file: %v", err)
+	}
+	defer os.Remove(tmpFile.Name())
+	defer tmpFile.Close()
+
+	// Write receipt data to temp file
+	if _, err := tmpFile.Write(data); err != nil {
+		return fmt.Errorf("failed to write to temp file: %v", err)
+	}
+	
+	// Flush and close the file before printing
+	tmpFile.Close()
+
+	// Use Windows printing command
+	var cmd *exec.Cmd
+	if printerName == "" {
+		// Use default printer
+		cmd = exec.Command("powershell", "-Command", 
+			fmt.Sprintf("Get-Content -Path '%s' -Raw | Out-Printer", tmpFile.Name()))
+	} else {
+		// Use specified printer
+		cmd = exec.Command("powershell", "-Command", 
+			fmt.Sprintf("Get-Content -Path '%s' -Raw | Out-Printer -Name '%s'", tmpFile.Name(), printerName))
+	}
+	
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("Windows printing failed: %v, output: %s", err, string(output))
+	}
+
+	return nil
+}
+
+func (p *WindowsPrinter) ListPrinters() ([]string, error) {
+	cmd := exec.Command("powershell", "-Command", "Get-Printer | Select-Object -ExpandProperty Name")
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("failed to list Windows printers: %v", err)
+	}
+	
+	// Parse printer names from output
+	printers := strings.Split(strings.TrimSpace(string(output)), "\n")
+	for i, printer := range printers {
+		printers[i] = strings.TrimSpace(printer)
+	}
+	
+	return printers, nil
+}
+
+// MacOSPrinter implements PrinterInterface for macOS systems
+type MacOSPrinter struct{}
+
+func (p *MacOSPrinter) Print(data []byte, printerName string) error {
+	// Create a temporary file with the receipt data
+	tmpFile, err := os.CreateTemp("", "receipt-*.bin")
+	if err != nil {
+		return fmt.Errorf("failed to create temp file: %v", err)
+	}
+	defer os.Remove(tmpFile.Name())
+	defer tmpFile.Close()
+
+	// Write receipt data to temp file
+	if _, err := tmpFile.Write(data); err != nil {
+		return fmt.Errorf("failed to write to temp file: %v", err)
+	}
+	
+	// Flush and close the file before printing
+	tmpFile.Close()
+
+	// Use lp command on macOS
+	var cmd *exec.Cmd
+	if printerName == "" {
+		cmd = exec.Command("lp", tmpFile.Name())
+	} else {
+		cmd = exec.Command("lp", "-d", printerName, "-o", "raw", tmpFile.Name())
+	}
+	
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("macOS printing failed: %v, output: %s", err, string(output))
+	}
+
+	return nil
+}
+
+func (p *MacOSPrinter) ListPrinters() ([]string, error) {
+	cmd := exec.Command("lpstat", "-p")
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("failed to list macOS printers: %v", err)
+	}
+	
+	// Parse printer names from output
+	var printers []string
+	lines := strings.Split(string(output), "\n")
+	for _, line := range lines {
+		if strings.HasPrefix(line, "printer ") {
+			parts := strings.Fields(line)
+			if len(parts) >= 2 {
+				printers = append(printers, parts[1])
+			}
+		}
+	}
+	
+	return printers, nil
+}
+
+// PrintReceipt - Main function that handles printing across all platforms
+// This maintains the original function signature
+func PrintReceipt(sale models.SalePayload, company models.CompanySetting) error {
+	// Log the sale items for debugging
+	log.Printf("[DEBUG] PrintReceipt called with %d items", len(sale.Items))
+	for i, item := range sale.Items {
+		log.Printf("[DEBUG] Item %d: Name: %s, Qty: %d, Price: %.2f", 
+			i, item.Name, item.QuantitySold, item.UnitPrice)
+	}
+
+	// Generate ESC/POS receipt for thermal printer
+	receiptBytes, err := GenerateESCPOSReceipt(sale, company)
+	if err != nil {
+		log.Printf("[ERROR] Error generating receipt: %v", err)
+		return err
+	}
+
+	// Save human-readable preview
+	readable := generateReadableReceipt(sale, company)
+	if err := os.WriteFile("receipt_preview.txt", []byte(readable), 0644); err != nil {
+		log.Printf("[ERROR] Could not write human-readable receipt: %v", err)
+	} else {
+		log.Println("[INFO] Saved human-readable receipt to receipt_preview.txt")
+	}
+	
+	// Get the appropriate printer system for the current OS
+	printerSystem := GetPrinterSystem()
+	
+	// Get available printers
+	printers, err := printerSystem.ListPrinters()
+	if err != nil {
+		log.Printf("[WARN] Failed to list printers: %v", err)
+	}
+	
+	// Try printing with each available printer until one succeeds
+	if len(printers) > 0 {
+		for _, printer := range printers {
+			log.Printf("[INFO] Attempting to print to: %s", printer)
+			if err := printerSystem.Print(receiptBytes, printer); err == nil {
+				log.Printf("[INFO] Successfully printed to: %s", printer)
+				return nil
+			} else {
+				log.Printf("[WARN] Failed to print to %s: %v", printer, err)
+			}
+		}
+	}
+	
+	// If no printers found or all failed, try one last attempt with default printer
+	log.Println("[INFO] Trying to print to default printer")
+	if err := printerSystem.Print(receiptBytes, ""); err != nil {
+		log.Printf("[ERROR] Failed to print to default printer: %v", err)
+		return fmt.Errorf("failed to print receipt on any available printer")
+	}
+	
+	log.Println("[INFO] Receipt successfully printed to thermal printer")
 	return nil
 }
 
@@ -282,15 +463,16 @@ func GenerateESCPOSReceipt(sale models.SalePayload, company models.CompanySettin
 	return buffer.Bytes(), nil
 }
 
-// Modified HandlePrintReceipt to support Linux thermal printing
+// Modified HandlePrintReceipt to support cross-platform printing
 func HandlePrintReceipt(c echo.Context) error {
-	log.Println("Received /print request")
+	log.Println("[INFO] Received /print request")
 
 	// Expect top-level sale fields, and nested company
 	var req struct {
 		models.SalePayload           
 		Company models.CompanySetting `json:"company"`
 		PrintLocally bool             `json:"printLocally"`
+		PrinterName string            `json:"printerName"` // Optional printer name
 	}
 
 	if err := c.Bind(&req); err != nil {
@@ -319,8 +501,24 @@ func HandlePrintReceipt(c echo.Context) error {
 	// If requested, also print locally
 	if req.PrintLocally {
 		log.Println("[DEBUG] PrintLocally flag is true, attempting to print receipt locally")
-		if err := PrintReceipt(req.SalePayload, req.Company); err != nil {
-			log.Printf("[WARN] Failed to print receipt locally: %v", err)
+		
+		// Get the printer system for the current OS
+		printerSystem := GetPrinterSystem()
+		
+		if req.PrinterName != "" {
+			log.Printf("[INFO] Printing to specified printer: %s", req.PrinterName)
+			if err := printerSystem.Print(receiptBytes, req.PrinterName); err != nil {
+				log.Printf("[WARN] Failed to print to specified printer: %v", err)
+				// Fall back to the standard PrintReceipt function
+				if err := PrintReceipt(req.SalePayload, req.Company); err != nil {
+					log.Printf("[WARN] Fallback printing also failed: %v", err)
+				}
+			}
+		} else {
+			// Use the standard PrintReceipt function which tries multiple printers
+			if err := PrintReceipt(req.SalePayload, req.Company); err != nil {
+				log.Printf("[WARN] Failed to print receipt locally: %v", err)
+			}
 		}
 	}
 
@@ -332,55 +530,20 @@ func HandlePrintReceipt(c echo.Context) error {
 	})
 }
 
-// Utility function to find USB printer devices
-func FindPrinterDevices() ([]string, error) {
-	var devices []string
-	
-	// Check common USB printer paths
-	paths := []string{
-		"/dev/usb/lp0", 
-		"/dev/usb/lp1", 
-		"/dev/usb/lp2", 
-		"/dev/lp0", 
-		"/dev/lp1",
-	}
-	
-	for _, path := range paths {
-		if _, err := os.Stat(path); err == nil {
-			devices = append(devices, path)
-		}
-	}
-	
-	// Also try to get CUPS printers
-	cmd := exec.Command("lpstat", "-p")
-	output, err := cmd.Output()
-	if err == nil {
-		lines := strings.Split(string(output), "\n")
-		for _, line := range lines {
-			if strings.HasPrefix(line, "printer ") {
-				// Extract printer name
-				parts := strings.Fields(line)
-				if len(parts) >= 2 {
-					devices = append(devices, "CUPS:"+parts[1])
-				}
-			}
-		}
-	}
-	
-	return devices, nil
-}
-
 // Add a new endpoint to list available printer devices
 func HandleListPrinters(c echo.Context) error {
-	devices, err := FindPrinterDevices()
+	printerSystem := GetPrinterSystem()
+	devices, err := printerSystem.ListPrinters()
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{
 			"error": fmt.Sprintf("Failed to find printer devices: %v", err),
 		})
 	}
 	
+	// Add OS information to response
 	return c.JSON(http.StatusOK, map[string]interface{}{
 		"devices": devices,
+		"os": runtime.GOOS,
 	})
 }
 
@@ -431,7 +594,6 @@ func generateReadableReceipt(sale models.SalePayload, company models.CompanySett
 		}
 	}
 
-	// Calculate subtotal (amount before VAT) by dividing by 1.16
 	subtotal := totalAmount / 1.16
 	
 	// Calculate VAT amount as the difference between total and subtotal
@@ -440,7 +602,7 @@ func generateReadableReceipt(sale models.SalePayload, company models.CompanySett
 	// Calculate change
 	change := sale.CashReceived - totalAmount
 	if change < 0 {
-		change = 0 // Avoid negative change
+		change = 0
 	}
 
 	r.WriteString("------------------------------------------\n")
