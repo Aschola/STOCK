@@ -92,7 +92,8 @@ func (p *LinuxPrinter) printWithCups(printerName string, data []byte) error {
 	tmpFile.Close()
 
 	// Use lp command to print the file
-	cmd := exec.Command("lp", "-d", printerName, "-o", "raw", tmpFile.Name())
+	// cmd := exec.Command("lp", "-d", printerName, "-o", "raw", tmpFile.Name())
+	cmd := exec.Command("/usr/bin/lp", "-d", printerName, "-o", "raw", tmpFile.Name())
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("CUPS printing failed: %v, output: %s", err, string(output))
